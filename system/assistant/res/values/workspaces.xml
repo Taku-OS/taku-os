@@ -1,25 +1,30 @@
 <resources>
  <string name="workspace_title">Background workspaces</string>
- <string name="workspace_summary">See where your agent is working.</string>
- <string name="workspace_active">WORKSPACES</string>
- <string name="workspace_preferences">PREFERENCES</string>
+ <string name="workspace_active">ACTIVE WORKSPACES</string>
+ <string name="workspace_settings">WORKSPACE SETTINGS</string>
+ <string name="workspace_permissions">APP PERMISSIONS</string>
  <string name="workspace_loading">Connecting to background workspaces…</string>
- <string name="workspace_empty_title">No background work yet</string>
+ <string name="workspace_empty_title">No active workspaces</string>
  <string name="workspace_empty_copy">Workspaces appear here when a task uses an app in the background.</string>
- <string name="workspace_unavailable_title">Workspaces are unavailable</string>
  <string name="workspace_unavailable_copy">The system service could not be reached. Your tasks have not been changed.</string>
  <string name="workspace_refresh">Refresh</string>
  <string name="workspace_allow">Allow background work</string>
  <string name="workspace_allow_copy">New tasks may use independent workspaces</string>
+ <string name="workspace_jev_close">Use Jev to decide when to close background screens</string>
+ <string name="workspace_jev_close_copy">Jev checks your latest message before the system closes a background screen automatically.</string>
  <string name="workspace_limit">Maximum active workspaces</string>
- <string name="workspace_limit_copy">Existing workspaces stay open</string>
- <string name="workspace_limit_value">Up to %1$d</string>
+ <string name="workspace_limit_copy">This limit applies to new workspaces. Lowering it keeps existing workspaces open.</string>
+ <string name="workspace_limit_range">Choose from %1$d to %2$d.</string>
+ <string name="workspace_limit_decrease">Decrease workspace limit</string>
+ <string name="workspace_limit_increase">Increase workspace limit</string>
+ <string name="workspace_limit_current">Current workspace limit is %1$d</string>
+ <string name="workspace_limit_saving">Saving workspace limit…</string>
+ <string name="workspace_limit_saved">Workspace limit saved.</string>
+ <string name="workspace_limit_invalid">That limit is outside the allowed range. Refresh and try again.</string>
+ <string name="workspace_limit_failed">Could not confirm the workspace limit. Refresh and try again.</string>
  <string name="workspace_allowed_apps">Apps your agent can use</string>
- <string name="workspace_allowed_apps_copy">Choose apps for automation</string>
- <string name="workspace_apps_loading">Loading installed apps…</string>
  <string name="workspace_apps_empty">No launchable apps were found.</string>
- <string name="workspace_apps_failed">Installed apps could not be read.</string>
- <string name="workspace_saved">Preferences saved</string>
+ <string name="workspace_saved">Settings saved</string>
  <string name="workspace_revocation_title">Agent app access revoked</string>
  <string name="workspace_revocation_released">Agent access to %1$s was released. “%2$s” will reevaluate its task using the remaining permissions.</string>
  <string name="workspace_revocation_screen_retained">This session still holds its screen.</string>
@@ -44,7 +49,6 @@
  <string name="workspace_save">Save</string>
  <string name="workspace_task_fallback">App task</string>
  <string name="workspace_task_label">Task · %1$s</string>
- <string name="workspace_count">%1$d of %2$d workspaces allocated</string>
  <string name="workspace_status_working">Agent is working</string>
  <string name="workspace_status_ready">Ready</string>
  <string name="workspace_status_paused">Agent paused</string>
@@ -60,7 +64,7 @@
  <string name="workspace_error_changed">This workspace has changed or closed. Refresh the list to use its current screen.</string>
  <string name="workspace_error_busy">The agent is still stopping. Wait for its input to stop before taking control.</string>
  <string name="workspace_error_question">This task is waiting for your response. Open the task to continue.</string>
- <string name="workspace_error_policy">App access or background work is disabled in these preferences.</string>
+ <string name="workspace_error_policy">App access or background work is disabled in workspace settings.</string>
  <string name="workspace_error_limit">The workspace limit has been reached. Close an idle workspace or raise the limit.</string>
  <string name="workspace_returned_copy">Control has been returned. Open the original task to continue; no action was replayed.</string>
  <string name="workspace_paused_copy">Agent input is paused for this workspace. Other workspaces can continue.</string>
@@ -104,4 +108,16 @@
  <string name="workspace_background_off_copy">New background tasks are off. Existing workspaces stay open.</string>
  <string name="workspace_cleanup_failed">Cleanup incomplete</string>
  <string name="workspace_cleanup_retry">This workspace could not be cleaned up or confirmed closed. Its screen and Apps stay reserved. The system retries closing it every 30 seconds; it disappears once closure is confirmed.</string>
+ <string name="bscreen_title" translatable="false">Taku BScreen</string>
+ <string name="bscreen_not_installed">Not currently installed</string>
+ <string name="bscreen_user_unavailable">Workspaces are available only in the unlocked primary Android user.</string>
+ <string name="bscreen_thread_unavailable">The original conversation is no longer available.</string>
+ <string name="bscreen_frontend_unavailable">The Assistant app could not be opened.</string>
+ <string name="bscreen_closed">Workspace closed.</string>
+ <string name="bscreen_return_failed">The workspace closed, but its original conversation could not be opened.</string>
+ <string name="bscreen_access_changes">APP ACCESS CHANGES</string>
+ <string name="bscreen_access_pending">Cleanup in progress</string>
+ <string name="bscreen_access_released">App access released</string>
+ <string name="bscreen_access_retained">You still control this screen</string>
+ <string name="bscreen_access_superseded">Workspace changed</string>
 </resources>

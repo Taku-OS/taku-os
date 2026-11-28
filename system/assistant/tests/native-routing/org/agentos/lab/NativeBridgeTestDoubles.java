@@ -109,6 +109,17 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
     public PhoneExecutionScreens.Admission admission(String thread)throws Exception {if(!allowed)throw new IOException("SCREEN_AGENT_PAUSED");return new PhoneExecutionScreens.Admission(revision);}
     public boolean admissionCurrent(PhoneExecutionScreens.Admission grant){return allowed&&grant!=null&&grant.revision==revision;}
     public boolean turnStarted(String thread,PhoneExecutionScreens.Admission grant){if(grant!=null?!admissionCurrent(grant):!allowed||resumeRequired)return false;resumeRequired=false;return true;}
+    final java.util.Map<String,String> nativeTurns = new java.util.HashMap<>();
+    final java.util.List<String> nativeCompletions = new java.util.ArrayList<>();
+    void nativeTurnStarted(String thread,String turn) { nativeTurns.put(thread,turn); }
+    final java.util.Set<String> handbackTurns = new java.util.HashSet<>();
+    void nativeTurnStarted(String thread,String turn,boolean handback) { nativeTurnStarted(thread,turn); if(handback)handbackTurns.add(turn); }
+    interface CloseDecision { void request(Runnable close); }
+    Thread turnEnded(String thread,String turn,boolean successful,CloseDecision decision) {
+        nativeCompletions.add(thread+" "+turn+" "+successful);
+        nativeTurns.remove(thread,turn);
+        return turnEnded(thread);
+    }
     public JSONObject describe(String thread) {return new JSONObject().put("bound",false);}
 
     final java.util.List<String> turnsEnded = new java.util.concurrent.CopyOnWriteArrayList<>();
@@ -150,7 +161,16 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         return note;
     }
 }
-final class WorkspaceControl {static JSONObject control(JSONObject input){return new JSONObject();}}
+final class WorkspaceControl {
+    static JSONObject control(JSONObject input){return new JSONObject();}
+    static boolean isQuiescent(JSONObject runtime){throw new AssertionError("Workspace cleanup is outside this routing test");}
+}
+final class WorkspaceLaunch {
+    static JSONObject launch(JSONObject input){throw new AssertionError("Workspace launch is outside this routing test");}
+}
+final class WorkspaceJevClose {
+    static DedicatedScreens.CloseDecision forTurn(String thread,JSONObject completed){return close -> {};}
+}
 final class PhoneAppCatalog {static JSONObject requireLaunchable(String pkg){return new JSONObject();}}
 final class PluginCreator {static JSONObject catalogAdd(java.nio.file.Path path){return new JSONObject();}}
 final class SkillCredentials {static JSONObject control(JSONObject input){return new JSONObject();}}

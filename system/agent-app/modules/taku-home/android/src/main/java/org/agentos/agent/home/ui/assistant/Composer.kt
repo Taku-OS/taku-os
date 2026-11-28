@@ -100,7 +100,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Color
 
 /**
  * The text input (1-2 → 1-3, dictation 1-5). Opening pops a glass capsule off the top of the
@@ -140,11 +139,14 @@ fun BoxScope.TextComposer(scene: GraphicsLayer, open: Boolean, state: AssistantS
   val focus = remember { FocusRequester() }
   val keyboard = LocalSoftwareKeyboardController.current
   LaunchedEffect(open) { if (open) { runCatching { focus.requestFocus() }; keyboard?.show() } else keyboard?.hide() }
-  // Closing the keyboard (back / swipe) closes the input.
+  // Closing the keyboard (back / swipe) closes the input. Only in the focused window: a window
+  // that loses focus loses the keyboard with it, which is not the user closing it (BUG-0047).
   var imeSeen by remember { mutableStateOf(false) }
   val imeVisible = WindowInsets.isImeVisible
-  LaunchedEffect(imeVisible, open) {
+  val focused = androidx.compose.ui.platform.LocalWindowInfo.current.isWindowFocused
+  LaunchedEffect(imeVisible, open, focused) {
     if (!open) { imeSeen = false; return@LaunchedEffect }
+    if (!focused) { imeSeen = false; return@LaunchedEffect }
     if (imeVisible) imeSeen = true
     else if (imeSeen && !voice.listening) { imeSeen = false; session.closeEntry() }
   }
@@ -302,7 +304,9 @@ private fun DictationLine(text: String) {
         drawContent()
         if (overflowing) {
           val fade = minOf(90.dp.toPx(), size.width)
-          drawRect(Brush.horizontalGradient(0f to Color.Black.copy(alpha = 0.24f), fade / size.width to Color.Black), blendMode = BlendMode.DstIn)
+          val mask = colors.textSecondary
+          drawRect(Brush.horizontalGradient(0f to mask.copy(alpha = 0.24f), fade / size.width to mask.copy(alpha = 1f)),
+            blendMode = BlendMode.DstIn)
         }
       }
       .horizontalScroll(scroll, enabled = false),

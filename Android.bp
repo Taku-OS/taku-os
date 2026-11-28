@@ -69,11 +69,20 @@ android_app {
     optimize: { enabled: false },
 }
 
+filegroup {
+    name: "taku-notebook-ai-sources",
+    srcs: [
+        "system/ai/client/org/agentos/ai/AiClient.java",
+        "system/ai/client/org/agentos/ai/NotebookSocialSource.java",
+    ],
+}
+
 java_library {
     name: "agentos-task-broker",
     srcs: [
         "system/assistant/broker/**/*.java",
         "system/assistant/broker/**/*.kt",
+        "system/ai/client/org/agentos/ai/NotebookSocialSource.java",
         "tooling/app-kit/apk-shell/src/org/agentos/runtime/AppApiClient.java",
     ],
     static_kotlin_stdlib: true,

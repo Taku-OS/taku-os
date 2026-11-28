@@ -19,6 +19,16 @@ final class MemoryBridge {
   Thread t=new Thread(reading,"memory-provider-read");t.setDaemon(true);t.start();
   try{if(!p.waitFor(12,TimeUnit.SECONDS))throw new IOException("Memory service timed out");String s=reading.get(1,TimeUnit.SECONDS);if(p.exitValue()!=0)throw new IOException("Memory service denied access");return s;}finally{p.destroyForcibly();}
  }
+ /**
+  * The JSON a `content call` printed after "result=" ("Result: Bundle[{result={...}}]"), read with a
+  * tokenizer so a "}]" inside a field cannot cut it short; null when there is none.
+  */
+ static JSONObject contentResult(String output){
+  int start=output.indexOf("result=");
+  if(start<0)return null;
+  try{Object value=new JSONTokener(output.substring(start+7)).nextValue();return value instanceof JSONObject?(JSONObject)value:null;}
+  catch(JSONException malformed){return null;}
+ }
  static JSONObject control(JSONObject p)throws Exception{
   switch(p.optString("action")){
    case "systemModel":return SystemAi.resolve("memory","text",p.optString("model"));

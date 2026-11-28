@@ -148,6 +148,7 @@ class HomeActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
             revealPending = assistant.revealPending, afterScreenOff = resetAfterScreenOff,
             expansionAtScreenOff = expansionAtScreenOff, expansionRequest = assistant.expansionRequest)) controller.assistant.dismiss()
         controller.drag.menu = null; controller.openFolderId = null
+        controller.dismissWorkspaceTakeover()
         controller.setHomeEditing(false)
         // "You’re all set" keeps Home on the Feed until onboarding is done.
         val home = if (controller.onboarding.state.value.step == org.agentos.agent.home.onboarding.OnboardingStep.ALL_SET) org.agentos.agent.home.ui.PAGE_FEED else PAGE_HOME
@@ -157,6 +158,7 @@ class HomeActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
         val request = panelRequest ?: return@LaunchedEffect
         if (!controller.panelsLoaded) return@LaunchedEffect
         controller.closeMenu(); controller.drag.menu = null; controller.openFolderId = null; controller.editingPins = false
+        controller.dismissWorkspaceTakeover()
         val page = controller.panelPage(request.first)
         if (page != null) {
           pager.animateScrollToPage(page)
@@ -303,9 +305,12 @@ class HomeActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
     PanelNavigation.setForeground(true)
     org.agentos.agent.home.widgets.HomeWidgetHost.get(this).start()
     PanelDirectory.get(this).start()
+    // The entry is on screen: a hold should only wait for the microphone, not the Engine connection.
+    org.agentos.agent.home.assistant.AssistantSession.get(this).prewarmVoice()
   }
   override fun onStop() {
     val session = org.agentos.agent.home.assistant.AssistantSession.get(this)
+    session.releaseVoicePrewarm()
     if (session.gesture.source == "desktop")
       session.onVoiceSurfaceStopped(session.gesture.id, isChangingConfigurations)
     PanelNavigation.setForeground(false)
@@ -319,6 +324,8 @@ class HomeActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
     org.agentos.agent.home.onboarding.OnboardingRepository.get(this).setForeground(true)
     // Invalidation is only a hint; a resume reads the revision again.
     PanelDirectory.get(this).refresh()
+    // Start can run behind the keyguard, where voice is refused; resuming after unlock renews it.
+    org.agentos.agent.home.assistant.AssistantSession.get(this).prewarmVoice()
     if (resetOnResume) { resetOnResume = false; resetAfterScreenOff = true; homeSignal++ }
   }
 

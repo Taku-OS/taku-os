@@ -1,0 +1,11 @@
+{
+  "commit": "3f43ef972bde738a3b76b8dd255908bbb9773814",
+  "installedSha256": {
+    "task-broker.jar": "ad8fad9aacda61f8ff0f559671b49c9e93ed0914240e7a8ab17f02f104ab8f1b",
+    "virtual-display.jar": "7224b260e1a0d56990ac617e21176bdf3fcabbbf59391adb9929791b7ae46873",
+    "phone-display": "cde76b583eb865e24c48eae79f5e56d8ec298972024012ece94a87a222d1a567",
+    "AgentOSAssistant.apk": "04dcce68810efcfa37d94b056ea4b1964a5a845edf83e0a5b1fb9d60a2f5c78f"
+  },
+  "servicesSha256": "4507c21fe43790828ec558390420a6ade69d4f86d187772bfa972da6bd024c4a",
+  "passed": true
+}

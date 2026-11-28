@@ -3,7 +3,9 @@
     <string name="workspace_interaction_title">Virtual screen</string>
     <string name="workspace_interaction_app">Taku · %1$s</string>
     <string name="workspace_interaction_minimize">Minimize to floating preview</string>
-    <string name="workspace_interaction_close">Hide preview</string>
+    <string name="workspace_interaction_close">Close preview</string>
+    <string name="workspace_interaction_back_to_conversation">Back to conversation</string>
+    <string name="workspace_interaction_reconnecting">Screen disconnected. Reconnecting…</string>
     <string name="workspace_interaction_edit">Add requirement</string>
     <string name="workspace_interaction_done_editing">Done editing</string>
     <string name="workspace_interaction_take_over">Take over</string>

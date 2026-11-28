@@ -203,6 +203,19 @@ internal class SystemAi {
                     return config()
                 }
                 "resolve" -> return resolve(p.getString("consumer"), p.getString("role"), p.optString("model"))
+                "notebookSourceStatus" -> {
+                    if (p.getString("consumer") != "org.agentos.notebook") throw SecurityException("Notebook source access denied")
+                    return JSONObject().put("available", true)
+                }
+                "notebookFile" -> {
+                    val consumer = p.getString("consumer")
+                    if (consumer != "org.agentos.notebook") throw SecurityException("Notebook AI access denied")
+                    val route = MagpieSettings.binding(consumer, "filing")
+                    if (route.isEmpty()) return JSONObject()
+                    return generate(JSONObject().put("consumer", consumer).put("role", "image").put("model", route)
+                        .put("prompt", p.getString("prompt")).put("image", p.getString("image")))
+                }
+                "resolveSocialSource" -> return NotebookSocialSourceRequest.resolve(p)
                 "generate" -> return generate(p)
                 else -> throw IOException("Unknown system AI operation")
             }
@@ -247,7 +260,8 @@ internal class SystemAi {
             val consumer = p.getString("consumer")
             val role = p.getString("role")
             val prompt = p.getString("prompt")
-            if (blank(prompt) || prompt.length > 8000) throw IOException("AI request text is too long or empty")
+            val promptLimit = if (consumer == "org.agentos.notebook" && role == "image") 48_000 else 8_000
+            if (blank(prompt) || prompt.length > promptLimit) throw IOException("AI request text is too long or empty")
             val selected = resolve(consumer, role, p.optString("model"))
             if (selected.optString("kind") == "decision") throw IOException("Use the memory analysis interface for dedicated decision models")
             val started = android.os.SystemClock.elapsedRealtime()

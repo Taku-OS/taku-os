@@ -45,10 +45,7 @@ internal class MatterBridge {
             }
             val output = MemoryBridge.command("/system/bin/content", "call", "--user", "0", "--uri",
                 "content://org.agentos.assistant.agent-gateway", "--method", "nativeMatter", "--arg", params.toString())
-            val start = output.indexOf("result=")
-            val end = output.lastIndexOf("}]")
-            if (start < 0 || end < start) throw IOException("Matter runtime unavailable")
-            val response = JSONObject(output.substring(start + 7, end).trim { it <= ' ' })
+            val response = MemoryBridge.contentResult(output) ?: throw IOException("Matter runtime unavailable")
             if (!response.optBoolean("ok")) throw IOException(response.optString("code", "MATTER_UNAVAILABLE"))
             return response.getJSONObject("result")
         }

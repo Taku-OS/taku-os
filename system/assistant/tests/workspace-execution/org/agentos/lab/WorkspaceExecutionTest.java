@@ -191,8 +191,11 @@ public final class WorkspaceExecutionTest {
         for(int i=0;i<tools.length();i++)if(tools.getJSONObject(i).optString("name").equals("request_apps"))request=tools.getJSONObject(i);
         check(request!=null,"request_apps is still registered");
         String description=request.getString("description");
-        check(description.contains("normally")&&description.contains("taken over")&&description.contains("paused")
-                &&description.contains("reserved")&&description.contains("turn ends"),"tool description distinguishes normal end from retained takeover/pause");
+        check(description.contains("normally releases your screen and Apps"),"tool description explains default cleanup");
+        check(description.contains("Opening an App without later screen actions")
+                &&description.contains("returning control to the Agent keeps the workspace ready")
+                &&description.contains("A successful read-only follow-up keeps that same screen")
+                &&description.contains("User takeover and pause retain the workspace"),"tool description lists the cases that retain a workspace");
         JSONObject schema=request.getJSONObject("inputSchema");JSONArray required=schema.getJSONArray("required");
         check(required.length()==2&&schema.getJSONObject("properties").has("packages")&&schema.getJSONObject("properties").has("taskTitle")
                 &&!schema.getBoolean("additionalProperties"),"description change preserves the existing request input contract");

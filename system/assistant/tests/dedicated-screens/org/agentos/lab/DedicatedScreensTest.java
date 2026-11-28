@@ -102,6 +102,11 @@ public final class DedicatedScreensTest {
             return new JSONObject(v.toString());
         }
 
+        @Override public String removalState(String key, String generation) throws Exception {
+            if (!slots.containsKey(key)) return "gone";
+            return PhoneExecutionScreens.Host.super.removalState(key, generation);
+        }
+
         /** Runs first thing in stop, with the screen's key. */
         volatile java.util.function.Consumer<String> beforeStop = key -> {};
 
@@ -2012,7 +2017,9 @@ public final class DedicatedScreensTest {
         control(rig, 1, "user");
         Call b = new Call(rig, 2, "t", "com.x");
         awaitWaiting(rig, "com.x", 1);
-        control(rig, 1, "agent");
+        String[] handback = lease(rig, 1);
+        rig.screens.beginReturn(session(1), handback[0], handback[1]);
+        rig.screens.finishControl(session(1), handback[0], handback[1], "agent");
         JSONObject row = rows(rig).get(session(1));
         check(
                 row.getString("controlOwner").equals("agent")
@@ -2028,17 +2035,24 @@ public final class DedicatedScreensTest {
         check(rig.screens.turnEnded(session(1)) == null, "E3: whose end releases nothing");
         PhoneExecutionScreens.Admission grant = rig.screens.admission(session(1));
         check(rig.screens.turnStarted(session(1), grant), "E3: the give-back's own turn runs");
+        rig.screens.nativeTurnStarted(session(1), "handback", true);
         check(
                 use(rig, 1, DedicatedScreens.Use.ACT, null) == d
                         && tasksOn(rig, d).size() == 1
                         && holder(rig, "com.x").equals("001")
                         && !b.done(),
                 "E3: on its own screen, X and its page still its own");
+        check(rig.screens.turnEnded(session(1), "handback", true) == null
+                        && rows(rig).get(session(1)).getString("status").equals("ready")
+                        && tasksOn(rig, d).size() == 1 && !b.done(),
+                "E3: successful handback keeps the App and ready preview available");
         check(
                 rig.screens.turnStarted(session(1), null),
                 "a later turn needs no grant: the takeover is over");
-        rig.screens.turnEnded(session(1)).join(5_000);
-        check(b.granted().contains("com.x"), "E3: that turn's end releases as usual");
+        rig.screens.nativeTurnStarted(session(1), "ordinary");
+        use(rig, 1, DedicatedScreens.Use.ACT, null);
+        rig.screens.turnEnded(session(1), "ordinary", true).join(5_000);
+        check(b.granted().contains("com.x"), "E3: a later turn that acts on the screen releases as usual");
     }
 
     /**
@@ -2591,15 +2605,15 @@ public final class DedicatedScreensTest {
                 check(admissions.pending(session(1))==0,"old queued "+method+" retires without being sent after control return");
             }
             check(registry.describe(session(1)).getBoolean("resumeRequired"),"return control retains awaiting-resume state");
-            check(!admissions.turnStarted(session(1)),"unrequested native queued turn cannot clear awaiting-resume");
+            check(admissions.turnStarted(session(1)) == WorkspaceAdmissions.TurnStart.REJECTED,"unrequested native queued turn cannot clear awaiting-resume");
             WorkspaceAdmissions.Ticket inFlight=admissions.queue("turn/start",session(1));admissions.beforeSend(2,inFlight);
             admissions.response(2,true);
             check(admissions.pending(session(1))==1,"successful start response alone does not prove started event has drained");
             registry.beginPause(session(1),key,gen);registry.finishControl(session(1),key,gen,"agent");
-            check(!admissions.turnStarted(session(1)),"late started event retains old admission even after agent control returns");
+            check(admissions.turnStarted(session(1)) == WorkspaceAdmissions.TurnStart.REJECTED,"late started event retains old admission even after agent control returns");
             check(admissions.pending(session(1))==0&&registry.describe(session(1)).getBoolean("resumeRequired"),"rejected stale start does not mark the task resumed");
             WorkspaceAdmissions.Ticket fresh=admissions.queue("turn/start",session(1));admissions.beforeSend(3,fresh);
-            check(admissions.turnStarted(session(1)),"explicit fresh turn after return is admitted");
+            check(admissions.turnStarted(session(1)) == WorkspaceAdmissions.TurnStart.ADMITTED,"explicit fresh turn after return is admitted");
             check(!registry.describe(session(1)).getBoolean("resumeRequired")&&admissions.pending(session(1))==1,"only actual fresh started clears resume state, while pending response is still tracked");
             admissions.response(3,true);check(admissions.pending(session(1))==0,"both start acknowledgments retire admission exactly once");
             WorkspaceAdmissions.Ticket uncertain=admissions.queue("turn/steer",session(1));admissions.beforeSend(4,uncertain);admissions.failedBeforeSend(uncertain);
@@ -2607,10 +2621,10 @@ public final class DedicatedScreensTest {
             admissions.response(4,false);check(admissions.pending(session(1))==0,"definite RPC rejection releases pending proof");
             registry.beginPause(session(1),key,gen);registry.finishControl(session(1),key,gen,"agent");
             WorkspaceAdmissions.Ticket realtime=admissions.queue("thread/realtime/start",session(1));admissions.beforeSend(5,realtime);
-            check(admissions.turnStarted(session(1)),"fresh realtime turn can precede its session-start response");admissions.response(5,true);
+            check(admissions.turnStarted(session(1)) == WorkspaceAdmissions.TurnStart.ADMITTED,"fresh realtime turn can precede its session-start response");admissions.response(5,true);
             check(admissions.realtimeActive(session(1)),"realtime session keeps a grant beyond its start response");
             registry.beginPause(session(1),key,gen);registry.finishControl(session(1),key,gen,"agent");
-            check(!admissions.turnStarted(session(1)),"old realtime session cannot revive after a handoff");
+            check(admissions.turnStarted(session(1)) == WorkspaceAdmissions.TurnStart.REJECTED,"old realtime session cannot revive after a handoff");
             admissions.realtimeStopped(session(1));check(!admissions.realtimeActive(session(1)),"explicit realtime stop clears active-session proof");
         }
     }
@@ -2630,7 +2644,7 @@ public final class DedicatedScreensTest {
         registry.beginPause(session(1),key,gen);registry.finishControl(session(1),key,gen,"agent");
         rejects("SCREEN_CONTROL_CHANGED",()->admissions.beforeSend(11,own));admissions.failedBeforeSend(own);
         WorkspaceAdmissions.Ticket fresh=admissions.queue("turn/start",session(1),request);admissions.beforeSend(12,fresh);
-        check(admissions.turnStarted(session(1)),"exact reserved request may start after valid handoff");admissions.response(12,true);
+        check(admissions.turnStarted(session(1)) == WorkspaceAdmissions.TurnStart.ADMITTED,"exact reserved request may start after valid handoff");admissions.response(12,true);
         admissions.clear();rejects("WORKSPACE_EXECUTION_RESERVED",()->admissions.queue("turn/start",session(1)));
         admissions.releaseReservation(session(1),UUID.randomUUID().toString());rejects("WORKSPACE_EXECUTION_RESERVED",()->admissions.queue("turn/start",session(1)));
         admissions.releaseReservation(session(1),request);

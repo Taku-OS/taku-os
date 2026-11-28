@@ -69,6 +69,28 @@ final class PhoneGestures {
     static void requireLive(PhoneExecutionScreens.Screen screen)throws Exception {
         try(GestureGuard guard=new GestureGuard(screen)){}
     }
+    /**
+     * Before an Agent action reaches the screen: the host renews its wake lock (10 minutes idle
+     * releases it) and, when the screen's group already went to sleep, wakes it and waits until it is
+     * on. Android drops input on a screen that is off; captures alone used to renew the lock.
+     */
+    static void wake(PhoneExecutionScreens.Screen screen)throws Exception {
+        try(GestureGuard guard=new GestureGuard(screen)){
+            guard.socket.setSoTimeout(5000);
+            String request=screen.legacy?"wake\n":"wake "+screen.generation+"\n";
+            OutputStream output=guard.socket.getOutputStream();output.write(request.getBytes(StandardCharsets.UTF_8));output.flush();
+            DataInputStream input=new DataInputStream(guard.socket.getInputStream());int size=input.readInt();
+            if(size<1||size>65536)throw new IOException("INVALID_SCREEN_STATUS");
+            byte[] bytes=new byte[size];input.readFully(bytes);
+            String reply=new String(bytes,StandardCharsets.UTF_8);
+            // A display host older than this broker has no wake command: act as before.
+            if(reply.equals("error: unsupported mirror command"))return;
+            if(reply.startsWith("error: ")){
+                String message=reply.substring(7);
+                throw new IOException(message.startsWith("SCREEN_OFF")?message:"SCREEN_WAKE_FAILED: "+message);
+            }
+        }
+    }
     private static PhoneGestureSession pointer(int display)throws IOException {return pointers.pointer(display);}
     private static List<PhoneGestureSession> snapshot(){return pointers.snapshot();}
     static {

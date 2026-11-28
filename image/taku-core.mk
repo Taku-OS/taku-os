@@ -15,6 +15,7 @@ $(eval PRODUCT_PACKAGES_DEBUG += $(_taku_device_debug_packages))
 PRODUCT_PACKAGES_DEBUG += \
     TakuSurfaces \
     TakuArrival \
+    TakuNotebook \
     TakuMemory \
     TakuInputMethod \
     TakuAssistant \

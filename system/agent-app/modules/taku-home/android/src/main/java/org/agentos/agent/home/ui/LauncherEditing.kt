@@ -119,6 +119,7 @@ fun LauncherIconMenu(controller: HomeController, scene: GraphicsLayer) {
         add(LauncherAction("Remove widget", LauncherMenuIcons.Remove, true) { controller.removeWidget(slot.appWidgetId) })
       }
       is Slot.App -> {
+        add(LauncherAction(stringResource(R.string.home_workspace_launch), LauncherMenuIcons.Layout) { controller.launchWorkspace(slot.key, target.label) })
         add(LauncherAction(stringResource(R.string.home_share_app), LauncherMenuIcons.Share) { controller.shareApp(slot.key) })
         add(LauncherAction(stringResource(R.string.home_app_info), LauncherMenuIcons.Info) { controller.appInfo(slot.key) })
         add(LauncherAction(stringResource(R.string.home_remove_app), LauncherMenuIcons.Remove, true) { controller.requestRemove(slot.key) })
@@ -204,5 +205,35 @@ fun LauncherHiddenApps(controller: HomeController, backdrop: Backdrop?) {
       }
     }
     TakuButton(stringResource(R.string.home_done), close, Modifier.fillMaxWidth())
+  }
+}
+
+@Composable
+internal fun LauncherWorkspaceFailure(controller: HomeController, backdrop: Backdrop?) {
+  val message = controller.workspaceLaunchFailure ?: return
+  val close = { controller.workspaceLaunchFailure = null }
+  TakuDialog(close, rememberAppear(message), backdrop = backdrop) {
+    BasicText(stringResource(R.string.home_workspace_launch_failure_title), style = TakuTheme.type.headingXl)
+    BasicText(message, style = TakuTheme.type.bodyMd)
+    TakuButton(stringResource(R.string.home_done), close, Modifier.fillMaxWidth())
+  }
+}
+
+@Composable
+internal fun LauncherWorkspaceTakeover(controller: HomeController, backdrop: Backdrop?) {
+  val target = controller.workspaceTakeover ?: return
+  val dismiss = controller::dismissWorkspaceTakeover
+  val title = if (target.screen.controlOwner == "user") R.string.home_workspace_takeover_owned_title
+    else R.string.home_workspace_takeover_title
+  TakuDialog(dismiss, rememberAppear(target), backdrop = backdrop) {
+    BasicText(stringResource(title, target.appLabel), style = TakuTheme.type.headingXl)
+    TakuButton(
+      stringResource(R.string.home_workspace_takeover),
+      { controller.takeOverWorkspace(target) },
+      Modifier.fillMaxWidth(),
+      style = ButtonStyle.Primary,
+      enabled = !controller.workspaceControlsUnavailable(target.screen),
+    )
+    TakuButton(stringResource(R.string.home_cancel), dismiss, Modifier.fillMaxWidth(), style = ButtonStyle.Glass)
   }
 }

@@ -23,7 +23,7 @@ final class NativeBridge {
   String workspaceRequestId="";
   volatile boolean nativeSent,responseReceived;
   Guard workspaceGuard;
-  boolean cleanup;
+  boolean cleanup, workspaceHandback;
   Call(String m,JSONObject p){method=m;params=p;}
  }
  static final ScheduledExecutorService streamExpiry=Executors.newSingleThreadScheduledExecutor(r->{Thread t=new Thread(r,"session-stream-expiry");t.setDaemon(true);return t;});
@@ -41,6 +41,7 @@ final class NativeBridge {
  }
  private static boolean enqueuePrepared(Call call)throws Exception {
   call.admission=admissions.queue(call.method,call.params==null?"":call.params.optString("threadId"),call.workspaceRequestId);
+  if (call.workspaceHandback && call.admission != null) call.admission.handback = true;
   if(inbox.offer(call))return true;admissions.failedBeforeSend(call.admission);return false;
  }
  /** Cancellation is per member; joining happens outside the shared state lock. */
@@ -145,6 +146,7 @@ final class NativeBridge {
    case "state":answer=state(input.optString("threadId"));break;
    case "pendingPhoneQuestions":answer=pendingPhoneQuestions();break;
    case "workspaces":answer=WorkspaceControl.control(input);break;
+   case "workspaceLaunch":answer=WorkspaceLaunch.launch(input);break;
    case "appPermissions":answer=AppPermissionPolicy.control(input,uid);break;
    case "sessionRemovals":answer=SessionRemovalRuntime.control(input);break;
    case "dedicatedScreensDebug":answer=dedicatedScreensDebug(uid,input);break;
@@ -250,6 +252,15 @@ final class NativeBridge {
   if(current!=null)for(String key:new String[]{"completedTurn","cancellationCleanup"})if(current.has(key))result.put(key,new JSONObject(current.getJSONObject(key).toString()));
   return result;
  } }
+ static void applyWorkspaceClose(String thread, String turn, Runnable close) throws Exception {
+  try (CleanupWork.Held held = lock()) {
+   synchronized (admissions) {
+    JSONObject runtime = workspaceRuntime(thread);
+    JSONObject completed = runtime.optJSONObject("completedTurn");
+    if (completed != null && turn.equals(completed.optString("id")) && WorkspaceControl.isQuiescent(runtime)) close.run();
+   }
+  }
+ }
  static String publicError(Throwable e){Throwable value=e;while(value.getCause()!=null)value=value.getCause();String text=value.getMessage();if(text==null||text.isEmpty())text="The native interface cannot complete this operation right now";return redact(text).substring(0,Math.min(500,redact(text).length()));}
  static String redact(String s){return s.replaceAll("eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+","[Authorization information hidden]").replaceAll("(?i)(Bearer\\s+|(?:token|secret|password|api_key)=)[^\\s&\"']+","$1[hidden]").replaceAll("sk-[A-Za-z0-9_-]{20,}","[Key hidden]").replaceAll("apikey_[A-Za-z0-9_-]{8,}","[Key hidden]");}
  static JSONArray toolDefinitions()throws Exception {return PhoneNativeTools.definitions();}
@@ -318,11 +329,42 @@ final class NativeBridge {
    return;
   }
   String thread=p.optString("threadId");if(thread.isEmpty()){if(method.startsWith("fs/")||method.startsWith("hook/")||method.startsWith("remoteControl/")||method.equals("warning")||method.equals("configWarning")||method.equals("model/rerouted")||method.startsWith("project/")){globalEvents.put(new JSONObject().put("method",method).put("detail",redact(p.toString())));while(globalEvents.length()>16)globalEvents.remove(0);}return;}JSONObject s=state.computeIfAbsent(thread,k->new JSONObject());
-  if(method.equals("turn/started")){PhoneGestures.startTurn(thread,p.getJSONObject("turn").getString("id"));s.put("activeTurnId",p.getJSONObject("turn").getString("id"));phonePolicyChanges.keySet().removeIf(owner->owner.startsWith(thread+"\n")&&!owner.equals(thread+"\n"+s.optString("activeTurnId")));s.remove("error");s.remove("plan");s.remove("cancellationCleanup");if(!admissions.turnStarted(thread)){s.put("phoneStoppedTurnId",p.getJSONObject("turn").getString("id"));enqueue(new Call("turn/interrupt",new JSONObject().put("threadId",thread).put("turnId",p.getJSONObject("turn").getString("id"))));tellParentIfClosed(thread);}}
-  if(method.equals("turn/completed")){JSONObject completed=p.getJSONObject("turn");PhoneGestures.endTurn(thread,completed.getString("id"));cancelPhoneWorkers(thread,completed.getString("id"));
-   phonePolicyChanges.remove(thread+"\n"+completed.getString("id"));
-   DedicatedScreensOnDevice.shared().turnEnded(thread);
-   s.put("completedTurn",new JSONObject().put("id",completed.getString("id")).put("status",completed.getString("status")));s.remove("activeTurnId");JSONObject error=completed.optJSONObject("error");if(error!=null)s.put("error",redact(error.optString("message")));requests.values().removeIf(q->q.optJSONObject("params").optString("threadId").equals(thread));}
+  if (method.equals("turn/started")) {
+   String turn = p.getJSONObject("turn").getString("id");
+   PhoneGestures.startTurn(thread, turn);
+   s.put("activeTurnId", turn);
+   phonePolicyChanges.keySet().removeIf(owner -> owner.startsWith(thread + "\n") && !owner.equals(thread + "\n" + turn));
+   s.remove("error"); s.remove("plan"); s.remove("cancellationCleanup");
+   WorkspaceAdmissions.TurnStart start = admissions.turnStarted(thread);
+   if (start == WorkspaceAdmissions.TurnStart.REJECTED) {
+    s.put("phoneStoppedTurnId", turn);
+    enqueue(new Call("turn/interrupt", new JSONObject().put("threadId", thread).put("turnId", turn)));
+    tellParentIfClosed(thread);
+   } else {
+    if (start == WorkspaceAdmissions.TurnStart.HANDBACK) s.put("workspaceCloseSuppressedTurn", turn);
+    DedicatedScreensOnDevice.shared().nativeTurnStarted(thread, turn, start == WorkspaceAdmissions.TurnStart.HANDBACK);
+   }
+  }
+  if(method.equals("turn/completed")){JSONObject completed=p.getJSONObject("turn");String turn=completed.getString("id");PhoneGestures.endTurn(thread,turn);cancelPhoneWorkers(thread,turn);
+   phonePolicyChanges.remove(thread+"\n"+turn);
+   boolean current=turn.equals(s.optString("activeTurnId"));
+   requests.values().removeIf(q->{JSONObject params=q.optJSONObject("params");return params!=null&&thread.equals(params.optString("threadId"))&&(turn.equals(params.optString("turnId"))||(current&&params.optString("turnId").isEmpty()));});
+   // Only a completion for a different running turn is stale. With no turn recorded (state rebuilt
+   // after a reconnect, or a turn/started never seen) it still ends the turn: DedicatedScreens
+   // checks its own active turn (or, for a lost start, the allocation the turn itself requested),
+   // and completedTurn/error must be recorded (code review).
+   if(!current){
+    if(!s.optString("activeTurnId").isEmpty())return;
+    // A repeated completion of the turn already recorded is a duplicate, not a lost start.
+    JSONObject done=s.optJSONObject("completedTurn");
+    if(done!=null&&turn.equals(done.optString("id")))return;
+   }
+   boolean successful=completed.getString("status").equals("completed")&&!turn.equals(s.optString("phoneStoppedTurnId"));
+   boolean internalSteer = turn.equals(s.optString("workspaceCloseSuppressedTurn"));
+   if (internalSteer) s.remove("workspaceCloseSuppressedTurn");
+   DedicatedScreensOnDevice.shared().turnEnded(thread,turn,successful,
+           internalSteer ? null : WorkspaceJevClose.forTurn(thread,completed));
+   s.put("completedTurn",new JSONObject().put("id",turn).put("status",completed.getString("status")));s.remove("activeTurnId");JSONObject error=completed.optJSONObject("error");if(error!=null)s.put("error",redact(error.optString("message")));}
   if(method.equals("turn/plan/updated"))s.put("plan",p);
   if(method.equals("turn/diff/updated"))s.put("diff",redact(p.optString("diff")));
   if(method.equals("thread/tokenUsage/updated"))s.put("usage",p.optJSONObject("tokenUsage"));
@@ -338,6 +380,13 @@ final class NativeBridge {
    else {s.put("realtime",new JSONObject().put("event",method).put("detail",redact(p.toString())));if(method.endsWith("closed")){audio.remove(thread);admissions.realtimeStopped(thread);}}
   }
  } }
+ static void suppressWorkspaceClose(String thread, String turn) throws JSONException {
+  try (CleanupWork.Held held = lock()) {
+   JSONObject runtime = state.get(thread);
+   if (runtime != null && turn.equals(runtime.optString("activeTurnId")))
+    runtime.put("workspaceCloseSuppressedTurn", turn);
+  }
+ }
  /** A sub-agent whose screen the user closed was woken again: its parent is told why it never answers. */
  static void tellParentIfClosed(String thread) {
   DedicatedScreens.ParentNote note = DedicatedScreensOnDevice.shared().closedNote(thread);
@@ -349,13 +398,18 @@ final class NativeBridge {
   */
  static void tellRunningTurn(String thread, String text) {
   String why;
-  try {
-   String turn = workspaceRuntime(thread).optString("activeTurnId");
+  try (CleanupWork.Held held = lock()) {
+   JSONObject runtime = state.get(thread);
+   if (runtime == null) return;
+   String turn = runtime.optString("activeTurnId");
    if (turn.isEmpty()) return;
    JSONObject words = new JSONObject().put("type", "text").put("text", text);
    JSONObject params = new JSONObject().put("threadId", thread).put("expectedTurnId", turn);
    params.put("input", new JSONArray().put(words));
-   if (enqueue(new Call("turn/steer", params))) return;
+   if (enqueue(new Call("turn/steer", params))) {
+    runtime.put("workspaceCloseSuppressedTurn", turn);
+    return;
+   }
    why = "Codex queue full";
   } catch (Exception error) {
    why = error.getMessage();
@@ -383,17 +437,29 @@ final class NativeBridge {
     DedicatedScreensOnDevice.shared().asked(params.optString("threadId"),shown.optString(confirmation?"title":"question"),shown.optString("returnTo"));
     String key=UUID.randomUUID().toString();requests.put(key,new JSONObject().put("key",key).put("id",event.get("id")).put("method",confirmation?"phone/confirmAction":"phone/askUser").put("params",snapshot));return;
    }
-   boolean observation=tool.endsWith("device_info")||matchesTool(tool,"screen_status")||tool.endsWith("observe_background")||tool.endsWith("memory_search")||tool.endsWith("memory_get")||matchesTool(tool,"apps")||(matchesTool(tool,"matter")&&params.optJSONObject("arguments")!=null&&params.getJSONObject("arguments").optString("action").equals("read"))||(matchesTool(tool,"audio")&&params.optJSONObject("arguments")!=null&&(params.getJSONObject("arguments").optString("action").equals("capabilities")||params.getJSONObject("arguments").optString("operation").equals("status")));
+   boolean observation=tool.endsWith("device_info")||matchesTool(tool,"screen_status")||tool.endsWith("observe_background")||tool.endsWith("memory_search")||tool.endsWith("memory_get")||matchesTool(tool,"notebook_recall")||matchesTool(tool,"notebook_lists")||matchesTool(tool,"notebook_query")||matchesTool(tool,"apps")||(matchesTool(tool,"matter")&&params.optJSONObject("arguments")!=null&&params.getJSONObject("arguments").optString("action").equals("read"))||(matchesTool(tool,"audio")&&params.optJSONObject("arguments")!=null&&(params.getJSONObject("arguments").optString("action").equals("capabilities")||params.getJSONObject("arguments").optString("operation").equals("status")));
    if(!observation&&mode.equals("readOnly")){server.nativeReply(event.get("id"),PhoneNativeTools.failure("This conversation is read-only; the phone operation was blocked"));return;}
    if(!observation&&hasPhoneQuestion(params.optString("threadId"))){server.nativeReply(event.get("id"),PhoneNativeTools.failure("Wait for the user to handle the current confirmation before continuing phone operations"));return;}
    if(!observation&&mode.equals("ask")){
-    String key=UUID.randomUUID().toString();JSONObject visible=new JSONObject(params.toString()).put("reason",matchesTool(tool,"prepare_foreground_draft")?"Allow preparing a draft in the current conversation input field without sending it?":"Allow this phone operation on the independent background screen: "+tool+"？");
+    String key=UUID.randomUUID().toString();JSONObject visible=new JSONObject(params.toString()).put("reason",phoneApprovalReason(tool,params.optJSONObject("arguments")));
     requests.put(key,new JSONObject().put("key",key).put("id",event.get("id")).put("method","phone/action/requestApproval").put("params",visible));return;
    }
    executePhone(server,event.get("id"),params);return;
   }
   String key=UUID.randomUUID().toString();requests.put(key,new JSONObject().put("key",key).put("id",event.get("id")).put("method",method).put("params",params));
  } }
+ private static String phoneApprovalReason(String tool,JSONObject args){
+  if(matchesTool(tool,"prepare_foreground_draft"))return "Allow preparing a draft in the current conversation input field without sending it?";
+  if(matchesTool(tool,"notebook_open"))return args!=null&&args.optString("destination").equals("source")
+      ? "Allow opening the original post for this Notebook item on the main screen?"
+      : "Allow opening this Notebook item on the main screen?";
+  if(matchesTool(tool,"notebook_create_list"))return "Allow creating this Notebook list?";
+  if(matchesTool(tool,"notebook_edit_list"))return "Allow updating this Notebook list?";
+  if(matchesTool(tool,"notebook_edit"))return "Allow updating this Notebook item?";
+  if(matchesTool(tool,"notebook_batch"))return args!=null&&args.optString("operation").equals("delete")
+      ? "Allow deleting the selected Notebook items?" : "Allow moving the selected Notebook items?";
+  return "Allow this phone operation on the independent background screen: "+tool+"?";
+ }
  static boolean matchesTool(String tool,String name){return tool.equals(name)||tool.endsWith("."+name)||tool.endsWith("/"+name)||tool.endsWith("__"+name);}
  /** A frozen thread can still call the retired namespace; answer it with a real failure, never an approval card. */
  static boolean retiredPanelTool(JSONObject params){

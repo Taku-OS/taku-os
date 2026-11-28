@@ -248,16 +248,93 @@ public final class NativeBridgeRoutingTest {
         complete(child, turn);
     }
 
+    private static void completionTurnScope(CodexAppServer server) throws Exception {
+        String thread = "completion-scope";
+        DedicatedScreens registry = DedicatedScreensOnDevice.shared();
+        registry.nativeCompletions.clear();
+        start(thread, "old");
+        start(thread, "current");
+        NativeBridge.request(server, call(850, thread, "current", "confirm_action", args()));
+        complete(thread, "old");
+        check(NativeBridge.state(thread).getString("activeTurnId").equals("current")
+                        && NativeBridge.state(thread).getJSONArray("requests").length() == 1
+                        && registry.nativeCompletions.isEmpty(),
+                "A stale completion preserves the newer turn, its card, and its workspace");
+        NativeBridge.event(new JSONObject().put("method", "turn/completed").put("params", new JSONObject()
+                .put("threadId", thread).put("turn", new JSONObject().put("id", "current").put("status", "completed"))));
+        check(registry.nativeCompletions.equals(java.util.List.of(thread + " current true"))
+                        && !NativeBridge.state(thread).has("activeTurnId")
+                        && NativeBridge.state(thread).getJSONArray("requests").length() == 0,
+                "Successful completion passes the exact turn and success to the ledger");
+        complete(thread, "current");
+        check(registry.nativeCompletions.size() == 1, "Duplicate completion cannot release a retained workspace");
+        // Code review: a completion whose turn/started was never seen (state rebuilt after a
+        // reconnect) still reaches the ledger and records its result.
+        NativeBridge.event(new JSONObject().put("method", "turn/completed").put("params", new JSONObject()
+                .put("threadId", thread).put("turn", new JSONObject().put("id", "unseen").put("status", "failed")
+                        .put("error", new JSONObject().put("message", "lost start")))));
+        check(registry.nativeCompletions.size() == 2 && registry.nativeCompletions.get(1).equals(thread + " unseen false")
+                        && NativeBridge.state(thread).getJSONObject("completedTurn").getString("id").equals("unseen")
+                        && NativeBridge.state(thread).has("error"),
+                "A completion with no recorded turn still ends the screen's turn and records its result");
+        for (String status : new String[]{"failed", "interrupted", "completed"}) {
+            start(thread, status);
+            if (status.equals("completed")) NativeBridge.stopPhoneTurn(thread, status);
+            NativeBridge.event(new JSONObject().put("method", "turn/completed").put("params", new JSONObject()
+                    .put("threadId", thread).put("turn", new JSONObject().put("id", status).put("status", status))));
+            check(registry.nativeCompletions.get(registry.nativeCompletions.size() - 1)
+                            .equals(thread + " " + status + " false"),
+                    "Failed, interrupted, and explicitly stopped turns never request retention");
+        }
+        NativeBridge.closed(); server.replies.clear();
+    }
+
+    private static void notebookPhonePermissions(CodexAppServer server) throws Exception {
+        String thread = "notebook-thread", turn = "notebook-turn";
+        start(thread, turn);
+        NativeBridge.setPhonePermission(thread, "readOnly");
+        int request = 820;
+        int before = PhoneNativeTools.executions.get();
+        for (String tool : new String[]{"notebook_recall", "notebook_query", "notebook_lists"}) {
+            int id = request++;
+            NativeBridge.request(server, call(id, thread, turn, "taku_phone__" + tool, new JSONObject()));
+            awaitReply(server, id);
+            check(server.replies.get(id).getBoolean("success"), tool + " can read without approval");
+        }
+        for (String tool : new String[]{"notebook_open", "notebook_create_list", "notebook_edit_list", "notebook_edit", "notebook_batch"}) {
+            int id = request++;
+            NativeBridge.request(server, call(id, thread, turn, "taku_phone." + tool, new JSONObject()));
+            check(!server.replies.get(id).getBoolean("success"), tool + " is blocked in read-only conversations");
+        }
+        awaitCleanup();
+        check(PhoneNativeTools.executions.get() == before + 3, "Only Notebook reads reached the runtime");
+        NativeBridge.setPhonePermission(thread, "ask");
+        int open = request++;
+        JSONObject source = new JSONObject().put("id", "a".repeat(64)).put("destination", "source");
+        NativeBridge.request(server, call(open, thread, turn, "notebook_open", source));
+        JSONObject pending = NativeBridge.state(thread).getJSONArray("requests").getJSONObject(0);
+        check(!server.replies.containsKey(open) && pending.getString("method").equals("phone/action/requestApproval")
+                && pending.getJSONObject("params").getString("reason").contains("original post"),
+                "The approval describes the actual Notebook launch");
+        NativeBridge.respond(key(thread), new JSONObject().put("decision", "decline"));
+        check(!server.replies.get(open).getBoolean("success") && PhoneNativeTools.executions.get() == before + 3,
+                "Declining opening a Notebook source never launches it");
+        complete(thread, turn);
+        PhoneNativeTools.executions.set(before);
+    }
+
     public static void main(String[] unused) throws Exception {
         steerRejectionClassification();
         NativeBridge.closed();CodexAppServer server=new CodexAppServer();CodexAppServer.shared=server;
         try {
             memoryEventRouting();
+            completionTurnScope(server);
             closedSubAgentWoken();
             workspaceAdmissionRouting(server);
             archivedSessions();
             policyChangeNotices(server);
             pendingQuestionsAcrossSessions(server);
+            notebookPhonePermissions(server);
             start(THREAD,TURN);
             JSONObject original=args(),event=call(1,THREAD,TURN,"confirm_action",original);
             NativeBridge.request(server,event);String first=key(THREAD);

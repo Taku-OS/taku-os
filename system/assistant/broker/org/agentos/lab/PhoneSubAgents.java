@@ -46,9 +46,7 @@ final class PhoneSubAgents {
      * What the parent is told when the user gives its sub-agent's screen back. The sub-agent never
      * needs a screenshot before waking; it observes its own screen afterwards. followup_task is named
      * because send_message only leaves a note: the sub-agent does not start a turn, and keeps its
-     * screen and Apps meanwhile. The user may have called the task off in the parent's chat while
-     * holding the screen: the parent knows that and the broker does not, so the parent tells the
-     * sub-agent, and wakes it either way so its turn ends and frees the screen.
+     * screen and Apps meanwhile.
      */
     static String relayText(String path, String session, String taskTitle) {
         return "The user gave back the screen of your sub-agent "
@@ -57,10 +55,9 @@ final class PhoneSubAgents {
                 + session
                 + ", task \""
                 + taskTitle
-                + "\"). Wake that same sub-agent with followup_task in either case: its screen and"
-                + " Apps are freed only when its turn ends.\n"
-                + "- Task still wanted: have it look at its screen with observe_background before carrying on.\n"
-                + "- Task called off by the user: tell it so; it ends its turn right away.";
+                + "\"). Wake that same sub-agent with followup_task in either case.\n"
+                + "- Task still wanted: have it look at its screen with observe_background before carrying on. A successful handback leaves the workspace open.\n"
+                + "- Task called off by the user: tell it to release all held Apps with release_apps, then end its turn.";
     }
 
     /**

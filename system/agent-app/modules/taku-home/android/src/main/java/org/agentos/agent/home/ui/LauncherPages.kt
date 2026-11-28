@@ -11,6 +11,8 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -21,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
@@ -49,6 +52,8 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import org.agentos.agent.home.R
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Constraints
@@ -246,6 +251,16 @@ fun DraggableIcon(controller: HomeController, slot: Slot, label: String, page: I
   var iconBounds by remember { mutableStateOf(Rect.Zero) }
   var origin by remember { mutableStateOf(Offset.Zero) }
   val where by rememberUpdatedState(if (page != null && index != null) DropTarget(page, index) else null)
+  val workspace = (slot as? Slot.App)?.let { controller.workspaceForApp(it.key) }
+  val workspaceChanging = workspace != null && (workspace.stopping || controller.isClosingWorkspace(workspace))
+  val workspaceState = workspace?.let {
+    stringResource(when {
+      workspaceChanging -> R.string.home_workspace_app_switching
+      it.controlOwner == "user" -> R.string.home_workspace_app_user_control
+      it.controlOwner == "paused" -> R.string.home_workspace_app_paused
+      else -> R.string.home_workspace_app_control
+    })
+  }
   val rotation = if (controller.editingHome) {
     val transition = rememberInfiniteTransition(label = "home-edit")
     val angle by transition.animateFloat(-1.3f, 1.3f, infiniteRepeatable(tween(145 + (slot.itemKey.hashCode() and 31)), RepeatMode.Reverse), label = "icon-wiggle")
@@ -258,7 +273,16 @@ fun DraggableIcon(controller: HomeController, slot: Slot, label: String, page: I
     modifier = Modifier
       .graphicsLayer { rotationZ = rotation }
       .onGloballyPositioned { origin = it.positionInRoot(); bounds = it.boundsInRoot() }
-      .semantics { contentDescription = label }
+      .semantics {
+        contentDescription = label
+        if (workspaceState != null) {
+          stateDescription = workspaceState
+          if (!controller.editingHome) onClick {
+            controller.openSlot(slot, bounds)
+            true
+          }
+        }
+      }
       .dragOrMenu(
         key = slot,
         immediateDrag = controller.editingHome,
@@ -282,6 +306,22 @@ fun DraggableIcon(controller: HomeController, slot: Slot, label: String, page: I
   ) {
     Box(Modifier.onGloballyPositioned { iconBounds = it.boundsInRoot() }) {
       icon()
+      if (workspace != null) {
+        val colors = TakuTheme.colors
+        val inverse = !workspaceChanging && workspace.controlOwner == "agent"
+        val ink = if (inverse) colors.iconOnInverse else colors.icon
+        val fill = if (inverse) colors.surfaceInverse else colors.fillControl
+        val outline = when {
+          workspaceChanging -> colors.strokeDropTarget
+          workspace.controlOwner == "user" -> colors.strokeDropTargetActive
+          else -> colors.surfaceInverse
+        }
+        Box(Modifier.matchParentSize().border(2.dp, outline, iconShape(plate)))
+        Box(
+          Modifier.align(Alignment.TopEnd).offset(3.dp, (-3).dp).size(22.dp).background(fill, CircleShape),
+          contentAlignment = Alignment.Center,
+        ) { TakuIcon(TakuIcons.WorkspaceScreen, 16.dp, tint = ink) }
+      }
       if (controller.editingHome && slot is Slot.App) {
         TakuIconButton(TakuIcons.Minus, stringResource(R.string.home_remove_label, label),
           { controller.requestRemove(slot.key) }, modifier = Modifier.offset((-4).dp, (-4).dp), style = IconButtonStyle.Badge)

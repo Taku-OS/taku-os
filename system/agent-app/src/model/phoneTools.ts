@@ -2,6 +2,7 @@
 export const phoneToolKeys: Readonly<Record<string, string>> = {
   device_info: 'deviceInfo', observe_background: 'observeScreen', open_app: 'openApp', tap: 'tap', type_text: 'typeText', apps: 'apps',
   request_apps: 'requestApps', release_apps: 'releaseApps', screen_status: 'screenStatus', screenshot: 'screenshot',
+  hand_over_screen: 'handOverScreen',
   swipe: 'swipe', touch: 'touch',
 };
 

@@ -16,15 +16,18 @@ final class WorkspacePolicy {
         private final java.util.concurrent.locks.ReentrantLock lock = new java.util.concurrent.locks.ReentrantLock();
         Store(File file){this.file=file;}
         JSONObject defaults()throws Exception{return new JSONObject().put("schemaVersion",1).put("revision",0)
-            .put("allowBackground",true).put("maxActiveScreens",DEFAULT_ACTIVE_SCREENS).put("blockedPackages",new JSONArray());}
+            .put("allowBackground",true).put("maxActiveScreens",DEFAULT_ACTIVE_SCREENS)
+            .put("blockedPackages",new JSONArray()).put("jevCloseEnabled",false);}
         JSONObject read()throws Exception { try (CleanupWork.Held held = CleanupWork.lock(lock)) {
             if(file==null||!file.exists())return defaults();
             JSONObject value=new JSONObject(TaskBroker.read(file));
             if(value.getInt("schemaVersion")!=1)throw new IOException("INVALID_WORKSPACE_POLICY");
+            if(!value.has("jevCloseEnabled"))value.put("jevCloseEnabled",false);
             validate(value);return value;
         } }
         static void validate(JSONObject value)throws Exception {
             if(!(value.get("allowBackground") instanceof Boolean))throw new IOException("INVALID_BACKGROUND_SETTING");
+            if(!(value.get("jevCloseEnabled") instanceof Boolean))throw new IOException("INVALID_JEV_CLOSE_SETTING");
             Object count=value.get("maxActiveScreens");
             if(!(count instanceof Integer)||((Integer)count)<MIN_ACTIVE_SCREENS||((Integer)count)>MAX_ACTIVE_SCREENS)throw new IOException("INVALID_WORKSPACE_LIMIT");
             JSONArray packages=value.getJSONArray("blockedPackages");
@@ -40,7 +43,7 @@ final class WorkspacePolicy {
             if(patch==null)throw new IOException("MISSING_WORKSPACE_PATCH");
             JSONObject value=read();
             for(Iterator<String> keys=patch.keys();keys.hasNext();){String key=keys.next();
-                if(!Set.of("allowBackground","maxActiveScreens","blockedPackages").contains(key))throw new IOException("UNKNOWN_WORKSPACE_SETTING");
+                if(!Set.of("allowBackground","maxActiveScreens","blockedPackages","jevCloseEnabled").contains(key))throw new IOException("UNKNOWN_WORKSPACE_SETTING");
                 value.put(key,patch.get(key));
             }
             validate(value);value.put("revision",value.getLong("revision")+1);

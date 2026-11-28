@@ -29,6 +29,15 @@ for command in dalvikvm app_process aapt aapt2 zipalign; do
   command -v "$command" >/dev/null || { echo "Missing Android build tool: $command" >&2; exit 1; }
 done
 
+TARGET_SDK=$(getprop ro.build.version.sdk)
+case "$TARGET_SDK" in
+  ''|*[!0-9]*) echo 'Could not read the device Android API level' >&2; exit 1;;
+esac
+if [ "$TARGET_SDK" -lt 36 ]; then
+  echo 'The Menu App requires Android API 36 or later' >&2
+  exit 1
+fi
+
 ID=$(od -An -N16 -v -tx1 /dev/urandom | tr -d '[:space:]')
 case "$ID" in ''|*[!0-9a-f]*) echo 'Could not generate a valid menu ID' >&2; exit 1;; esac
 if [ "${#ID}" -ne 32 ]; then
@@ -63,7 +72,8 @@ chmod a-w "$PROJECT/validation/dex/classes.dex"
 CLASSPATH="$PROJECT/validation/dex/classes.dex" app_process /system/bin \
   org.agentos.generated.menu.MenuData "$INPUT" "$PROJECT" >&2
 
-sed "s/package=\"org\.agentos\.generated\.menu\"/package=\"$PACKAGE\"/" \
+sed -e "s/package=\"org\.agentos\.generated\.menu\"/package=\"$PACKAGE\"/" \
+  -e "s/android:targetSdkVersion=\"[0-9][0-9]*\"/android:targetSdkVersion=\"$TARGET_SDK\"/" \
   "$KIT/AndroidManifest.xml" > "$PROJECT/AndroidManifest.xml"
 for source in MainActivity RecommendationLinks; do
   sed "s/^package org\.agentos\.generated\.menu;/package $PACKAGE;/" \

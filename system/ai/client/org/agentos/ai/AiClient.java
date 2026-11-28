@@ -13,6 +13,13 @@ public final class AiClient {
  public JSONObject resolve(String role)throws Exception{return call(new JSONObject().put("action","resolve").put("role",role));}
  public JSONObject text(String prompt)throws Exception{return call(new JSONObject().put("action","generate").put("role","text").put("prompt",prompt));}
  public JSONObject image(String prompt,String dataUrl)throws Exception{return call(new JSONObject().put("action","generate").put("role","image").put("prompt",prompt).put("image",dataUrl));}
+ public JSONObject notebookStatus()throws Exception{return call(new JSONObject().put("action","notebookStatus"));}
+ public JSONObject notebookFile(String prompt,String dataUrl)throws Exception{return call(new JSONObject().put("action","notebookFile").put("prompt",prompt).put("image",dataUrl));}
+ public JSONObject notebookResolveSocialSource(String sourcePackage,JSONObject evidence,long capturedAt,String sourceZone,
+                                                String screenshot)throws Exception{
+  return call(new JSONObject().put("action","notebookResolveSocialSource").put("sourcePackage",sourcePackage).put("evidence",evidence)
+          .put("capturedAt",capturedAt).put("sourceZone",sourceZone).put("screenshot",screenshot));
+ }
  public void openSettings(){context.startActivity(new Intent("org.agentos.action.AI_SETTINGS").setPackage("org.agentos.agent").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP));}
  private JSONObject call(JSONObject request)throws Exception{
   if(Looper.myLooper()==Looper.getMainLooper())throw new IllegalStateException("Call system AI from a background thread");

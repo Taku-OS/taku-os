@@ -158,7 +158,8 @@ function WorkspaceManagementScreen({initialLease, invalidLease}: {initialLease: 
     Alert.alert(t('closeTitle'), t('closeCopy'), [
       {text: t('cancel'), style: 'cancel'},
       {text: t('close'), style: 'destructive', onPress: () => {
-        void run<{opened?: boolean; returnError?: string}>('workspaces/release', {...lease, returnToThread: true}).then(result => {
+        const allocation = screen.allocationId ? {allocationId: screen.allocationId} : {};
+        void run<{opened?: boolean; returnError?: string}>('workspaces/release', {...lease, ...allocation, returnToThread: true}).then(result => {
           if (result && mounted.current) {
             setSelected(null);
             setNotice(result.returnError ? 'returnFailed' : 'closed');

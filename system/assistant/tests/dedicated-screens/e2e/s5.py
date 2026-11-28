@@ -3,10 +3,9 @@
 (op workspaces: takeControl, input, pause, returnAndResume, executionStatus), then closes it (release). Covers E1, E2,
 E3, F4 and R2's user_control, paused and mainThreadId (design doc section 2).
 
-The session taken over is a real Codex thread, started like the UI's new conversation, because giving back starts a
-turn on it: three short real model turns, each interrupted at once (by the script, by closing the screen, by the
-script). Its phone tools still go through the root-only test entry. Two other real threads hold Clock and wait for
-Settings meanwhile.
+The session is a real Codex thread, started as in the UI. A successful handback keeps Settings open
+until explicit release. The script then gives control back again and closes the workspace. Phone tool
+setup uses the root-only test entry. Two other real threads hold Clock and wait for Settings.
 
 Needs what S1 needs, plus Codex logged in with a model that takes images.
 
@@ -120,42 +119,37 @@ def main():
         check(receipt['status'] == 'accepted' and receipt['targetThreadId'] == a
               and receipt['screen']['generation'] == row['generation'] and receipt['screen']['controlOwner'] == 'agent',
               f'E3: a new turn on the original thread and screen: {receipt}')
-        try:
-            rpc('turn/interrupt', {'threadId': a, 'turnId': receipt['turnId']})
-        except Refused:
-            pass  # it ended on its own
-        s1.until(lambda: not rows(a), 'E3: that turn\'s end releases the screen as usual', seconds=40)
+        def end_of_first_return():
+            found = rows(a)
+            if not found:
+                return 'released'
+            if found[0]['status'] == 'ready':
+                return 'ready'
+            return None
+
+        outcome = s1.until(end_of_first_return, 'E3: handback finishes', seconds=60)
+        check(outcome == 'ready' and SETTINGS in apps_on(display) and waits.poll() is None,
+              'E3: a successful handback keeps the live app and its reservation')
+        control('release', row_of(a))
         check(granted()['heldApps'] == [SETTINGS], 'E3: then Settings goes to the session waiting')
         check(set(apps_on(0)) == on_main, 'the main screen untouched')
 
-        # F4: closing a main session's screen while its turn runs. The model may end that turn on its
-        # own within seconds, which frees the screen before the close arrives: then try again.
-        for attempt in range(3):
-            turn_ended(b)
-            display = tool(a, 'request_apps', {'packages': [SETTINGS], 'taskTitle': 'S5 close'})['displayId']
-            tool(a, 'open_app', {'packageName': SETTINGS})
-            task = s1.until(lambda: next((t for t, pkg, d in tasks() if d == display and pkg == SETTINGS), None),
-                            f'Settings opens on the screen again: {tasks()}')
-            waits, granted = tool_in_background(b, 'request_apps', {'packages': [SETTINGS], 'taskTitle': 'S5 waits again'})
-            s1.until(lambda: app(SETTINGS)['waiting'] == 1, 'another session waits for Settings again')
-            key = row_of(a)['screenKey']
-            control('takeControl', row_of(a))
-            row = row_of(a)
-            request_id = str(uuid.uuid4())
-            control('returnAndResume', row, requestId=request_id, controlRevision=row['controlRevision'])
-            receipt = s1.until(lambda: settled(row, request_id), 'the give-back settles again', seconds=60)
-            check(receipt['status'] == 'accepted', f'a turn runs on the screen given back: {receipt}')
-            try:
-                listed = control('release', row)
-                break
-            except Refused as error:
-                ended = session_state(a).get('completedTurn') or {}
-                check('SCREEN_NOT_BOUND' in str(error) and ended.get('id') == receipt['turnId']
-                      and ended.get('status') == 'completed', f'the close fails only after that turn ended: {error}')
-                check(granted()['heldApps'] == [SETTINGS], 'that turn\'s end hands Settings on as usual')
-                print(f'S5: the turn given back ended on its own before the close (attempt {attempt + 1})')
-        else:
-            raise AssertionError('the turn given back ended on its own before every close')
+        turn_ended(b)
+        display = tool(a, 'request_apps', {'packages': [SETTINGS], 'taskTitle': 'S5 close'})['displayId']
+        tool(a, 'open_app', {'packageName': SETTINGS})
+        task = s1.until(lambda: next((t for t, pkg, d in tasks() if d == display and pkg == SETTINGS), None),
+                        f'Settings opens on the screen again: {tasks()}')
+        _, granted = tool_in_background(b, 'request_apps', {'packages': [SETTINGS], 'taskTitle': 'S5 waits again'})
+        s1.until(lambda: app(SETTINGS)['waiting'] == 1, 'another session waits for Settings again')
+        row = row_of(a)
+        key = row['screenKey']
+        control('takeControl', row)
+        row = row_of(a)
+        request_id = str(uuid.uuid4())
+        control('returnAndResume', row, requestId=request_id, controlRevision=row['controlRevision'])
+        receipt = s1.until(lambda: settled(row, request_id), 'the give-back settles again', seconds=60)
+        check(receipt['status'] == 'accepted', f'a turn runs on the screen given back: {receipt}')
+        listed = control('release', row)
         check(all(r['threadId'] != a for r in listed['screens']), 'F4: the closed screen leaves the UI list')
         now = session_state(a)
         ended = now.get('completedTurn') or {}

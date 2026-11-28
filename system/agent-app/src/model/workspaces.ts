@@ -5,6 +5,7 @@ export interface WorkspaceLease {
 }
 
 export interface ManagedWorkspace extends WorkspaceLease {
+  allocationId?: string;
   packageName: string;
   appLabel?: string;
   taskTitle?: string;

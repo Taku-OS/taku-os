@@ -113,7 +113,8 @@ final class NativeToolPresentation {
             java.util.Map.entry("apps", new String[]{"apps", "Find apps"}),
             java.util.Map.entry("request_apps", new String[]{"request_apps", "Request a background screen"}),
             java.util.Map.entry("release_apps", new String[]{"release_apps", "Release the background screen"}),
-            java.util.Map.entry("screen_status", new String[]{"screen_status", "Check the background screen"}));
+            java.util.Map.entry("screen_status", new String[]{"screen_status", "Check the background screen"}),
+            java.util.Map.entry("hand_over_screen", new String[]{"hand_over_screen", "Hand the screen to you"}));
 
     /**
      * The bare taku_phone tool of a dynamic (Codex) or MCP (ACP) tool item, else null: by namespace,

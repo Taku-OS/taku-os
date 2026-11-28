@@ -4,6 +4,20 @@ Versioned, user-facing records. Source-project versions are distinct from ROM re
 
 ## Unreleased
 
+- Preserve explicitly independent display power groups on Android 17. Desktop timeout grouping no longer puts background workspaces back into the main screen group (BUG-0034).
+
+- When a background app needs you to log in or enter a code, Taku keeps that screen open and shows it as a card in the conversation, so you can open it and finish there instead of only being told to go to the app.
+- Keep background screens working while the phone is locked: the lock screen no longer stops the apps on them, so a task continues after the power key instead of seeing only black frames.
+- Keep each background screen awake while it exists. It no longer turns off after the screen-off timeout while the Agent is working, so observing an app it just opened no longer keeps failing with `SCREEN_OFF`.
+- Reorganize Taku BScreen into active workspaces, settings, and app permissions. Adjust the workspace limit directly with minus and plus buttons.
+- Keep the Taku Home BScreen handle visible while its preview cards open and collapse.
+- Keep ready BScreen workspaces and their Home previews after a read-only follow-up. Taku BScreen settings offer optional automatic closing when the configured Jev route confirms the entire screen is finished. The option respects the Taku AI Jev switch.
+- Put the expand action over the live floating preview and show a green dot for Ready in the full-screen preview.
+- Use **Open With BScreen** in the Taku Home app menu or `workspaces/launch` to launch an app on a background screen.
+- Close an individual BScreen from its Home preview. The expanded sidebar blurs Home behind the preview cards.
+- Home marks apps open on a BScreen. Tap a marked icon to confirm takeover of its screen.
+- In the live viewer, **Stop** releases a BScreen after takeover. Home updates the count after the screen closes.
+
 - Dynamic Island review fixes (PR #50). A third-party app with a `taku.control` grant now reads and operates only the island activities its own UID published: other apps' activities are left out of `state`/`list`, their keys answer `not_found` for `get`, `select`, `expand`, `tap`, `dismiss`, `hide`, `open` and `action` (so no cross-app action or `RemoteInput` reply), `collapse` folds the expanded card only when the caller published it (otherwise `permission_denied`), and `next` joins the settings writes as trusted-only. Agents, ADB and platform-signed callers are unchanged. A notification the island turns away because all 128 slots are taken now always keeps its native heads-up. Unlocking straight to Home no longer drops a reply card that was waiting for the unlock: Home's reset after screen-off used to dismiss it and reset the session. Island host tests pass; the Kotlin changes and their JVM tests were not compiled here, and nothing was run on an emulator.
 
 - BUG-0027 review fixes. An earlier cancelled task on the same conversation no longer stops the reply card from opening; only the send's own cancelled task ends a handoff. A new chat's first message now also updates the native selection, so returning to that conversation takes its island card back. Leaving the chat with nothing running no longer pops a card for a turn started later from elsewhere: a leave only waits (up to 60 s) while the chat's own message is still on its way. A handoff Home could not take yet is retried up to 3 times; a busy Home stays final. Earlier turns that showed nothing in the chat now count as earlier turns, so Home cannot mistake one for the new reply. Home no longer rewrites its saved state on every update of a long hidden turn. The screen-on-and-unlocked rule is now one helper (`ScreenState`) shared by voice and the island reveal. JS tests, typecheck and lint pass; Kotlin was not compiled and nothing was run on an emulator.

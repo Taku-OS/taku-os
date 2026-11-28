@@ -64,7 +64,8 @@ internal object ComposerDelivery {
             val (request, created) = try {
                 ComposerState.reserveSubmission(prefs, input) { target, output ->
                     checkNotNull(options).apply(prefs, target, output)
-                    AssistantInvocationCapture.reserve(context, id, output, allowAutoScreenshot)
+                    AssistantInvocationCapture.reserve(context, id, output, allowAutoScreenshot,
+                        input.optString("invocationId").ifEmpty { null })
                 }
             } catch (failure: Exception) {
                 synchronized(ComposerPreferences::class.java) {

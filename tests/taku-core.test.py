@@ -77,8 +77,13 @@ class TakuCoreTest(unittest.TestCase):
         self.assertEqual(emulator.count('$(call inherit-product, ' + CORE + ')'), 1)
         self.assertNotIn('vendor/taku/image/taku.mk', emulator)
 
-    def test_pixel_matches_pre_extraction(self):
+    def test_pixel_matches_pre_extraction_except_notebook(self):
         pixel = expand((ROOT / 'image/taku.mk').read_text(), PROFILES)
+        for config in pixel:
+            debug_packages = config['PRODUCT_PACKAGES_DEBUG'].split()
+            self.assertEqual(debug_packages.count('TakuNotebook'), 1)
+            debug_packages.remove('TakuNotebook')
+            config['PRODUCT_PACKAGES_DEBUG'] = ' '.join(debug_packages)
         self.assertEqual(hashlib.sha256(json.dumps(pixel, sort_keys=True).encode()).hexdigest(),
                          PIXEL_BASELINE)
 

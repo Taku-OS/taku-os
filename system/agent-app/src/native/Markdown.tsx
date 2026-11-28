@@ -81,4 +81,11 @@ export const AgentMarkdown = memo(function AgentMarkdown({text, active}: {text: 
       trailing={index < chunks.length - 1} chinese={chinese}/>)}</View>;
 });
 
-const styles = themedStyles(() => StyleSheet.create({width: {width: '100%'}}));
+/**
+ * Fill the parent's width by stretching, never `width: '100%'`: the reply bubble hugs its content
+ * under a maxWidth, and a percentage of that unresolved width gave the native view a frame wider
+ * than the bubble, so a long reply ran off the right edge on one line above an empty bubble while
+ * the long-press preview (a fixed-width card) wrapped it (BUG-0042). Stretching measures the text
+ * within the bubble's maxWidth first, then gives it exactly the width the bubble settled on.
+ */
+const styles = themedStyles(() => StyleSheet.create({width: {alignSelf: 'stretch'}}));

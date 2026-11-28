@@ -139,6 +139,15 @@ interface VoiceInput {
   fun finish()
   /** Drop the undelivered result and release the microphone. */
   fun cancel()
+  /**
+   * A recording is likely soon (the entry is touched, the home is in front): prepare what [start]
+   * would otherwise wait for, without touching the microphone. Repeated calls extend the window.
+   */
+  fun prewarm() {}
+  /** The surface that asked for [prewarm] is gone: let the prepared resources go. */
+  fun releasePrewarm() {}
+  /** Whether [start] would skip its setup now; diagnostic only. */
+  val prewarmed: Boolean get() = false
 }
 
 fun voiceOutcome(reason: String, completion: String, restored: Boolean, text: String): VoiceOutcome = when {

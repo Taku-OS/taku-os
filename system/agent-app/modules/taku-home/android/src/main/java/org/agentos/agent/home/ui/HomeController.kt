@@ -10,6 +10,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Rect
@@ -18,9 +19,10 @@ import androidx.compose.ui.graphics.layer.GraphicsLayer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.agentos.agent.home.R
 import org.agentos.agent.home.feed.FeedActions
 import org.agentos.agent.home.feed.FeedException
@@ -47,10 +49,19 @@ internal data class HomeWorkspaceScreen(
   val threadId: String,
   val screenKey: String,
   val generation: String,
+  val allocationId: String,
   val displayId: Int,
+  val appLabel: String?,
+  val taskPackages: List<String>,
+  val controlOwner: String,
+  val stopping: Boolean,
   val status: String,
   val previewUri: String,
 )
+
+internal data class HomeWorkspaceTakeover(val screen: HomeWorkspaceScreen, val appLabel: String)
+
+private enum class WorkspaceRelease { Closing, Closed }
 
 @Stable
 class DustRun(val dissolve: DustDissolve) {
@@ -90,6 +101,12 @@ class HomeController(val context: Context, val repo: FeedRepository, val pool: R
   var screenWidth = 0f
   private val workspaceGateway = AgentGateway(context.contentResolver)
   private var workspaceOpen: Job? = null
+  private var workspaceLaunch: Job? = null
+  private val workspaceReleases = mutableStateMapOf<String, WorkspaceRelease>()
+  private val workspaceRefresh = Channel<Unit>(Channel.CONFLATED)
+  internal var workspaceTakeover by mutableStateOf<HomeWorkspaceTakeover?>(null)
+    private set
+  internal var workspaceLaunchFailure by mutableStateOf<String?>(null)
   /** The visible workspace list shared by every home page. */
   internal var workspaceScreens by mutableStateOf<List<HomeWorkspaceScreen>>(emptyList())
     private set
@@ -110,7 +127,15 @@ class HomeController(val context: Context, val repo: FeedRepository, val pool: R
                 threadId = row.getString("threadId"),
                 screenKey = row.getString("screenKey"),
                 generation = row.getString("generation"),
+                allocationId = row.getString("allocationId"),
                 displayId = row.getInt("displayId"),
+                appLabel = (row.opt("appLabel") as? String)?.takeIf { it.isNotBlank() }
+                  ?: (row.opt("taskTitle") as? String)?.takeIf { it.isNotBlank() },
+                taskPackages = row.optJSONArray("taskPackages")?.let { packages ->
+                  List(packages.length()) { packages.getString(it) }
+                }.orEmpty(),
+                controlOwner = row.getString("controlOwner"),
+                stopping = row.getBoolean("stopping"),
                 status = row.getString("status"),
                 previewUri = row.getString("previewUri"),
               )
@@ -122,11 +147,17 @@ class HomeController(val context: Context, val repo: FeedRepository, val pool: R
           }
         }
         workspaceScreens = screens.orEmpty()
+        if (screens != null) {
+          workspaceReleases.entries.removeAll { (id, state) ->
+            state == WorkspaceRelease.Closed && screens.none { it.allocationId == id }
+          }
+        }
         retryDelayMs = if (screens == null) (retryDelayMs + 2_500L).coerceAtMost(15_000L) else 0L
-        delay(if (retryDelayMs == 0L) 1_000L else retryDelayMs)
+        withTimeoutOrNull(if (retryDelayMs == 0L) 1_000L else retryDelayMs) { workspaceRefresh.receive() }
       }
     } finally {
       workspaceScreens = emptyList()
+      dismissWorkspaceTakeover()
     }
   }
 
@@ -140,21 +171,101 @@ class HomeController(val context: Context, val repo: FeedRepository, val pool: R
     }
   }
 
-  internal fun openWorkspace(screen: HomeWorkspaceScreen) {
+  private fun HomeWorkspaceScreen.leaseParams() = JSONObject()
+    .put("threadId", threadId)
+    .put("screenKey", screenKey)
+    .put("generation", generation)
+    .put("allocationId", allocationId)
+
+  internal fun workspaceForApp(appKey: String): HomeWorkspaceScreen? {
+    var stoppingScreen: HomeWorkspaceScreen? = null
+    for (screen in workspaceScreens) {
+      if (screen.taskPackages.none { appKey.startsWith(it) && appKey.getOrNull(it.length) == '/' }) continue
+      if (!screen.stopping) return screen
+      if (stoppingScreen == null) stoppingScreen = screen
+    }
+    return stoppingScreen
+  }
+
+  internal fun isClosingWorkspace(screen: HomeWorkspaceScreen) = screen.allocationId in workspaceReleases
+
+  internal fun workspaceControlsUnavailable(screen: HomeWorkspaceScreen) = isClosingWorkspace(screen) ||
+    workspaceScreens.any { it.allocationId == screen.allocationId && it.stopping }
+
+  internal fun releaseWorkspace(screen: HomeWorkspaceScreen) {
+    if (workspaceControlsUnavailable(screen)) return
+    val id = screen.allocationId
+    workspaceReleases[id] = WorkspaceRelease.Closing
+    scope.launch {
+      try {
+        withContext(Dispatchers.IO) { workspaceGateway.call("workspaces/release", screen.leaseParams()) }
+        workspaceReleases[id] = WorkspaceRelease.Closed
+      } catch (_: IOException) {
+        notice(context.getString(R.string.home_workspace_close_failed, screen.displayId))
+      } catch (_: JSONException) {
+        notice(context.getString(R.string.home_workspace_close_failed, screen.displayId))
+      } finally {
+        if (workspaceReleases[id] == WorkspaceRelease.Closing) workspaceReleases.remove(id)
+        workspaceRefresh.trySend(Unit)
+      }
+    }
+  }
+
+  internal fun dismissWorkspaceTakeover() { workspaceTakeover = null }
+
+  internal fun takeOverWorkspace(target: HomeWorkspaceTakeover) {
+    if (workspaceTakeover !== target || workspaceControlsUnavailable(target.screen)) return
+    dismissWorkspaceTakeover()
+    openWorkspace(target.screen, takeControl = true)
+  }
+
+  internal fun openWorkspace(screen: HomeWorkspaceScreen, takeControl: Boolean = false) {
+    if (workspaceControlsUnavailable(screen)) return
     if (workspaceOpen?.isActive == true) return
     workspaceOpen = scope.launch {
       try {
-        withContext(Dispatchers.IO) {
-          workspaceGateway.call("openWorkspace", JSONObject()
-            .put("source", "home")
-            .put("threadId", screen.threadId)
-            .put("screenKey", screen.screenKey)
-            .put("generation", screen.generation))
+        val opened = withContext(Dispatchers.IO) {
+          val params = screen.leaseParams().put("source", "home")
+          if (takeControl) params.put("takeControl", true)
+          workspaceGateway.call("openWorkspace", params).getBoolean("opened")
         }
+        if (!opened) notice(context.getString(R.string.home_workspace_open_failed))
       } catch (_: IOException) {
         notice(context.getString(R.string.home_workspace_open_failed))
       } catch (_: JSONException) {
         notice(context.getString(R.string.home_workspace_open_failed))
+      } finally {
+        if (takeControl) workspaceRefresh.trySend(Unit)
+      }
+    }
+  }
+
+  internal fun launchWorkspace(key: String, label: String) {
+    drag.menu = null
+    if (workspaceLaunch?.isActive == true) return
+    workspaceLaunchFailure = null
+    notice(context.getString(R.string.home_workspace_launching, label))
+    workspaceLaunch = scope.launch {
+      try {
+        withContext(Dispatchers.IO) {
+          workspaceGateway.call("workspaces/launch", JSONObject().put("appId", key))
+        }
+        notice(context.getString(R.string.home_workspace_launched, label))
+      } catch (cancelled: kotlinx.coroutines.CancellationException) {
+        throw cancelled
+      } catch (failure: Exception) {
+        val code = (failure as? org.agentos.agent.home.assistant.GatewayException)?.code ?: "WORKSPACE_LAUNCH_FAILED"
+        val reason = when (code) {
+          "BACKGROUND_WORK_DISABLED" -> R.string.home_workspace_launch_disabled
+          "APP_NOT_ALLOWED" -> R.string.home_workspace_launch_blocked
+          "SCREEN_LIMIT_REACHED" -> R.string.home_workspace_launch_limit
+          "APP_IN_USE", "QUEUE_FULL", "WORKSPACE_EXECUTION_BUSY", "WORKSPACE_EXECUTION_RESERVED" -> R.string.home_workspace_launch_busy
+          "APP_NOT_INSTALLED", "APP_NOT_LAUNCHABLE", "APP_DISABLED", "APP_SUSPENDED", "INVALID_APP_ID" -> R.string.home_workspace_launch_app_unavailable
+          "APP_NOT_OPENED_ON_SCREEN", "OPEN_LANDED_ON_MAIN" -> R.string.home_workspace_launch_incompatible
+          "WORKSPACE_RUNTIME_UNAVAILABLE", "WORKSPACE_RUNTIME_BUSY", "GATEWAY_UNAVAILABLE", "RUNTIME_UNAVAILABLE" -> R.string.home_workspace_launch_runtime_unavailable
+          else -> R.string.home_workspace_launch_failed
+        }
+        workspaceLaunchFailure = context.getString(R.string.home_workspace_launch_error, label, context.getString(reason))
       }
     }
   }
@@ -249,13 +360,12 @@ class HomeController(val context: Context, val repo: FeedRepository, val pool: R
     private set
 
   /**
-   * Something Back would close is open: a card, Home or icon menu, a folder, Home or pin editing,
-   * a removal, hidden-apps or widget dialog. Otherwise the desktop is being browsed, and Home
-   * takes the side edges from the back gesture (HomeActivity) so they swipe between pages.
+   * Home takes the side edges from the back gesture for paging when Back has nothing to close.
    */
   val backTargetOpen: Boolean
     get() = menu != null || homeMenu != null || drag.menu != null || openFolderId != null || editingHome || editingPins ||
-      removingApp != null || showingHiddenApps || showingWidgetPicker || resizingWidget != null
+      removingApp != null || showingHiddenApps || showingWidgetPicker || resizingWidget != null ||
+      workspaceLaunchFailure != null || workspaceTakeover != null
   private val catalog = org.agentos.agent.home.apps.AppCatalog.get(context)
   private val layout = org.agentos.agent.home.apps.HomeLayoutRepository.get(context)
 
@@ -360,6 +470,9 @@ class HomeController(val context: Context, val repo: FeedRepository, val pool: R
     assistant.open(EntryMode.Text)
   }
 
+  /** A finger is down on the entry: a hold may follow, so connect to the Audio Engine during the long-press wait. */
+  fun prepareVoiceHold() { assistant.prewarmVoice() }
+
   /** Long press on the entry: start listening (1-1). */
   fun startVoiceHold() {
     assistantExpanded = false
@@ -388,8 +501,18 @@ class HomeController(val context: Context, val repo: FeedRepository, val pool: R
   // ---- Launcher pages ---------------------------------------------------------------
 
   fun openSlot(slot: org.agentos.agent.home.apps.Slot, bounds: Rect) {
+    if (workspaceTakeover != null) return
     when (slot) {
-      is org.agentos.agent.home.apps.Slot.App -> catalog.launch(slot.key, android.graphics.Rect(bounds.left.toInt(), bounds.top.toInt(), bounds.right.toInt(), bounds.bottom.toInt()))
+      is Slot.App -> {
+        val screen = workspaceForApp(slot.key)
+        if (screen == null) {
+          catalog.launch(slot.key, android.graphics.Rect(bounds.left.toInt(), bounds.top.toInt(), bounds.right.toInt(), bounds.bottom.toInt()))
+        } else if (workspaceOpen?.isActive != true) {
+          val label = catalog.app(slot.key)?.label?.takeIf { it.isNotBlank() }
+            ?: slot.key.substringBefore('/')
+          workspaceTakeover = HomeWorkspaceTakeover(screen, label)
+        }
+      }
       is org.agentos.agent.home.apps.Slot.Folder -> openFolderId = slot.id
       is Slot.Widget -> Unit
     }
