@@ -1,6 +1,6 @@
 ---
 name: taku-open-access
-description: Use Android commands to inspect and operate Taku OS conversations, drafts, accounts, approvals, skills, plugins, Notebook, Memory, Audio, workspaces, Panels, Feed, widgets and the Dynamic Island. Also use it whenever the user asks to react to, like or put an emoji on their chat message (a reaction badge on the bubble, such as "add a 🎉 reaction" or "给这条消息点个赞") — reactions/set does that, so never just type the emoji or refuse.
+description: Use Android commands to inspect and operate Taku OS conversations, drafts, accounts, approvals, skills, plugins, Notebook, Memory, Audio, workspaces, Panels, Feed, widgets, automatic Camera Menu Scan and the Dynamic Island. Also use it whenever the user asks to react to, like or put an emoji on their chat message (a reaction badge on the bubble, such as "add a 🎉 reaction" or "给这条消息点个赞") — reactions/set does that, so never just type the emoji or refuse.
 ---
 
 # TakuOS open access
@@ -62,6 +62,18 @@ settings --user 0 get secure voice_interaction_service
 On supported ROMs the read-only product property and both role holders are `org.agentos.agent`. HOME resolves to `org.agentos.agent/.home.HomeActivity`. Both secure settings point to `org.agentos.agent/.home.assistant.SystemAssistantService`. Shell/root can repair with `cmd package set-home-activity --user 0 org.agentos.agent/org.agentos.agent.home.HomeActivity` and `cmd role add-role-holder --user 0 android.app.role.ASSISTANT org.agentos.agent`. Check command errors and re-read holders and the resolved component. Use the target Android user's ID when inspecting another user. An empty property indicates older images without the policy. On policy-enabled ROMs, clearing HOME restores Taku if available, while a missing/disabled Home uses Android recovery. Setup wizard and locked-user FallbackHome remain platform-owned.
 
 Open Home with `am start --user 0 -a android.intent.action.MAIN -c android.intent.category.HOME`. Use `taku_call "$A" system/open` for system AI input and `assistant/get` to confirm. `UNAVAILABLE` or `TIMEOUT` can indicate a failed handoff. `am start -a android.intent.action.VOICE_ASSIST -n org.agentos.agent/.home.HomeActivity` can activate the microphone. Cancel with `assistant/voice-cancel`.
+
+### Automatic Camera Menu Scan
+
+```sh
+C=content://org.agentos.agent.menu-capture
+taku_call "$C" status
+taku_call "$C" setEnabled '{"enabled":false}'
+```
+
+`status` takes no argument or an empty object. `setEnabled` takes one Boolean `enabled`. Both return `{enabled,lastScan}`. The setting defaults to enabled and persists per Android user. `lastScan` describes this Agent process and can be `idle`, `scanning`, `menu`, `no_menu`, `failed` or `cancelled`. Disabling prevents automatic OCR on subsequent camera captures and discards results from a scan still running. The camera continues to save photos.
+
+Both operations require the ordinary `taku.control` permission. Errors are `PERMISSION_DENIED`, `INVALID_ARGUMENT`, `UNKNOWN_METHOD` and `SETTINGS_UNAVAILABLE`. The separate capture trigger accepts a photo descriptor only from the installed system Aperture camera while the device is unlocked. The settings operations expose no photo, OCR data, or way to trigger a scan.
 
 ### Taku recent tasks (Quickstep presentation)
 
@@ -250,6 +262,7 @@ taku_call "$D" composer/settle '{"threadId":"THREAD_UUID","requestId":"REQUEST_U
 taku_call "$D" composer/release '{"threadId":"THREAD_UUID","requestId":"REQUEST_UUID"}'
 taku_call "$D" composer/restore '{"threadId":"THREAD_UUID","expectedRevision":"REVISION","recoveryId":"RECOVERY_UUID"}'
 taku_call "$D" composer/restoreTask '{"threadId":"THREAD_UUID","expectedRevision":"REVISION","taskId":"TASK_ID"}'
+taku_call "$D" composer/restoreTask '{"threadId":"THREAD_UUID","expectedRevision":"SCRATCH_REVISION","taskId":"TASK_ID","afresh":true}'
 taku_call "$D" composer/preserveDraft '{"threadId":"THREAD_UUID","recoveryId":"RECOVERY_UUID","text":"An edit to keep"}'
 taku_call "$D" composer/handoff '{"threadId":"THREAD_UUID","handoffId":"HANDOFF_UUID","text":"A draft to review"}'
 taku_call "$D" interrupt '{"threadId":"THREAD_UUID","turnId":"ACTIVE_TURN_ID"}'
@@ -268,6 +281,8 @@ Use a lowercase conversation UUID or `threadId:""` for the new-chat slot. Locked
 `composer/plugin/add` attaches an installed, enabled God Mode plugin (the composer's `@` picker; list candidates with `pluginManager` `list`) to the next message; `composer/plugin/remove` detaches it. `pluginId` matches `[A-Za-z0-9_.@:-]{1,128}` (`INVALID_ARGUMENT`). Unknown, disabled or unreachable plugins, and removing one not in the draft, return `PLUGIN_UNAVAILABLE`; more than four returns `PLUGIN_LIMIT`. Re-adding a present plugin keeps the revision. Submit the draft's plugin IDs as optional `pluginIds` (same codes); the turn then gets `The user attached the plugin "NAME" (id: ID) to this message. Prefer this plugin's tools for this request: TOOLS.` after the text, and acceptance removes them from the draft. Plugins alone are `INVALID_TEXT`.
 
 Submit attachment IDs in order; attachment-only messages are valid. For follow-ups use `action:"steer",expectedTurnId`; for Panel updates use `action:"continue",panelId,expectedSourceVersion`. Request IDs are replayable only for identical input (`REQUEST_ID_REUSED`). Check `composer/receipt` after IPC loss: queued/accepted means published, notSent means rejected, missing/deliveryUnknown require review. Settle applies a confirmed receipt to its original revision; release preserves content and unlocks editing. Handoff saves a displaced draft and deduplicates identical handoff IDs. Restore into empty drafts using a recovery entry or a same-thread failed/needs_user task. Re-read after `DRAFT_NOT_EMPTY`, `RECOVERY_UNAVAILABLE` or `TASK_FAILURE_CHANGED`.
+
+`composer/restoreTask` with optional `afresh:true` restores the same request and attachments into the empty new-conversation draft. Read its current revision with `composer/read {"threadId":""}` and keep `threadId` set to the conversation that owns the failed task.
 
 Options accept `model,effort,serviceTier,multiAgentMode,permissionMode,responseStyle`; null clears the override. Read `options,effective,models` for available values. Errors: `MODEL_UNAVAILABLE`, `EFFORT_UNSUPPORTED`, `SERVICE_TIER_UNSUPPORTED`. The composer screenshot switch is distinct from Android privacy. Its read/write return `{enabled}`; setter needs boolean `enabled`, errors `INVALID_ARGUMENT/SETTINGS_WRITE_FAILED`. Authorized invocation images last two minutes; `SCREENSHOT_UNAVAILABLE` returns notSent and retains the draft. Reinvoke or turn the preference off. Receipt reads perform no capture or send.
 

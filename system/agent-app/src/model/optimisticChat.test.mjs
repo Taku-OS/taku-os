@@ -13,6 +13,22 @@ const turn = (items = [], status = 'inProgress', id = 'turn') => ({id, status, i
 const begin = (view = session(), extra = {}) => beginOptimisticSubmission({threadId: 't', requestId: 'r', text: prompt, action: 'sendMessage', ...extra}, view, 100);
 const visible = (view, request) => chatPresentation(view.blocks, [request]);
 
+test('queued menu handoff shows only the utterance and reconciles with its native user message', () => {
+  const utterance = 'Build a menu app for me';
+  const fullPrompt = `${utterance.toUpperCase()}\n\n[taku.menu-context/1]\nPrivate menu context`;
+  const queued = session([], {task: {id: '123', state: 'queued', published: true}, request: {prompt: fullPrompt}});
+  const request = recoverQueuedSubmission(queued, [], 100);
+  assert.equal(visible(queued, request).find(block => block.role === 'user').text, utterance);
+  assert.equal(visible(queued, begin(queued, {text: fullPrompt}))[0].text, utterance);
+
+  const running = session([turn([user('u', fullPrompt)])], {
+    task: {id: '123', state: 'running', published: true}, runtime: {turnId: 'turn'},
+  });
+  const reconciled = reconcileOptimisticSubmission(request, running, 200);
+  assert.equal(reconciled.userBlockId, 'turn/u');
+  assert.deepEqual(visible(running, reconciled).filter(block => block.role === 'user').map(block => block.text), [utterance]);
+});
+
 test('both rows exist before any gateway result and keep their keys through every native stage', () => {
   let request = begin();
   const keys = visible(session(), request).map(block => block.id);
@@ -71,6 +87,17 @@ test('completed empty native output cannot leave a spinner', () => {
   const request = reconcileOptimisticSubmission(begin(), view, 200);
   assert.equal(visible(view, request)[1].responseErrorKey, 'replyFailed');
   assert.equal(visible(view, request)[1].responsePending, false);
+});
+
+test('an installed menu app card settles a reply even when there is no visible answer text', () => {
+  const packageName = `org.agentos.generated.menu.m${'01'.repeat(16)}`;
+  const receipt = {...reply(`taku-menu-app:${packageName}`), phase: 'final_answer'};
+  const view = session([turn([user(), receipt], 'completed')]);
+  const submission = reconcileOptimisticSubmission(begin(), view, 200);
+  const card = visible(view, submission)[1];
+  assert.equal(card.parts[0].menuAppPackage, packageName);
+  assert.equal(card.responsePending, false);
+  assert.equal(card.responseErrorKey, undefined);
 });
 
 test('repeated prompt matches only records after the submission baseline', () => {

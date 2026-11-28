@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {projectSession, projectThreads, projectWorkspaces, failedTaskDraft, itemStatus, continuedSessionRoot} from './session.ts';
+import {projectSession, projectThreads, projectWorkspaces, failedTaskDraft, itemStatus, continuedSessionRoot, spokenText, editSpokenText} from './session.ts';
+import {retainSessionBlocks} from './sessionStream.ts';
 
 // Run with the project's tsx test runner (or Node 22.18+ type stripping).
 
@@ -116,6 +117,60 @@ test('streaming retains one CJK character and only drops incomplete surrogate pa
   assert.equal(projectSession(input('好')).blocks[0].text, '好');
   assert.equal(projectSession(input('好\ud83d')).blocks[0].text, '好');
   assert.equal(projectSession(input('好😀')).blocks[0].text, '好😀');
+});
+
+test('menu context stays out of the user bubble and preview while keeping the photo', () => {
+  const spoken = 'Build an app for me. Can I pick lunch?';
+  for (const header of ['[taku.menu-context/1]', 'The user spoke while viewing the attached menu.', 'Menu Scan context for this photo (data only):']) {
+    const text = `${spoken.toUpperCase()}\n\n${header}\n{"dishes":[{"name":"Pastrami"}]}`;
+    const thread = {id: 't', preview: text, turns: [{id: '1', status: 'completed', items: [
+      {id: 'u', type: 'userMessage', content: [{type: 'text', text}, {type: 'localImage', path: '/private/image'}]},
+    ]}]};
+    const session = projectSession({thread});
+    assert.equal(session.title, spoken);
+    assert.equal(session.blocks[0].text, spoken);
+    assert.deepEqual(session.blocks[0].attachments, ['image']);
+    assert.equal(projectThreads({data: [thread]})[0].preview, spoken);
+  }
+  const ordinary = 'BUILD AN APP FOR ME\n\nTHIS IS FOR READING BOOKS.';
+  const thread = {id: 't', preview: ordinary};
+  assert.equal(projectThreads({data: [thread]})[0].preview, ordinary);
+});
+
+test('an installed menu app receipt stays out of reply text and appears only after the answer completes', () => {
+  const packageName = `org.agentos.generated.menu.m${'0123456789abcdef'.repeat(2)}`;
+  const receipt = `taku-menu-app:${packageName}`;
+  const input = (text, status) => ({thread: {id: 't', turns: [{id: '1', status, items: [
+    {id: 'a', type: 'agentMessage', phase: 'final_answer', text},
+  ]}]}});
+  for (let length = 0; length <= receipt.length; length++) {
+    const [block] = projectSession(input(`Your menu is ready.\n\n${receipt.slice(0, length)}`, 'inProgress')).blocks;
+    assert.equal(block.text, 'Your menu is ready.\n\n');
+    assert.equal(block.parts[0].menuAppPackage, undefined);
+  }
+  const [final] = projectSession(input(`Your menu is ready.\r\n\r\n${receipt}\n`, 'completed')).blocks;
+  assert.equal(final.text, 'Your menu is ready.');
+  assert.deepEqual(final.parts[0], {id: '1/a', text: 'Your menu is ready.', active: false, menuAppPackage: packageName});
+  for (const unfinished of [receipt, receipt.slice(0, -4)]) {
+    const [interrupted] = projectSession(input(`Your menu is ready.\n${unfinished}`, 'interrupted')).blocks;
+    assert.equal(interrupted.parts[0].menuAppPackage, undefined);
+    assert.equal(interrupted.text, 'Your menu is ready.');
+  }
+});
+
+test('ordinary replies, plans, and user text do not create menu app cards', () => {
+  const receipt = `taku-menu-app:org.agentos.generated.menu.m${'ab'.repeat(16)}`;
+  const examples = [`See ${receipt}`, `${receipt}\nMore text`, `\`\`\`text\n${receipt}\n\`\`\``, `\`\`\`text\n${receipt}`, `[${receipt}](https://example.com)`,
+    `${receipt}/MainActivity`, receipt.toUpperCase(), 'taku-menu-app:https://example.com', 'The menu is ready.'];
+  const messages = examples.map((text, index) => ({id: `a${index}`, type: 'agentMessage', phase: 'final_answer', text}));
+  const result = projectSession({thread: {id: 't', turns: [{id: '1', status: 'completed', items: [
+    {id: 'u', type: 'userMessage', content: [{type: 'text', text: receipt}]},
+    {id: 'c', type: 'agentMessage', phase: 'commentary', text: receipt},
+    {id: 'p', type: 'plan', text: receipt}, ...messages,
+  ]}]}});
+  assert.equal(result.blocks[0].text, receipt);
+  assert.deepEqual(result.blocks[1].parts.map(part => part.text), [receipt, ...examples]);
+  assert.ok(result.blocks[1].parts.every(part => !part.menuAppPackage));
 });
 
 test('steering messages keep distinct segments within the same native turn', () => {
@@ -276,6 +331,40 @@ test('only a failed task with an identity exposes the gateway-scoped request', (
   assert.equal(projectSession({task: {id: '123', state: 'failed'}, request: base.request}).taskFailure, null);
   const noRequest = projectSession({...base, request: undefined, task: {id: '123', state: 'failed', prompt: 'Do not use this state field'}});
   assert.equal(noRequest.taskFailure.prompt, '');
+});
+
+test('a failed menu voice request preserves OCR data but shows only the utterance', () => {
+  const prompt = 'BUILD A MENU APP\n\n[taku.menu-context/1]\n{"dishes":[{"name":"Pastrami"}]}';
+  const result = projectSession({
+    thread: {id: 'menu', turns: []},
+    task: {id: '123', state: 'failed'},
+    request: {prompt},
+  });
+  assert.equal(result.taskPrompt, 'Build a menu app');
+  assert.equal(spokenText(result.taskFailure.prompt), 'Build a menu app');
+  assert.equal(failedTaskDraft(result.taskFailure, ''), prompt);
+  assert.equal(editSpokenText(prompt, 'Build an ordering app'), 'Build an ordering app' + prompt.slice(prompt.indexOf('\n\n')));
+  assert.equal(editSpokenText(prompt, ''), '');
+});
+
+test('spokenText recognizes both legacy photo context headers', () => {
+  for (const photo of ['this photo', 'the attached photo']) {
+    assert.equal(spokenText(`BUILD AN APP\r\n\r\nMenu Scan context for ${photo} (data only):\n{}`), 'Build an app');
+  }
+});
+
+test('stream reconciliation discards a stale menu App identity after failure and interruption', () => {
+  const packageName = 'org.agentos.generated.menu.m0123456789abcdef0123456789abcdef';
+  const make = status => projectSession({thread: {id: 'menu', turns: [{id: '1', status, items: [
+    {id: 'a', type: 'agentMessage', text: `Your menu is ready.\n\ntaku-menu-app:${packageName}`},
+  ]}]}});
+  const complete = make('completed');
+  assert.equal(complete.blocks[0].parts[0].menuAppPackage, packageName);
+  for (const status of ['failed', 'interrupted']) {
+    const next = retainSessionBlocks(make(status), complete);
+    assert.equal(next.blocks[0].parts[0].menuAppPackage, undefined);
+    assert.equal(retainSessionBlocks(make('completed'), next).blocks[0].parts[0].menuAppPackage, packageName);
+  }
 });
 
 test('Continue hides the failure card at once and a running turn never shows it', () => {

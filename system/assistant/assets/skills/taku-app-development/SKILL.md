@@ -1,6 +1,6 @@
 ---
 name: taku-app-development
-description: Develop or modify applications on Taku Android. Use when the user wants a lightweight app, native APK, preview, upgrade or callable application API; choose a route from actual device tools and the requested app experience.
+description: Develop or modify applications on Taku Android, including an ordering app from a scanned or attached menu photo. Choose a route from the actual device tools and the requested app experience.
 ---
 
 Use the current Taku conversation and existing execution tools. Inspect the Harness environment and actual paths before choosing a route. Do not start another model process.
@@ -16,12 +16,22 @@ interruption, approval waiting and changing turns also suppress the capsule auto
 The marker affects presentation only; it never starts a build or changes task execution.
 If the current UI session is unavailable, continue the actual work without inventing a status.
 
-Choose based on the task:
+When the user asks to build an ordering app from a menu, follow
+[the Menu Scan workflow](references/menu-scan.md). A request such as "Build an app for me"
+also qualifies when the current turn supplies a readable menu as its source and the user gives
+no other purpose. Use the same installed template for both Menu Scan and manually attached
+menu photos. Use the photo and any available OCR rows for content and estimate serving nutrition.
+If a branch is identified, run the source lookup in that workflow before building the app.
+
+For requests outside the Menu Scan workflow, choose based on the task:
 - Lightweight utility or interactive page: when the React app-kit host, esbuild and API service are actually installed, write real JSX and business code. Read the kit's generation-contract.txt and relevant seed interfaces before using them. UI and Agent calls share the business API.
 - Native Android components or standalone native APK: use the prepared on-device Java toolchain. Read [native.md](references/native.md) for its invocation and acceptance boundary.
 - Doric and HapJS are historical alternatives. Use them only when the required host/toolchain is present and they suit the user request; do not imply that they ship with every Taku image.
 
-Keep source, app data and build artifacts in the selected application's directory. Generate project-specific business logic rather than filling a fixed configuration. Preserve existing application data on requested updates. Distinguish build success, installation, UI interaction and actual system/API results. A generated ordinary APK does not inherit Agent root permissions.
+Keep source, app data and build artifacts in the selected application's directory. Generate
+project-specific business logic for general app development. Preserve existing application data
+on requested updates. Distinguish build success, installation, UI interaction and actual
+system/API results. A generated ordinary APK does not inherit Agent root permissions.
 
 When tools or dependencies are absent, identify the missing component explicitly and use an available route that still meets the request, or explain the required setup. Do not copy account state or personal signing material. Do not claim every Android API or arbitrary Gradle project is supported.
 

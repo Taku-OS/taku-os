@@ -12,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import org.agentos.agent.home.TakuCallerAccess
 import org.agentos.agent.home.snapshot
 
 /**
@@ -26,7 +27,11 @@ class HomeAssistantProvider : ContentProvider() {
     val out = Bundle()
     val callerUid = Binder.getCallingUid()
     val appCtx = context
-    if (appCtx != null && !org.agentos.agent.home.TakuCallerAccess.isAllowed(appCtx, callerUid)) {
+    val allowed = appCtx == null || allowsHomeAssistantCall(method,
+      systemGesture = { TakuCallerAccess.canDeliverSystemGesture(appCtx, callerUid, Binder.getCallingPid(), callingPackage) },
+      permitted = { TakuCallerAccess.isAllowed(appCtx, callerUid) },
+    )
+    if (!allowed) {
       out.putString("result", JSONObject().put("ok", false).put("code", "PERMISSION_DENIED").put("message", "Assistant access denied by App Permission Center").toString())
       return out
     }
@@ -165,3 +170,6 @@ class HomeAssistantProvider : ContentProvider() {
     const val HOME_ACTIVITY = "org.agentos.agent.home.HomeActivity"
   }
 }
+
+internal fun allowsHomeAssistantCall(method: String, systemGesture: () -> Boolean, permitted: () -> Boolean): Boolean =
+  method == "gesture/event" && systemGesture() || permitted()

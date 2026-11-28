@@ -14,6 +14,8 @@ import org.json.JSONObject
  */
 internal object TakuCallerAccess {
   private val GATE_URI = Uri.parse("content://org.agentos.assistant.permissions")
+  private const val QUICKSTEP_PACKAGE = "com.android.launcher3"
+  private const val MONITOR_INPUT = "android.permission.MONITOR_INPUT"
 
   /**
    * Root, system, ADB shell, this app, and platform-signed components: the callers that may
@@ -27,6 +29,12 @@ internal object TakuCallerAccess {
     val pm = context.packageManager
     val pkgs = pm.getPackagesForUid(callerUid) ?: return false
     return pkgs.any { pm.checkSignatures(context.packageName, it) == PackageManager.SIGNATURE_MATCH }
+  }
+
+  fun canDeliverSystemGesture(context: Context, callerUid: Int, callerPid: Int, callerPackage: String?): Boolean {
+    // The ROM's Quickstep owns navigation gestures and is signed separately from TakuAgent.
+    return isTrusted(context, callerUid) || callerPackage == QUICKSTEP_PACKAGE &&
+      context.checkPermission(MONITOR_INPUT, callerPid, callerUid) == PackageManager.PERMISSION_GRANTED
   }
 
   fun isAllowed(context: Context, callerUid: Int, scope: String = "taku.control"): Boolean {

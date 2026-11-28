@@ -4,6 +4,7 @@ import android.content.ContentResolver
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.os.Bundle
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.IOException
@@ -20,9 +21,9 @@ class AgentGateway(private val resolver: ContentResolver) {
   private val uri = Uri.parse("content://$AUTHORITY")
 
   /** Returns `result` of a `{ok:true,result}` envelope; throws [GatewayException] otherwise. */
-  fun call(action: String, params: JSONObject = JSONObject()): JSONObject {
+  fun call(action: String, params: JSONObject = JSONObject(), extras: Bundle? = null): JSONObject {
     val bundle = try {
-      resolver.call(uri, action, params.toString(), null)
+      resolver.call(uri, action, params.toString(), extras)
     } catch (e: RuntimeException) {
       throw GatewayException("GATEWAY_UNAVAILABLE", e.message ?: "Taku Agent gateway is unavailable")
     } ?: throw GatewayException("GATEWAY_UNAVAILABLE", "Taku Agent gateway is unavailable")

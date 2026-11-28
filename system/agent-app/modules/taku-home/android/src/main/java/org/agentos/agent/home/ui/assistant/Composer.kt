@@ -100,7 +100,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Color
 
 /**
  * The text input (1-2 → 1-3, dictation 1-5). Opening pops a glass capsule off the top of the
@@ -305,7 +304,9 @@ private fun DictationLine(text: String) {
         drawContent()
         if (overflowing) {
           val fade = minOf(90.dp.toPx(), size.width)
-          drawRect(Brush.horizontalGradient(0f to Color.Black.copy(alpha = 0.24f), fade / size.width to Color.Black), blendMode = BlendMode.DstIn)
+          val mask = colors.textSecondary
+          drawRect(Brush.horizontalGradient(0f to mask.copy(alpha = 0.24f), fade / size.width to mask.copy(alpha = 1f)),
+            blendMode = BlendMode.DstIn)
         }
       }
       .horizontalScroll(scroll, enabled = false),

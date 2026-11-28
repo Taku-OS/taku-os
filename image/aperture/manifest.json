@@ -1,0 +1,16 @@
+{
+  "upstreamCommit": "485c98def2f18bf2245a1aa17464a29fa92ec8fa",
+  "patchSha256": "28e94f0dac37efc9ca9b982ed9a75ddd96c3ed4133107fd1280e7f05c9c82c11",
+  "files": [
+    {
+      "path": "app/src/main/AndroidManifest.xml",
+      "beforeSha256": "bfe468080fe590604c9b29cb2aebbf26eddff0bee862a5970043f0da03ff9da1",
+      "afterSha256": "63edd687d84b2c903b74545ee44c8cac26b10ee39e986cd7941d767c9f10e68e"
+    },
+    {
+      "path": "app/src/main/java/org/lineageos/aperture/CameraActivity.kt",
+      "beforeSha256": "ed7caf73f1bf7fb7758e56762253caecd57393ed9c992ce7ebca618119fe7402",
+      "afterSha256": "7d7968eec28dead7bff40ec55e5a4d1e5f884ebc14c802bab843ab2cfcb754a1"
+    }
+  ]
+}

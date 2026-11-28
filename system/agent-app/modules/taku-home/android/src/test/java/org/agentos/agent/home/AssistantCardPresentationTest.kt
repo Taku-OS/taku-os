@@ -10,12 +10,14 @@ class AssistantCardPresentationTest {
   @Test fun holdSaysListeningOnlyOnceTheMicrophoneRecords() {
     val hold = AssistantState(entry = EntryMode.Voice)
     val preparing = VoiceState(operationId = 1, target = VoiceTarget.Hold, phase = VoicePhase.Preparing)
-    assertEquals("no listening cue before the microphone records", "", assistantCardHeadline(hold, preparing))
-    assertEquals("Taku is listening...", assistantCardHeadline(hold, preparing.copy(phase = VoicePhase.Capturing)))
+    val capturing = preparing.copy(phase = VoicePhase.Capturing)
+    assertEquals("Starting microphone…", assistantCardHeadline(hold, preparing))
+    assertEquals("Starting microphone…", assistantCardHeadline(hold, capturing))
+    assertEquals("Taku is listening...", assistantCardHeadline(hold, capturing.copy(levels = listOf(0f))))
   }
-  @Test fun holdEntryShowsOnlyListeningTextEvenWithAnOlderReply() {
+  @Test fun holdEntryShowsMicrophoneStartupEvenWithAnOlderReply() {
     val old = TurnView("old", "old headline", false, false, "old question", "old reply", emptyList(), emptyList())
-    assertEquals("Taku is listening...", assistantCardHeadline(AssistantState(entry = EntryMode.Voice, turn = old), VoiceState()))
+    assertEquals("Starting microphone…", assistantCardHeadline(AssistantState(entry = EntryMode.Voice, turn = old), VoiceState()))
   }
   @Test fun completedTurnUsesTheActualReplyInsteadOfAHeadlineOrGreeting() {
     val turn = TurnView("turn", "summary", false, false, "question", "The actual agent response.", emptyList(), emptyList())

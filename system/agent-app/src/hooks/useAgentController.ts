@@ -6,7 +6,7 @@ import {getPanel} from '../panels/client';
 import {callAgent, closeAgent, consumePanelLaunch, isPanelLaunchConsumed, launchPanelTarget, launchThreadId, newRequestId, onOpenThread, selectConversation, setHandoffCandidate, subscribeSession, watchConversationVisible, AgentGatewayError, type PanelTarget} from '../native/agent';
 import {handoffCandidate, sendInFlight} from '../model/islandHandoff';
 import {onComposerAttachment, pickComposerAttachment, type ComposerPickerKind} from '../native/composerPicker';
-import {continuedSessionRoot, projectSession, projectThreads, projectWorkspaces, record, string, type Json, type SessionView, type ThreadSummary, type WorkspaceView} from '../model/session';
+import {continuedSessionRoot, editSpokenText, hasMenuContext, projectSession, projectThreads, projectWorkspaces, record, spokenText, string, type Json, type SessionView, type ThreadSummary, type WorkspaceView} from '../model/session';
 import {isAcceptedReceipt, isNotSentReceipt, pendingKey, preserveAndReleaseUnconfirmed, unconfirmedArchivePrefix, type PendingSubmission} from './submission';
 import {ComposerDraft, isDraftRevisionConflict, parseComposerSnapshot, type ComposerSnapshot, type ComposerSubmission} from './composerDraft';
 import {readCurrent, restoreConversation} from './readLifecycle';
@@ -187,7 +187,7 @@ export function useAgentController() {
 
   const showDraft = useCallback((text: string) => {
     draftRef.current = text;
-    setDraft(text);
+    setDraft(spokenText(text));
   }, []);
 
   const saveDraft = useCallback(async (id: string, value: string) => {
@@ -213,15 +213,15 @@ export function useAgentController() {
   const draftSelection = generation.current;
   const updateDraft = useCallback((value: string) => {
     if (!draftReady.current || actionRunning.current || generation.current !== draftSelection || selectedRef.current !== selected) return false;
-    void saveDraft(selected, value).catch(() => {});
+    void saveDraft(selected, editSpokenText(draftRef.current, value)).catch(() => {});
     return true;
   }, [draftSelection, saveDraft, selected]);
 
   const applyDictation = useCallback(async (value: string, expected: {threadId: string; revision: string; text: string}) => {
     if (!draftReady.current || actionRunning.current || generation.current !== draftSelection ||
-        selectedRef.current !== expected.threadId || draftRef.current !== expected.text) return false;
-    const slot = composer(expected.threadId);
-    const applied = await slot.applyDictation(value, expected);
+        selectedRef.current !== expected.threadId || spokenText(draftRef.current) !== expected.text) return false;
+    const original = draftRef.current, slot = composer(expected.threadId);
+    const applied = await slot.applyDictation(editSpokenText(original, value), {...expected, text: original});
     if (mounted.current && generation.current === draftSelection) {
       setDraftSnapshot(slot.snapshot);
       showDraft(slot.text);
@@ -937,17 +937,27 @@ export function useAgentController() {
    * claims its new thread. [carry] is the request that failed there; it comes along as a draft
    * unless one is already waiting in the new conversation.
    */
-  const startMainAfresh = useCallback((carry = '') => {
+  const startMainAfresh = useCallback((carry = '', taskId?: string) => {
     void run(async () => {
+      const restoreMenu = hasMenuContext(carry);
+      if (restoreMenu) {
+        const source = selectedRef.current, session = sessionRef.current;
+        if (!taskId || session?.id !== source || session.taskFailure?.taskId !== taskId)
+          throw new AgentGatewayError('Task changed', 'TASK_FAILURE_CHANGED');
+        const fresh = composer('');
+        await fresh.restore();
+        await fresh.mutate(async ({revision}) => parseComposerSnapshot(
+          await callAgent('composer/restoreTask', {threadId: source, expectedRevision: revision, taskId, afresh: true}), ''));
+      }
       persistPrimaryThread('');
       selectConversation(null);
       assignPanelTarget(null);
       launchFailure.current = null;
       pendingOpen.current = '';
       await select('');
-      if (carry.trim() && !draftRef.current.trim() && selectedRef.current === '') await saveDraft('', carry);
+      if (!restoreMenu && carry.trim() && !draftRef.current.trim() && selectedRef.current === '') await saveDraft('', carry);
     });
-  }, [assignPanelTarget, persistPrimaryThread, run, saveDraft, select]);
+  }, [assignPanelTarget, composer, persistPrimaryThread, run, saveDraft, select]);
 
   return {
     session, threads, workspaces, loading: loading || restoring, busy, error: draftError || error || selectionError || readError, draft,

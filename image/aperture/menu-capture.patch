@@ -1,0 +1,94 @@
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -27,6 +27,7 @@
+         android:maxSdkVersion="28" />
+
+     <queries>
++        <provider android:authorities="org.agentos.agent.menu-capture" />
+         <package android:name="com.google.android.apps.googlecamera.fishfood" />
+         <package android:name="com.google.android.googlequicksearchbox" />
+         <package android:name="org.lineageos.aperture.auto_generated_rro_product__" />
+diff --git a/app/src/main/java/org/lineageos/aperture/CameraActivity.kt b/app/src/main/java/org/lineageos/aperture/CameraActivity.kt
+--- a/app/src/main/java/org/lineageos/aperture/CameraActivity.kt
++++ b/app/src/main/java/org/lineageos/aperture/CameraActivity.kt
+@@ -6,7 +6,9 @@
+ package org.lineageos.aperture
+
+ import android.animation.ValueAnimator
++import android.app.ActivityOptions
+ import android.app.KeyguardManager
++import android.app.PendingIntent
+ import android.content.ClipData
+ import android.content.Intent
+ import android.content.pm.ActivityInfo
+@@ -22,6 +24,8 @@ import android.os.Bundle
+ import android.os.Handler
+ import android.os.Looper
+ import android.os.Message
++import android.os.Parcel
++import android.os.ResultReceiver
+ import android.provider.MediaStore
+ import android.util.Log
+ import android.view.GestureDetector
+@@ -684,6 +688,7 @@ open class CameraActivity : AppCompatActivity(R.layout.activity_camera) {
+                         is Event.PhotoCaptureStatus.ImageSaved -> {
+                             if (!viewModel.inSingleCaptureMode.value) {
+                                 onCapturedMedia(event.output.savedUri)
++                                event.output.savedUri?.let(::requestTakuMenuReview)
+                             } else {
+                                 event.output.savedUri?.let {
+                                     openCapturePreview(it, MediaType.PHOTO)
+@@ -1909,6 +1914,52 @@ open class CameraActivity : AppCompatActivity(R.layout.activity_camera) {
+         finish()
+     }
+
++    private var pendingMenuPhoto: Uri? = null
++
++    private fun requestTakuMenuReview(photo: Uri) {
++        if (Build.VERSION.SDK_INT < 36 || keyguardManager.isKeyguardLocked) return
++        pendingMenuPhoto = photo
++        val reply = object : ResultReceiver(Handler(Looper.getMainLooper())) {
++            override fun onReceiveResult(resultCode: Int, resultData: Bundle?) {
++                val review = resultData?.getParcelable("review", PendingIntent::class.java)
++                if (pendingMenuPhoto != photo) return
++                pendingMenuPhoto = null
++                if (resultCode != 1 || review == null || !hasWindowFocus() ||
++                    lifecycle.currentState != Lifecycle.State.RESUMED || keyguardManager.isKeyguardLocked
++                ) return
++                val options = ActivityOptions.makeBasic().setPendingIntentBackgroundActivityStartMode(
++                    ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_IF_VISIBLE
++                )
++                try {
++                    review.send(this@CameraActivity, 0, null, null, null, null, options.toBundle())
++                } catch (_: PendingIntent.CanceledException) {
++                }
++            }
++        }
++        // Only the framework receiver type is available to the remote class loader.
++        val parcel = Parcel.obtain()
++        val remoteReply = try {
++            reply.writeToParcel(parcel, 0)
++            parcel.setDataPosition(0)
++            ResultReceiver.CREATOR.createFromParcel(parcel)
++        } finally {
++            parcel.recycle()
++        }
++        lifecycleScope.launch(Dispatchers.IO) {
++            val endpoint = Uri.parse("content://org.agentos.agent.menu-capture")
++            try {
++                contentResolver.openFileDescriptor(photo, "r")?.use { descriptor ->
++                    contentResolver.call(endpoint, "scan", null, Bundle().apply {
++                        putParcelable("photo", descriptor)
++                        putParcelable("result", remoteReply)
++                    })
++                }
++            } catch (error: Exception) {
++                Log.d("TakuMenuCapture", "Menu review unavailable", error)
++            }
++        }
++    }
++
+     /**
+      * Method called when a new media have been successfully captured and saved.
+      * Keep track of media items captured while in a secure lockscreen state so that they

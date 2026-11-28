@@ -1,5 +1,6 @@
 package org.agentos.agent.home.assistant
 
+import org.agentos.agent.home.menuscan.MenuVoiceHandoff
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -184,9 +185,9 @@ object ThreadProjection {
   }
 
   private fun userMessageText(item: JSONObject): String? {
-    val content = item.optJSONArray("content") ?: return item.optString("text").ifEmpty { null }
+    val content = item.optJSONArray("content") ?: return MenuVoiceHandoff.spokenText(item.optString("text")).ifEmpty { null }
     val parts = (0 until content.length()).mapNotNull { content.optJSONObject(it) }.filter { it.optString("type") == "text" || it.optString("type") == "inputText" }
-    return parts.joinToString("\n") { it.optString("text") }.trim().ifEmpty { null }
+    return parts.joinToString("\n") { MenuVoiceHandoff.spokenText(it.optString("text")) }.trim().ifEmpty { null }
   }
 
   private fun running(item: JSONObject) = item.optString("status").let { it == "inProgress" || it == "in_progress" } ||

@@ -26,6 +26,8 @@ type AgentNativeModule = {
   submitSecretFields(fields: Record<string, string>, action: string, params: string): Promise<string>;
   collapseToIsland(threadId: string): Promise<void>;
   showKeyboard(): Promise<void>;
+  readMenuApp(packageName: string): Promise<MenuAppInfo | null>;
+  openMenuApp(packageName: string): Promise<boolean>;
   addListener(event: 'onSessionEventBatch', listener: (event: NativeSessionBatch) => void): {remove(): void};
   addListener(event: 'onMatterEventBatch', listener: (event: NativeMatterBatch) => void): {remove(): void};
   addListener(event: 'onOpenConversation', listener: () => void): {remove(): void};
@@ -43,6 +45,7 @@ type AgentNativeModule = {
 
 /** Where a desktop Continue came from. Only navigation context: the send still asks the gateway. */
 export interface PanelTarget {panelId: string; sourceVersion: number; originThreadId: string; launchId: string}
+export interface MenuAppInfo {title: string; coverUri?: string}
 
 const nativeModule = requireOptionalNativeModule<AgentNativeModule>('TakuAgent');
 
@@ -176,6 +179,14 @@ export const onOpenThread = (listener: (threadId: string, target: PanelTarget | 
   });
 
 export const selectConversation = (threadId: string | null) => requireAgentNative().selectConversation(threadId);
+
+export async function readMenuApp(packageName: string): Promise<MenuAppInfo | null> {
+  return (await requireAgentNative().readMenuApp(packageName)) ?? null;
+}
+
+export async function openMenuApp(packageName: string): Promise<boolean> {
+  return requireAgentNative().openMenuApp(packageName);
+}
 
 /**
  * The conversation whose turn is still running ("" for none). Leaving the chat hands it to the

@@ -30,7 +30,7 @@ Responses over 256 KiB return `{ok:true,resultUri:"content://org.agentos.assista
 | `composer/handoff` | `{threadId,handoffId,text}` | Draft snapshot after applying a handoff once and saving any displaced draft |
 | `composer/preserveDraft` | `{threadId,recoveryId,text}` | Draft snapshot after preserving an edit in recovery without changing the active text |
 | `composer/restore` | `{threadId,expectedRevision,recoveryId}` | Draft snapshot after restoring a saved draft into an empty editor |
-| `composer/restoreTask` | `{threadId,expectedRevision,taskId}` | Draft snapshot after restoring a failed task from that conversation |
+| `composer/restoreTask` | `{threadId,expectedRevision,taskId,afresh?}` | Restore the failed task's prompt and attachments into that conversation's empty draft. With `afresh:true`, restore into the empty new-conversation draft and pass that draft's revision. `threadId` still identifies the failed task's conversation. |
 | `composer/options/read`, `composer/options/write` | `{threadId}` or `{threadId,options}` | `{threadId,options,effective,models}`. `null` removes a thread override. |
 | `sendMessage` | `{threadId,text,requestId}` | `{threadId,requestId,taskId?,state,code?,replayed,createdAt}` |
 | `steer` | `{threadId,text,expectedTurnId,requestId}` | Durable `{requestId,threadId,state,code?,result?,replayed,createdAt}`; exact current turn required |

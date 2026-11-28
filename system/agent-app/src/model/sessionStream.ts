@@ -222,6 +222,7 @@ export function retainSessionBlocks(next: SessionView, prior: SessionView | null
     block.parts = block.parts.map(part => {
       const before = oldParts.get(part.id);
       return before && before.text === part.text && before.active === part.active && before.superseded === part.superseded
+        && before.menuAppPackage === part.menuAppPackage
         && (before.replyState === part.replyState || JSON.stringify(before.replyState) === JSON.stringify(part.replyState))
         && (before.card === part.card || JSON.stringify(before.card) === JSON.stringify(part.card)) ? before : part;
     });

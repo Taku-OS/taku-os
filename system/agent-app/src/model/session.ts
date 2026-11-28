@@ -2,6 +2,7 @@
 import {phoneToolKeys, phoneToolResultText} from './phoneTools.ts';
 import {isStateCardItem, parseUiRequest, type CardPresentation, type MainReply, type UiRequest} from './genui.ts';
 import {parseMainReply} from './genuiCompose.ts';
+import {menuAppReply} from './menuAppReply.ts';
 
 import {mcpPresentation, mcpTool} from './mcpTools.ts';
 
@@ -21,6 +22,7 @@ export interface MessagePart {
   text: string;
   active: boolean;
   card?: CardPresentation;
+  menuAppPackage?: string;
   replyState?: MainReply['lifecycle'];
   superseded?: boolean;
 }
@@ -111,6 +113,32 @@ export const list = (v: unknown): unknown[] => Array.isArray(v) ? v : [];
 export const string = (v: unknown): string => typeof v === 'string' ? v : '';
 const label = (v: unknown): string => { const s = string(v).trim(); return s === 'null' ? '' : s; };
 
+// MenuVoiceHandoff appends an internal context frame to the model's input on 1.4.1.
+const menuContextBoundary = /\r?\n\r?\n(?:\[taku\.menu-context\/1\]|The user spoke while viewing the attached menu\.|Menu Scan context for (?:this|the attached) photo \(data only\):)/;
+function menuContextStart(text: string): number {
+  const start = menuContextBoundary.exec(text)?.index ?? -1;
+  return start > 0 ? start : -1;
+}
+
+export function hasMenuContext(text: string): boolean {
+  return menuContextStart(text) >= 0;
+}
+
+export function editSpokenText(original: string, edit: string): string {
+  const start = menuContextStart(original);
+  return start >= 0 && edit.trim() ? edit + original.slice(start) : edit;
+}
+
+export function spokenText(text: string): string {
+  const start = menuContextStart(text);
+  if (start < 0) return text;
+  const utterance = text.slice(0, start);
+  if (!/\p{Lu}/u.test(utterance) || /\p{Ll}/u.test(utterance)) return utterance;
+  return utterance.toLowerCase()
+    .replace(/(^|[.!?]\s+)([^\p{L}\p{N}]*)(\p{Ll})/gu, (_, start, prefix, letter) => start + prefix + letter.toUpperCase())
+    .replace(/(^|[^\p{L}\p{N}_])i(?![\p{L}\p{N}_])/gu, '$1I');
+}
+
 /**
  * The session root right after Continue was accepted: the continuation (a new, published, queued
  * task) replaces the failed task, so the next projection shows the conversation running and no
@@ -195,7 +223,7 @@ function userContent(item: Json): {text: string; attachments: string[]} {
       if (attachment) attachments.push(attachment[1]);
       else if (plugin) attachments.push(`@${plugin[1]}`);
       else if (panelNote) continue;
-      else if (value) text.push(value);
+      else if (value) text.push(spokenText(value));
     } else if (part.type === 'image' || part.type === 'localImage') {
       // Keep attachment provenance without leaking a private local filesystem path.
       attachments.push('image');
@@ -280,14 +308,21 @@ export function projectSession(value: unknown): SessionView {
           if (shownReplies.has(replyId)) return;
           shownReplies.add(replyId);
           const reply = parseMainReply(replies[replyId], id, turnId);
-          if (reply && reply.id === replyId) parts.push({id: `${turnId}/reply/${reply.id}`, text: reply.readableText,
-            active: reply.lifecycle.phase === 'streaming' || reply.lifecycle.phase === 'sealed', replyState: reply.lifecycle,
-            ...(reply.card ? {card: {kind: 'primary', reply: reply as MainReply & {card: NonNullable<MainReply['card']>}} as CardPresentation} : {})});
+          if (reply && reply.id === replyId) {
+            const replyActive = reply.lifecycle.phase === 'streaming' || reply.lifecycle.phase === 'sealed';
+            const menu = menuAppReply(reply.readableText, active || replyActive, status !== 'completed' || reply.lifecycle.phase === 'interrupted');
+            const menuReceipt = menu.text !== reply.readableText || !!menu.menuAppPackage;
+            parts.push({id: `${turnId}/reply/${reply.id}`, ...menu,
+              active: replyActive, ...(!menu.menuAppPackage ? {replyState: reply.lifecycle} : {}),
+              ...(!menuReceipt && reply.card ? {card: {kind: 'primary', reply: reply as MainReply & {card: NonNullable<MainReply['card']>}} as CardPresentation} : {})});
+          }
           else {
             const readableText = string(record(replies[replyId]).readableText);
             const carrier = segment.find(source => source.replyId === replyId && source.text === readableText);
-            parts.push({id: `${turnId}/reply/${replyId}`, text: carrier && !readableText.startsWith('@taku.reply') ? readableText : '',
-              active: false, replyState: {phase: 'failed', code: 'INVALID_REPLY_VIEW'}});
+            const safeText = carrier && !readableText.startsWith('@taku.reply') ? readableText : '';
+            const menu = menuAppReply(safeText, active, status !== 'completed');
+            parts.push({id: `${turnId}/reply/${replyId}`, ...menu, active: false,
+              ...(!menu.menuAppPackage ? {replyState: {phase: 'failed' as const, code: 'INVALID_REPLY_VIEW'}} : {})});
           }
           return;
         }
@@ -300,10 +335,14 @@ export function projectSession(value: unknown): SessionView {
           card: {kind: 'matter', request: card, sourceId: `${turnId}/${label(item.id) || `part-${i}`}`}});
         else if (toolTypes.has(type) || commentary) activities.push(activity(item, turnId, outputs, i));
         else if (type === 'agentMessage' || type === 'plan') {
+          const statusOfItem = itemStatus(item);
           const itemActive = tail && active && item._streamCompleted !== true
-            && !['completed', 'failed', 'stopped'].includes(itemStatus(item));
-          const text = trimPartialSurrogate(string(item.text), itemActive);
-          if (text) parts.push({id: `${turnId}/${label(item.id) || `part-${i}`}`, text, active: itemActive});
+            && !['completed', 'failed', 'stopped'].includes(statusOfItem);
+          const rawText = trimPartialSurrogate(string(item.text), itemActive);
+          const reply = type === 'agentMessage'
+            ? menuAppReply(rawText, itemActive, [status, statusOfItem].some(value => value === 'failed' || value === 'stopped'))
+            : {text: rawText};
+          if (reply.text || reply.menuAppPackage) parts.push({id: `${turnId}/${label(item.id) || `part-${i}`}`, active: itemActive, ...reply});
         }
       });
       const primary = parts.find(part => part.card?.kind === 'primary')?.card;
@@ -331,6 +370,8 @@ export function projectSession(value: unknown): SessionView {
   const complete = root.historyComplete === true;
   const knownEmpty = root.knownEmpty === true && !blocks.length && !activeTurnId;
   const queued = task.published === true && ['queued', 'running'].includes(string(task.state)) && !activeTurnId;
+  const requestPrompt = string(record(root.request).prompt);
+  const taskPrompt = spokenText(requestPrompt);
   // The gateway only exposes task/request after matching request.conversationId to this thread.
   // Keep a failed TaskBroker submission separate from native turn/message history.
   const running = Boolean(activeTurnId) || blocks.some(b => b.active) || queued;
@@ -341,11 +382,11 @@ export function projectSession(value: unknown): SessionView {
   const superseded = failedTurnIndex >= 0 && failedTurnIndex < turns.length - 1
     && itemStatus(lastTurn) === 'completed';
   const taskFailure: TaskFailure | null = !running && !superseded && id && label(task.id) && ['failed', 'needs_user'].includes(string(task.state)) ? {
-    taskId: string(task.id), message: string(task.message), prompt: string(record(root.request).prompt),
+    taskId: string(task.id), message: string(task.message), prompt: requestPrompt,
     turnStarted: task.turnStarted === true || record(root.runtime).turnStarted === true,
   } : null;
   return {
-    id, title: label(thread.name) || label(thread.preview), blocks,
+    id, title: spokenText(label(thread.name) || label(thread.preview)), blocks,
     questions: list(native.requests).map(record).filter(q => label(q.key) && id && record(q.params).threadId === id)
       .map(q => ({key: string(q.key), method: string(q.method), params: record(q.params)})),
     running, activeTurnId, ready: native.ready === true,
@@ -355,7 +396,7 @@ export function projectSession(value: unknown): SessionView {
     totalTurns: typeof root.totalTurns === 'number' ? root.totalTurns : turns.length,
     nativeOnlyRequests: typeof native.unsupportedRequestCount === 'number' ? native.unsupportedRequestCount : 0,
     queued, taskId: string(task.id), taskState: string(task.state), taskFailure,
-    taskPrompt: string(record(root.request).prompt), taskTurnId: string(record(root.runtime).turnId),
+    taskPrompt, taskTurnId: string(record(root.runtime).turnId),
   };
 }
 
@@ -379,7 +420,7 @@ function supersedeCards(blocks: MessageBlock[]) {
 export function projectThreads(value: unknown): ThreadSummary[] {
   const root = record(value);
   return list(root.data || root.threads).map(record).filter(t => label(t.id)).map(t => ({
-    id: string(t.id), title: label(t.name) || label(t.preview), preview: label(t.preview),
+    id: string(t.id), title: spokenText(label(t.name) || label(t.preview)), preview: spokenText(label(t.preview)),
     updatedAt: typeof t.updatedAt === 'number' ? t.updatedAt : 0,
   }));
 }

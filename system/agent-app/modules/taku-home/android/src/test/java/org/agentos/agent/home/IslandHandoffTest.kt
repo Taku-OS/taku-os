@@ -7,8 +7,9 @@ import org.junit.Test
 class IslandHandoffTest {
   private fun home(threadId: String? = null, islandRequested: Boolean = false, cardExpanded: Boolean = false,
                    working: Boolean = false, needsUser: Boolean = false, entryOpen: Boolean = false,
-                   microphoneBusy: Boolean = false, liveTalk: Boolean = false) =
-    IslandHandoff.Home(threadId, islandRequested, cardExpanded, working, needsUser, entryOpen, microphoneBusy, liveTalk)
+                   microphoneBusy: Boolean = false, liveTalk: Boolean = false, preparingSubmission: Boolean = false) =
+    IslandHandoff.Home(threadId, islandRequested, cardExpanded, working, needsUser, entryOpen, microphoneBusy,
+      liveTalk, preparingSubmission)
 
   private fun busy(home: IslandHandoff.Home, thread: String = "chat") {
     try { IslandHandoff.admit(home, thread); fail("Home was replaced while busy: $home") }
@@ -45,6 +46,13 @@ class IslandHandoffTest {
       catch (e: AssistantException) { assertEquals("INVALID_ARGUMENT", e.code) }
     }
     assertTrue(IslandHandoff.validThread("019a2b3c-thread_1:2.x"))
+  }
+
+  @Test fun aHandoffCannotReplaceAComposerPreparingItsSubmission() {
+    busy(home(preparingSubmission = true))
+    busy(home(threadId = "chat", preparingSubmission = true))
+    assertEquals(IslandHandoff.Admission.ALREADY_SHOWN,
+      IslandHandoff.admit(home(threadId = "chat", islandRequested = true, preparingSubmission = true), "chat"))
   }
 
   @Test fun theAwaitedTurnRevealsOnlyOnceItFinishes() {

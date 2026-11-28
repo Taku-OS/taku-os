@@ -1,12 +1,15 @@
 package org.agentos.agent.home.assistant
 
 import android.content.Context
+import android.os.Bundle
+import android.os.ParcelFileDescriptor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
+import java.io.File
 
 internal class HomeComposer(
   context: Context,
@@ -15,6 +18,27 @@ internal class HomeComposer(
 ) {
   data class Attachment(val id: String, val name: String)
   data class Draft(val threadId: String, val revision: String, val text: String, val attachments: List<Attachment>, val pending: Request?)
+
+  class MenuSubmission(val text: String, private val photo: File, val invocationId: String? = null) {
+    private val handoffId = UUID.randomUUID().toString()
+    var threadId: String? = null
+      private set
+
+    fun canRetryAfter(code: String) = code != "ATTACHMENT_UNAVAILABLE"
+
+    suspend fun prepare(
+      create: suspend () -> String,
+      handoff: suspend (String, String, String) -> Draft,
+      attach: suspend (Draft, File) -> Draft,
+    ): Draft {
+      val id = threadId ?: create().also { threadId = it }
+      val draft = handoff(id, handoffId, text)
+      if (draft.text != text || draft.attachments.isNotEmpty() && draft.attachments.singleOrNull()?.name != MENU_PHOTO_NAME)
+        throw GatewayException("DRAFT_REVISION_CONFLICT", "The menu draft changed")
+      // If attach committed but its reply was lost, the same handoff returns that revision.
+      return if (draft.attachments.isEmpty()) attach(draft, photo) else draft
+    }
+  }
 
   data class Request(
     val threadId: String,
@@ -65,6 +89,17 @@ internal class HomeComposer(
       call("composer/handoff", params).draft(threadId)
     }
     return result
+  }
+
+  suspend fun attachMenuPhoto(draft: Draft, file: File): Draft = withContext(worker) {
+    val params = thread(draft.threadId).put("expectedRevision", draft.revision)
+      .put("name", MENU_PHOTO_NAME).put("mime", "image/jpeg")
+    val source = try { ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY) }
+    catch (_: java.io.FileNotFoundException) { throw GatewayException("ATTACHMENT_UNAVAILABLE", "The scanned menu photo expired") }
+    source.use { photo ->
+      val extras = Bundle().apply { putParcelable("attachment", photo) }
+      gateway.call("composer/attach", params, extras).draft(draft.threadId)
+    }
   }
 
   suspend fun restoreTask(draft: Draft, taskId: String): Draft = call("composer/restoreTask",
@@ -127,6 +162,8 @@ internal class HomeComposer(
   }
 
   companion object {
+    internal const val MENU_PHOTO_NAME = "Scanned menu.jpg"
+
     fun deliveryCouldBeUnknown(failure: Exception): Boolean {
       if (failure is CancellationException) throw failure
       return failure !is GatewayException || failure.code in setOf("GATEWAY_UNAVAILABLE", "INVALID_RESPONSE",

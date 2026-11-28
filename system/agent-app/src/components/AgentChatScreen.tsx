@@ -14,7 +14,7 @@ import {liveLightStyle, shouldShowLiveLight} from '../chat/liveGlow';
 import * as Haptics from 'expo-haptics';
 import {colors as baseColors, containsChinese, layout, typography, type TypeRole} from '../theme';
 import {languageFor, textFor, type Language, type TextKey} from '../i18n';
-import {activityName, list, record, string, type Activity, type Json, type MessagePart, type PendingQuestion, type SessionView, type ThreadSummary, type WorkspaceView} from '../model/session';
+import {activityName, list, record, spokenText, string, type Activity, type Json, type MessagePart, type PendingQuestion, type SessionView, type ThreadSummary, type WorkspaceView} from '../model/session';
 import {humanizeToolNames} from '../model/phoneTools';
 import {Icon, IconButton} from './Icon';
 import {chatPresentation, type ChatMessageBlock} from '../model/chatPresentation';
@@ -31,6 +31,7 @@ import {EdgeBlur} from '../native/EdgeBlur';
 import {ChatIcon} from '../chat/ChatIcon';
 import {chatBlur, chatColors, getChatAppearance, homeColors, chatMetrics, chatTitle, chatType, themed, themedStyles} from '../chat/chatTheme';
 import {chatText} from '../chat/chatText';
+import {MenuAppCard} from '../chat/MenuAppCard';
 import {useDictation, type DictationFailure} from '../chat/useDictation';
 import {failureOf, insertDictation, type DraftSelection} from '../chat/dictationText';
 import {useReplySpeechState, useVoiceChatFocus} from '../chat/useVoiceChatFocus';
@@ -108,7 +109,7 @@ export interface AgentChatScreenProps {
   isMainChat?: boolean;
   onSelectMainChat?: () => void;
   /** TAKU carries on in a new conversation, taking the given unsent request along as a draft. */
-  onStartMainAfresh?: (carry?: string) => void;
+  onStartMainAfresh?: (carry?: string, taskId?: string) => void;
   onCreateTaskThread?: () => void;
   onRefresh: () => void;
   onAnswer: (key: string, response: Json) => void;
@@ -144,13 +145,14 @@ function Label({children, role = 'body', style, ...props}: Omit<TextProps, 'role
 
 function OriginalRequestPreview({text, language}: {text: string; language: Language}) {
   const [expanded, setExpanded] = useState(false), t = textFor(language);
+  const visible = spokenText(text);
   return <>
     <Pressable accessibilityRole="button" accessibilityState={{expanded}} accessibilityLabel={t(expanded ? 'hideOriginalRequest' : 'showOriginalRequest')}
       onPress={() => setExpanded(!expanded)} style={styles.pendingPreviewToggle}>
-      <Label role="caption" numberOfLines={2} style={styles.flex}>{expanded ? t('originalRequest') : text}</Label>
+      <Label role="caption" numberOfLines={2} style={styles.flex}>{expanded ? t('originalRequest') : visible}</Label>
       <Icon name={expanded ? 'chevron_down' : 'chevron_right'} size={16} color={colors.secondary}/>
     </Pressable>
-    {expanded && <ScrollView style={styles.pendingPreviewExpanded} nestedScrollEnabled keyboardShouldPersistTaps="handled"><Label selectable role="caption">{text}</Label></ScrollView>}
+    {expanded && <ScrollView style={styles.pendingPreviewExpanded} nestedScrollEnabled keyboardShouldPersistTaps="handled"><Label selectable role="caption">{visible}</Label></ScrollView>}
   </>;
 }
 
@@ -216,17 +218,21 @@ function ActivityRow({item, language}: {item: Activity; language: Language}) {
 
 type ViewHandle = React.ComponentRef<typeof View>;
 
-const hasBody = (block: ChatMessageBlock) => !!block.text || !!block.parts?.some(part => part.card || part.replyState);
+const hasBody = (block: ChatMessageBlock) => !!block.text || !!block.parts?.some(part => part.card || part.menuAppPackage || part.replyState);
 
 
 function MessageBody({block, language, renderMarkdown, renderCard, demand}: {block: ChatMessageBlock; language: Language; renderMarkdown?: AgentChatScreenProps['renderMarkdown']; renderCard?: AgentChatScreenProps['renderCard']; demand: CardDemand}) {
-  if (!renderMarkdown) return <AssistantBubble><Label style={styles.replyText}>{block.text}</Label></AssistantBubble>;
-  return <View style={styles.messageParts}>{block.parts.map(part =>
-    <React.Fragment key={part.id}>{part.card && renderCard ? renderCard(part, language, demand) : <>
-      {!!part.text && <AssistantBubble>{renderMarkdown(part.text, part.active, part.id)}</AssistantBubble>}
-      {part.replyState && <Label role="meta" style={styles.secondary}>{textFor(language)(part.replyState.phase === 'interrupted' ? 'cardReplyInterrupted'
-        : part.replyState.phase === 'failed' ? 'cardPresentationFailed' : 'cardUpdating')}</Label>}
-    </>}</React.Fragment>)}</View>;
+  return <View style={styles.messageParts}>
+    {!renderMarkdown && !!block.text && <AssistantBubble><Label style={styles.replyText}>{block.text}</Label></AssistantBubble>}
+    {block.parts.map(part => <React.Fragment key={part.id}>
+      {renderMarkdown && (part.card && renderCard ? renderCard(part, language, demand) : <>
+        {!!part.text && <AssistantBubble>{renderMarkdown(part.text, part.active, part.id)}</AssistantBubble>}
+        {part.replyState && <Label role="meta" style={styles.secondary}>{textFor(language)(part.replyState.phase === 'interrupted' ? 'cardReplyInterrupted'
+          : part.replyState.phase === 'failed' ? 'cardPresentationFailed' : 'cardUpdating')}</Label>}
+      </>)}
+      {part.menuAppPackage && <MenuAppCard key={part.menuAppPackage} packageName={part.menuAppPackage} language={language}/>}
+    </React.Fragment>)}
+  </View>;
 }
 
 function Message({block, language, renderMarkdown, renderCard, expanded, thinkingExpanded, demand, onToggleActivity, onToggleThinking, onLongPressReply}: {block: ChatMessageBlock; language: Language; renderMarkdown?: AgentChatScreenProps['renderMarkdown']; renderCard?: AgentChatScreenProps['renderCard']; expanded: boolean; thinkingExpanded: boolean; demand: CardDemand; onToggleActivity: () => void; onToggleThinking: () => void; onLongPressReply?: (block: ChatMessageBlock, body: ViewHandle) => void}) {
@@ -961,7 +967,7 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
       {props.session?.questions.map(question => <PendingCard key={question.key} question={question} language={language} busy={props.busy} onAnswer={props.onAnswer} onOpenRequest={() => openRequests(question.key)}/>)}
       {!!props.session?.nativeOnlyRequests && <View style={styles.question}><Label role="label">{t('needsYou')}</Label><Pressable accessibilityRole="button" onPress={() => openRequests()} style={styles.answerButton}><Label role="meta">{language === 'zh' ? '查看待处理请求' : 'Review pending requests'}</Label></Pressable></View>}
       {taskFailure && <FailedTaskCard key={taskFailure.taskId} failure={taskFailure} language={language} busy={props.busy || props.loading} onRestore={props.onRestoreFailedTask}
-        afresh={isMainChat && sessionId && onStartMainAfresh ? {label: ct('continueAfresh'), hint: ct('continueAfreshHint'), run: () => onStartMainAfresh(taskFailure.prompt)} : undefined}/>}
+        afresh={isMainChat && sessionId && onStartMainAfresh ? {label: ct('continueAfresh'), hint: ct('continueAfreshHint'), run: () => onStartMainAfresh(taskFailure.prompt, taskFailure.taskId)} : undefined}/>}
       {props.recovery.map(entry => <View key={entry.id} style={styles.pendingSubmission}>
         {!!entry.text && <OriginalRequestPreview text={entry.text} language={language}/>}
         {entry.attachments.map(item => <Label key={item.id} role="caption">{item.name}</Label>)}

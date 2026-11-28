@@ -3,21 +3,40 @@
 set -eu
 LAB=/data/local/agentos/light-app-lab
 TOOLS="$LAB/toolchain"
+INSTALL_ONLY=false
+if [ "${1:-}" = --install-only ]; then
+  INSTALL_ONLY=true
+  shift
+fi
 PROJECT="${1:?Pass the generated application project directory}"
-DISPLAY="${TAKU_APP_DISPLAY:?Select the development display explicitly}"
-case "$DISPLAY" in ''|*[!0-9]*) echo 'Invalid display ID' >&2; exit 2;; esac
-cmd display get-displays --ids-only | grep -qx "$DISPLAY" || { echo 'Display unavailable' >&2; exit 1; }
-export LD_LIBRARY_PATH="$LAB/native/lib"
-export PATH="$LAB/native:/apex/com.android.art/bin:/system/bin:/system_ext/bin"
+if [ "$INSTALL_ONLY" = false ]; then
+  DISPLAY="${TAKU_APP_DISPLAY:?Select the development display explicitly}"
+  case "$DISPLAY" in ''|*[!0-9]*) echo 'Invalid display ID' >&2; exit 2;; esac
+  cmd display get-displays --ids-only | grep -qx "$DISPLAY" || { echo 'Display unavailable' >&2; exit 1; }
+fi
+export PATH="/apex/com.android.art/bin:/system/bin:/system_ext/bin"
+native_tool() {
+  tool="$1"
+  shift
+  LD_LIBRARY_PATH="$LAB/native/lib" "$LAB/native/$tool" "$@"
+}
 cd "$PROJECT"
 mkdir -p build/classes build/dex build/resources
-aapt2 link -I "$TOOLS/android.jar" --manifest AndroidManifest.xml -o build/unsigned.apk
+set -- -I "$TOOLS/android.jar" --manifest AndroidManifest.xml -o build/unsigned.apk
+if [ -d assets ]; then
+  set -- "$@" -A assets
+fi
+if [ -d res ]; then
+  native_tool aapt2 compile --dir res -o build/resources.zip
+  set -- "$@" build/resources.zip
+fi
+native_tool aapt2 link "$@"
 # Target the device's API level. Play Protect blocks apps "built for an older version of Android"
 # (INSTALL_FAILED_VERIFICATION_FAILURE, BUG-0043), and raising the target silently would change
 # behaviour the app's code was written for, so the manifest must state it. Read from the linked
 # manifest, so any valid XML spelling (quotes, spacing, line breaks) yields the same number.
 DEVICE_SDK=$(getprop ro.build.version.sdk)
-TARGET_SDK=$(aapt2 dump xmltree --file AndroidManifest.xml build/unsigned.apk |
+TARGET_SDK=$(native_tool aapt2 dump xmltree --file AndroidManifest.xml build/unsigned.apk |
   sed -n 's/.*android:targetSdkVersion([^)]*)=\([0-9][0-9]*\).*/\1/p' | head -n 1)
 case "$TARGET_SDK" in ''|*[!0-9]*)
   echo "BUILD_STATUS=target_sdk_missing DEVICE_SDK=$DEVICE_SDK: add <uses-sdk android:targetSdkVersion=\"$DEVICE_SDK\"/> to AndroidManifest.xml" >&2; exit 2;;
@@ -30,13 +49,13 @@ fi
 dalvikvm -Xmx512m -Djava.io.tmpdir="$PROJECT/build" -cp "$TOOLS/ecj.jar" org.eclipse.jdt.internal.compiler.batch.Main -proc:none -16 -cp "$TOOLS/android.classes.jar" -d build/classes $(find src -name '*.java')
 dalvikvm -Xmx512m -cp "$TOOLS/d8.dex" com.android.tools.r8.D8 --lib "$TOOLS/android.jar" --min-api 30 --output build/dex $(find build/classes -name '*.class')
 cp build/dex/classes.dex build/classes.dex
-(cd build && aapt add -f unsigned.apk classes.dex)
-zipalign -f 4 build/unsigned.apk build/aligned.apk
+(cd build && native_tool aapt add -f unsigned.apk classes.dex)
+native_tool zipalign -f 4 build/unsigned.apk build/aligned.apk
 dalvikvm -cp "$TOOLS/apksigner.dex" com.android.apksigner.ApkSignerTool sign --key "$TOOLS/debug.pk8" --cert "$TOOLS/debug.x509.pem" --out build/app.apk build/aligned.apk
 dalvikvm -cp "$TOOLS/apksigner.dex" com.android.apksigner.ApkSignerTool verify --verbose build/app.apk
-ACTIVITY=$(aapt dump badging build/app.apk | sed -n "s/^launchable-activity: name='\([^']*\)'.*/\1/p")
-PACKAGE=$(aapt dump badging build/app.apk | sed -n "s/^package: name='\([^']*\)'.*/\1/p")
-VERSION=$(aapt dump badging build/app.apk | sed -n "s/^package: .*versionCode='\([0-9]*\)'.*/\1/p")
+ACTIVITY=$(native_tool aapt dump badging build/app.apk | sed -n "s/^launchable-activity: name='\([^']*\)'.*/\1/p")
+PACKAGE=$(native_tool aapt dump badging build/app.apk | sed -n "s/^package: name='\([^']*\)'.*/\1/p")
+VERSION=$(native_tool aapt dump badging build/app.apk | sed -n "s/^package: .*versionCode='\([0-9]*\)'.*/\1/p")
 test -n "$ACTIVITY" && test -n "$PACKAGE"
 # Install, reporting one machine-readable INSTALL_STATUS line (BUG-0043): waiting_for_user while a
 # Play Protect / installer page has focus, then installed | cancelled | blocked | target_sdk_too_old
@@ -46,7 +65,12 @@ test -n "$ACTIVITY" && test -n "$PACKAGE"
 # still blocked.
 focus() { dumpsys window 2>/dev/null | sed -n 's/.*mCurrentFocus=Window{[^ ]* [^ ]* \([^}]*\)}.*/\1/p' | head -n 1; }
 BEFORE_FOCUS=$(focus)
-pm install -r build/app.apk > build/install.log 2>&1 &
+if [ "$INSTALL_ONLY" = true ]; then
+  set -- --user current
+else
+  set -- -r
+fi
+pm install "$@" build/app.apk > build/install.log 2>&1 &
 INSTALLER=$!
 WAITING=0
 while kill -0 "$INSTALLER" 2>/dev/null; do
@@ -81,5 +105,7 @@ else
       echo "INSTALL_STATUS=failed PACKAGE=$PACKAGE CODE=${CODE:-UNKNOWN}" >&2; exit 1;;
   esac
 fi
-am start --display "$DISPLAY" -n "$PACKAGE/$ACTIVITY"
+if [ "$INSTALL_ONLY" = false ]; then
+  am start --display "$DISPLAY" -n "$PACKAGE/$ACTIVITY"
+fi
 sha256sum build/app.apk
