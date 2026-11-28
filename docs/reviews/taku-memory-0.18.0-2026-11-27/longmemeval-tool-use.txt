@@ -1,8 +1,8 @@
 questions 500, with any call 500
-search: mean 1.64 per question, questions with any 500
-get: mean 0.10 per question, questions with any 41
-dated: mean 0.27 per question, questions with any 92
-taku_arg: mean 0.11 per question, questions with any 50
-taku_on: mean 0.11 per question, questions with any 51
-limit>20: mean 0.62 per question, questions with any 180
+search: mean 1.71 per question, questions with any 500
+get: mean 0.08 per question, questions with any 32
+dated: mean 0.26 per question, questions with any 84
+taku_arg: mean 0.11 per question, questions with any 51
+taku_on: mean 0.11 per question, questions with any 50
+limit>20: mean 0.61 per question, questions with any 178
 error: mean 0.00 per question, questions with any 0

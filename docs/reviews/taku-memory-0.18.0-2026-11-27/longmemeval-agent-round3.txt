@@ -1,0 +1,10 @@
+  single-session-user: 0.9571 (70)
+  single-session-preference: 0.9333 (30)
+  single-session-assistant: 0.9821 (56)
+  multi-session: 0.8496 (133)
+  temporal-reasoning: 0.9323 (133)
+  knowledge-update: 0.9872 (78)
+Task-averaged accuracy: 0.9403
+Overall accuracy: 0.9280 (464/500)
+Abstention accuracy: 0.9000 (30)
+Cost (list price): answers $27.87, judge $3.85; models ['claude-sonnet-5-5']

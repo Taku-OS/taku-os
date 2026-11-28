@@ -1,8 +1,8 @@
 questions {'single-session-user': 64, 'all': 470, 'multi-session': 121, 'single-session-preference': 30, 'temporal-reasoning': 127, 'knowledge-update': 72, 'single-session-assistant': 56}
 evidence dropped by the chat filter (questions): {'multi-session': 1, 'single-session-assistant': 1}
 question read as asking what Taku said (limit 20): {'single-session-user': 0, 'multi-session': 0, 'single-session-preference': 0, 'temporal-reasoning': 0, 'knowledge-update': 0, 'single-session-assistant': 51}
-limit 10: all 0.823 | sses 0.953 sses 0.800 sses 0.857 mses 0.686 trea 0.787 kupd 0.986 | excerpt chars 2.5k
-limit 20: all 0.889 | sses 0.953 sses 0.867 sses 0.893 mses 0.793 trea 0.898 kupd 0.986 | excerpt chars 4.8k
-limit 30: all 0.921 | sses 0.953 sses 0.933 sses 0.893 mses 0.860 trea 0.929 kupd 1.000 | excerpt chars 7.0k
-limit 40: all 0.940 | sses 0.953 sses 0.933 sses 0.893 mses 0.909 trea 0.953 kupd 1.000 | excerpt chars 9.1k
-limit 50: all 0.951 | sses 0.953 sses 1.000 sses 0.893 mses 0.934 trea 0.953 kupd 1.000 | excerpt chars 11.3k
+limit 10: all 0.823 | sses 0.953 sses 0.800 sses 0.857 mses 0.686 trea 0.787 kupd 0.986 | excerpt chars 2.6k
+limit 20: all 0.889 | sses 0.953 sses 0.867 sses 0.893 mses 0.793 trea 0.898 kupd 0.986 | excerpt chars 5.1k
+limit 30: all 0.921 | sses 0.953 sses 0.933 sses 0.893 mses 0.860 trea 0.929 kupd 1.000 | excerpt chars 7.4k
+limit 40: all 0.940 | sses 0.953 sses 0.933 sses 0.893 mses 0.909 trea 0.953 kupd 1.000 | excerpt chars 9.7k
+limit 50: all 0.951 | sses 0.953 sses 1.000 sses 0.893 mses 0.934 trea 0.953 kupd 1.000 | excerpt chars 12.0k
