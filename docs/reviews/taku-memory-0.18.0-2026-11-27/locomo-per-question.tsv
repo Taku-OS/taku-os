@@ -1,1541 +1,1541 @@
-question_id	category	paper_judge	judge_2026
-conv0-q0	temporal	1	1
-conv0-q1	temporal	1	1
-conv0-q2	open-domain	1	1
-conv0-q3	multi-hop	1	1
-conv0-q4	multi-hop	1	1
-conv0-q5	temporal	0	1
-conv0-q6	temporal	1	1
-conv0-q7	multi-hop	1	1
-conv0-q8	temporal	1	1
-conv0-q9	temporal	1	1
-conv0-q10	temporal	1	1
-conv0-q11	multi-hop	0	0
-conv0-q12	temporal	1	1
-conv0-q13	multi-hop	1	1
-conv0-q14	open-domain	1	1
-conv0-q15	multi-hop	1	1
-conv0-q16	temporal	1	1
-conv0-q17	temporal	1	1
-conv0-q18	multi-hop	1	1
-conv0-q19	multi-hop	1	1
-conv0-q20	temporal	1	1
-conv0-q21	temporal	1	1
-conv0-q22	open-domain	1	1
-conv0-q23	multi-hop	1	1
-conv0-q24	multi-hop	1	1
-conv0-q25	temporal	1	1
-conv0-q26	temporal	0	0
-conv0-q27	open-domain	1	1
-conv0-q28	temporal	0	1
-conv0-q29	temporal	1	1
-conv0-q30	open-domain	1	1
-conv0-q31	temporal	1	1
-conv0-q32	multi-hop	1	1
-conv0-q33	temporal	1	1
-conv0-q34	multi-hop	1	1
-conv0-q35	temporal	0	0
-conv0-q36	temporal	1	1
-conv0-q37	multi-hop	1	1
-conv0-q38	multi-hop	1	1
-conv0-q39	multi-hop	1	1
-conv0-q40	multi-hop	1	1
-conv0-q41	temporal	1	1
-conv0-q42	open-domain	1	1
-conv0-q43	multi-hop	1	1
-conv0-q44	temporal	1	1
-conv0-q45	temporal	1	1
-conv0-q46	open-domain	1	1
-conv0-q47	multi-hop	1	1
-conv0-q48	multi-hop	1	1
-conv0-q49	temporal	1	1
-conv0-q50	open-domain	1	1
-conv0-q51	multi-hop	1	1
-conv0-q52	multi-hop	0	1
-conv0-q53	temporal	1	1
-conv0-q54	temporal	1	1
-conv0-q55	multi-hop	1	1
-conv0-q56	multi-hop	1	1
-conv0-q57	temporal	0	1
-conv0-q58	temporal	1	1
-conv0-q59	open-domain	0	0
-conv0-q60	multi-hop	1	1
-conv0-q61	multi-hop	1	1
-conv0-q62	temporal	1	1
-conv0-q63	temporal	1	1
-conv0-q64	open-domain	1	1
-conv0-q65	multi-hop	1	1
-conv0-q66	multi-hop	1	1
-conv0-q67	temporal	1	1
-conv0-q68	temporal	1	1
-conv0-q69	open-domain	1	1
-conv0-q70	multi-hop	1	1
-conv0-q71	multi-hop	1	1
-conv0-q72	temporal	1	1
-conv0-q73	temporal	1	1
-conv0-q74	temporal	1	1
-conv0-q75	multi-hop	1	1
-conv0-q76	multi-hop	1	1
-conv0-q77	open-domain	1	1
-conv0-q78	multi-hop	1	1
-conv0-q79	temporal	1	1
-conv0-q80	temporal	1	1
-conv0-q81	open-domain	1	1
-conv0-q82	single-hop	1	1
-conv0-q83	single-hop	1	1
-conv0-q84	single-hop	1	1
-conv0-q85	single-hop	1	1
-conv0-q86	single-hop	1	1
-conv0-q87	single-hop	1	1
-conv0-q88	single-hop	1	1
-conv0-q89	single-hop	1	1
-conv0-q90	single-hop	1	1
-conv0-q91	single-hop	1	1
-conv0-q92	single-hop	1	1
-conv0-q93	single-hop	1	1
-conv0-q94	single-hop	1	1
-conv0-q95	single-hop	1	1
-conv0-q96	single-hop	1	1
-conv0-q97	single-hop	1	1
-conv0-q98	single-hop	1	1
-conv0-q99	single-hop	1	1
-conv0-q100	single-hop	1	1
-conv0-q101	single-hop	1	1
-conv0-q102	single-hop	1	1
-conv0-q103	single-hop	1	1
-conv0-q104	single-hop	1	1
-conv0-q105	single-hop	1	1
-conv0-q106	single-hop	1	1
-conv0-q107	single-hop	1	1
-conv0-q108	single-hop	1	1
-conv0-q109	single-hop	1	1
-conv0-q110	single-hop	1	1
-conv0-q111	single-hop	1	1
-conv0-q112	single-hop	1	1
-conv0-q113	single-hop	1	1
-conv0-q114	single-hop	1	1
-conv0-q115	single-hop	1	1
-conv0-q116	single-hop	1	1
-conv0-q117	single-hop	1	1
-conv0-q118	single-hop	1	1
-conv0-q119	single-hop	1	1
-conv0-q120	single-hop	1	1
-conv0-q121	single-hop	1	1
-conv0-q122	single-hop	1	1
-conv0-q123	single-hop	1	1
-conv0-q124	single-hop	1	1
-conv0-q125	single-hop	1	1
-conv0-q126	single-hop	1	1
-conv0-q127	single-hop	1	1
-conv0-q128	single-hop	1	1
-conv0-q129	single-hop	1	1
-conv0-q130	single-hop	1	1
-conv0-q131	single-hop	1	1
-conv0-q132	single-hop	1	1
-conv0-q133	single-hop	1	1
-conv0-q134	single-hop	1	1
-conv0-q135	single-hop	1	1
-conv0-q136	single-hop	1	1
-conv0-q137	single-hop	1	1
-conv0-q138	single-hop	0	0
-conv0-q139	single-hop	1	1
-conv0-q140	single-hop	1	1
-conv0-q141	single-hop	1	1
-conv0-q142	single-hop	1	1
-conv0-q143	single-hop	1	1
-conv0-q144	single-hop	1	1
-conv0-q145	single-hop	1	1
-conv0-q146	single-hop	1	1
-conv0-q147	single-hop	1	1
-conv0-q148	single-hop	1	1
-conv0-q149	single-hop	1	1
-conv0-q150	single-hop	1	1
-conv0-q151	single-hop	0	0
-conv1-q0	temporal	1	1
-conv1-q1	temporal	1	1
-conv1-q2	single-hop	1	1
-conv1-q3	multi-hop	0	1
-conv1-q4	single-hop	1	1
-conv1-q5	multi-hop	1	1
-conv1-q6	temporal	1	1
-conv1-q7	temporal	1	1
-conv1-q8	temporal	1	1
-conv1-q9	multi-hop	1	1
-conv1-q10	temporal	1	1
-conv1-q11	temporal	1	1
-conv1-q12	temporal	1	1
-conv1-q13	temporal	1	1
-conv1-q14	temporal	1	1
-conv1-q15	temporal	1	1
-conv1-q16	temporal	1	1
-conv1-q17	multi-hop	1	1
-conv1-q18	multi-hop	1	1
-conv1-q19	temporal	1	1
-conv1-q20	temporal	1	1
-conv1-q21	temporal	1	1
-conv1-q22	temporal	1	1
-conv1-q23	multi-hop	1	1
-conv1-q24	multi-hop	1	1
-conv1-q25	multi-hop	1	1
-conv1-q26	temporal	1	1
-conv1-q27	multi-hop	1	1
-conv1-q28	temporal	1	1
-conv1-q29	multi-hop	1	1
-conv1-q30	temporal	1	1
-conv1-q31	multi-hop	0	1
-conv1-q32	temporal	1	1
-conv1-q33	temporal	1	1
-conv1-q34	temporal	1	1
-conv1-q35	temporal	1	1
-conv1-q36	temporal	1	1
-conv1-q37	temporal	1	1
-conv1-q38	temporal	1	1
-conv1-q39	single-hop	1	1
-conv1-q40	single-hop	1	1
-conv1-q41	single-hop	1	1
-conv1-q42	single-hop	1	1
-conv1-q43	single-hop	0	0
-conv1-q44	single-hop	0	0
-conv1-q45	single-hop	1	1
-conv1-q46	single-hop	1	1
-conv1-q47	single-hop	1	1
-conv1-q48	single-hop	1	1
-conv1-q49	single-hop	1	1
-conv1-q50	single-hop	1	1
-conv1-q51	single-hop	1	1
-conv1-q52	single-hop	1	1
-conv1-q53	single-hop	1	1
-conv1-q54	single-hop	1	1
-conv1-q55	single-hop	1	1
-conv1-q56	single-hop	0	0
-conv1-q57	single-hop	0	1
-conv1-q58	single-hop	1	1
-conv1-q59	single-hop	1	1
-conv1-q60	single-hop	1	1
-conv1-q61	single-hop	1	1
-conv1-q62	single-hop	1	1
-conv1-q63	single-hop	1	1
-conv1-q64	single-hop	1	1
-conv1-q65	single-hop	1	1
-conv1-q66	single-hop	1	1
-conv1-q67	single-hop	1	1
-conv1-q68	single-hop	1	1
-conv1-q69	single-hop	1	1
-conv1-q70	single-hop	1	1
-conv1-q71	single-hop	1	1
-conv1-q72	single-hop	1	1
-conv1-q73	single-hop	0	0
-conv1-q74	single-hop	1	1
-conv1-q75	single-hop	0	0
-conv1-q76	single-hop	1	1
-conv1-q77	single-hop	1	1
-conv1-q78	single-hop	1	1
-conv1-q80	single-hop	1	1
-conv1-q81	single-hop	1	1
-conv2-q0	temporal	1	1
-conv2-q1	temporal	1	1
-conv2-q2	multi-hop	1	1
-conv2-q3	multi-hop	1	1
-conv2-q4	temporal	1	1
-conv2-q5	temporal	1	1
-conv2-q6	multi-hop	0	1
-conv2-q7	multi-hop	1	1
-conv2-q8	open-domain	0	0
-conv2-q9	multi-hop	1	1
-conv2-q10	temporal	1	1
-conv2-q11	multi-hop	0	1
-conv2-q12	multi-hop	1	1
-conv2-q13	temporal	1	1
-conv2-q14	open-domain	1	1
-conv2-q15	multi-hop	1	1
-conv2-q16	temporal	1	1
-conv2-q17	open-domain	1	1
-conv2-q18	multi-hop	1	1
-conv2-q19	multi-hop	1	1
-conv2-q20	temporal	1	1
-conv2-q21	multi-hop	1	1
-conv2-q22	temporal	1	1
-conv2-q23	multi-hop	0	1
-conv2-q24	temporal	1	1
-conv2-q25	multi-hop	1	1
-conv2-q26	multi-hop	1	1
-conv2-q27	temporal	0	1
-conv2-q28	multi-hop	1	1
-conv2-q29	multi-hop	1	1
-conv2-q30	multi-hop	1	1
-conv2-q31	temporal	1	1
-conv2-q32	multi-hop	1	1
-conv2-q33	multi-hop	1	1
-conv2-q34	temporal	1	1
-conv2-q35	multi-hop	1	1
-conv2-q36	multi-hop	1	1
-conv2-q37	multi-hop	1	1
-conv2-q38	temporal	1	1
-conv2-q39	open-domain	1	1
-conv2-q40	multi-hop	1	1
-conv2-q41	open-domain	0	0
-conv2-q42	multi-hop	0	0
-conv2-q43	temporal	1	1
-conv2-q44	multi-hop	1	1
-conv2-q45	open-domain	0	0
-conv2-q46	temporal	1	1
-conv2-q47	multi-hop	1	1
-conv2-q48	temporal	0	0
-conv2-q49	multi-hop	1	1
-conv2-q50	open-domain	1	1
-conv2-q51	temporal	1	1
-conv2-q52	multi-hop	1	1
-conv2-q53	temporal	1	1
-conv2-q54	temporal	1	1
-conv2-q55	temporal	1	1
-conv2-q56	temporal	1	1
-conv2-q57	multi-hop	1	1
-conv2-q58	temporal	1	1
-conv2-q59	temporal	1	1
-conv2-q60	multi-hop	1	1
-conv2-q61	temporal	1	1
-conv2-q62	multi-hop	1	1
-conv2-q63	temporal	0	0
-conv2-q64	open-domain	1	1
-conv2-q65	single-hop	1	1
-conv2-q66	single-hop	1	1
-conv2-q67	single-hop	1	1
-conv2-q68	single-hop	1	1
-conv2-q69	single-hop	1	1
-conv2-q70	single-hop	1	1
-conv2-q71	single-hop	1	1
-conv2-q72	single-hop	1	1
-conv2-q73	single-hop	1	1
-conv2-q74	single-hop	1	1
-conv2-q75	single-hop	1	1
-conv2-q76	single-hop	1	1
-conv2-q77	single-hop	1	1
-conv2-q78	single-hop	1	1
-conv2-q79	single-hop	1	1
-conv2-q80	single-hop	1	1
-conv2-q81	single-hop	1	1
-conv2-q82	single-hop	1	1
-conv2-q83	single-hop	1	1
-conv2-q84	single-hop	1	1
-conv2-q85	single-hop	0	0
-conv2-q86	single-hop	1	1
-conv2-q87	single-hop	1	1
-conv2-q88	single-hop	0	0
-conv2-q89	single-hop	1	1
-conv2-q90	single-hop	1	1
-conv2-q91	temporal	0	0
-conv2-q92	single-hop	1	1
-conv2-q93	single-hop	1	1
-conv2-q94	single-hop	1	1
-conv2-q95	single-hop	1	1
-conv2-q96	single-hop	1	1
-conv2-q97	single-hop	1	1
-conv2-q98	single-hop	1	1
-conv2-q99	single-hop	1	1
-conv2-q100	single-hop	1	1
-conv2-q101	single-hop	1	1
-conv2-q102	single-hop	1	1
-conv2-q103	single-hop	1	1
-conv2-q104	single-hop	1	1
-conv2-q105	single-hop	1	1
-conv2-q106	single-hop	1	1
-conv2-q107	single-hop	1	1
-conv2-q108	single-hop	1	1
-conv2-q109	single-hop	1	1
-conv2-q110	single-hop	1	1
-conv2-q111	single-hop	1	1
-conv2-q112	single-hop	1	1
-conv2-q113	single-hop	1	1
-conv2-q114	single-hop	1	1
-conv2-q115	single-hop	1	1
-conv2-q116	single-hop	1	1
-conv2-q117	single-hop	1	1
-conv2-q118	single-hop	1	1
-conv2-q119	single-hop	1	1
-conv2-q120	single-hop	1	1
-conv2-q121	single-hop	1	1
-conv2-q122	single-hop	1	1
-conv2-q123	single-hop	1	1
-conv2-q124	single-hop	1	1
-conv2-q125	single-hop	1	1
-conv2-q126	single-hop	1	1
-conv2-q127	single-hop	1	1
-conv2-q128	single-hop	1	1
-conv2-q129	single-hop	1	1
-conv2-q130	single-hop	1	1
-conv2-q131	single-hop	1	1
-conv2-q132	single-hop	1	1
-conv2-q133	single-hop	1	1
-conv2-q134	single-hop	1	1
-conv2-q135	single-hop	1	1
-conv2-q136	single-hop	1	1
-conv2-q137	single-hop	1	1
-conv2-q138	single-hop	1	1
-conv2-q139	single-hop	1	1
-conv2-q140	single-hop	1	1
-conv2-q141	single-hop	1	1
-conv2-q142	single-hop	1	1
-conv2-q143	single-hop	1	1
-conv2-q144	single-hop	1	1
-conv2-q145	single-hop	1	1
-conv2-q146	single-hop	1	1
-conv2-q147	single-hop	1	1
-conv2-q148	single-hop	1	1
-conv2-q149	single-hop	1	1
-conv2-q150	single-hop	1	1
-conv2-q151	single-hop	1	1
-conv3-q0	open-domain	1	1
-conv3-q1	multi-hop	1	1
-conv3-q2	temporal	1	1
-conv3-q3	temporal	1	1
-conv3-q4	open-domain	0	0
-conv3-q5	multi-hop	1	1
-conv3-q6	temporal	1	1
-conv3-q7	temporal	1	1
-conv3-q8	temporal	1	1
-conv3-q9	temporal	1	1
-conv3-q10	multi-hop	1	1
-conv3-q11	multi-hop	0	1
-conv3-q12	open-domain	1	1
-conv3-q13	temporal	1	1
-conv3-q14	open-domain	1	1
-conv3-q15	temporal	1	1
-conv3-q16	temporal	1	1
-conv3-q17	temporal	1	1
-conv3-q18	temporal	1	1
-conv3-q19	multi-hop	1	1
-conv3-q20	temporal	1	1
-conv3-q21	temporal	1	1
-conv3-q22	temporal	0	0
-conv3-q23	multi-hop	0	1
-conv3-q24	temporal	1	1
-conv3-q25	temporal	1	1
-conv3-q26	temporal	1	1
-conv3-q27	multi-hop	1	1
-conv3-q28	temporal	1	1
-conv3-q29	temporal	0	0
-conv3-q30	multi-hop	1	1
-conv3-q31	temporal	1	1
-conv3-q32	temporal	1	1
-conv3-q33	temporal	1	1
-conv3-q34	multi-hop	0	0
-conv3-q35	temporal	0	1
-conv3-q36	temporal	1	1
-conv3-q37	temporal	1	1
-conv3-q38	temporal	1	1
-conv3-q39	temporal	0	1
-conv3-q40	temporal	1	1
-conv3-q41	temporal	1	1
-conv3-q42	multi-hop	0	1
-conv3-q43	temporal	0	1
-conv3-q44	temporal	1	1
-conv3-q45	temporal	1	1
-conv3-q46	multi-hop	1	1
-conv3-q47	multi-hop	1	1
-conv3-q48	temporal	1	1
-conv3-q49	multi-hop	1	1
-conv3-q50	multi-hop	1	1
-conv3-q51	multi-hop	1	1
-conv3-q52	multi-hop	1	1
-conv3-q53	multi-hop	0	0
-conv3-q54	temporal	1	1
-conv3-q55	multi-hop	1	1
-conv3-q56	multi-hop	1	1
-conv3-q57	temporal	1	1
-conv3-q58	multi-hop	0	1
-conv3-q59	multi-hop	1	1
-conv3-q60	open-domain	1	1
-conv3-q61	multi-hop	0	1
-conv3-q62	multi-hop	1	1
-conv3-q63	multi-hop	0	1
-conv3-q64	temporal	1	1
-conv3-q65	temporal	1	1
-conv3-q66	open-domain	0	0
-conv3-q67	multi-hop	1	1
-conv3-q68	open-domain	1	1
-conv3-q69	multi-hop	1	1
-conv3-q70	multi-hop	1	1
-conv3-q71	multi-hop	1	1
-conv3-q72	temporal	1	1
-conv3-q73	open-domain	1	1
-conv3-q74	multi-hop	1	1
-conv3-q75	multi-hop	1	1
-conv3-q76	multi-hop	1	1
-conv3-q77	temporal	1	1
-conv3-q78	multi-hop	1	1
-conv3-q79	multi-hop	0	1
-conv3-q80	multi-hop	1	1
-conv3-q81	multi-hop	1	1
-conv3-q82	multi-hop	1	1
-conv3-q83	multi-hop	0	1
-conv3-q84	open-domain	1	1
-conv3-q85	open-domain	1	1
-conv3-q86	temporal	1	1
-conv3-q87	open-domain	1	1
-conv3-q88	single-hop	0	0
-conv3-q89	single-hop	1	1
-conv3-q90	single-hop	1	1
-conv3-q91	single-hop	0	0
-conv3-q92	single-hop	0	0
-conv3-q93	single-hop	1	1
-conv3-q94	single-hop	0	1
-conv3-q95	single-hop	0	0
-conv3-q96	single-hop	1	1
-conv3-q97	single-hop	1	1
-conv3-q98	single-hop	1	1
-conv3-q99	single-hop	1	1
-conv3-q100	single-hop	1	1
-conv3-q101	single-hop	1	1
-conv3-q102	single-hop	1	1
-conv3-q103	single-hop	1	1
-conv3-q104	single-hop	1	1
-conv3-q105	single-hop	1	1
-conv3-q106	single-hop	1	1
-conv3-q107	single-hop	1	1
-conv3-q108	single-hop	1	1
-conv3-q109	single-hop	1	1
-conv3-q110	single-hop	1	1
-conv3-q111	single-hop	1	1
-conv3-q112	single-hop	1	1
-conv3-q113	single-hop	1	1
-conv3-q114	single-hop	1	1
-conv3-q115	single-hop	1	1
-conv3-q116	single-hop	1	1
-conv3-q117	single-hop	1	1
-conv3-q118	single-hop	1	1
-conv3-q119	single-hop	0	0
-conv3-q120	single-hop	1	1
-conv3-q121	single-hop	1	1
-conv3-q122	single-hop	1	1
-conv3-q123	single-hop	1	1
-conv3-q124	single-hop	1	1
-conv3-q125	single-hop	1	1
-conv3-q126	single-hop	1	1
-conv3-q127	single-hop	0	0
-conv3-q128	single-hop	1	1
-conv3-q129	single-hop	1	1
-conv3-q130	single-hop	1	1
-conv3-q131	single-hop	1	1
-conv3-q132	single-hop	1	1
-conv3-q133	single-hop	1	1
-conv3-q134	single-hop	1	1
-conv3-q135	single-hop	1	1
-conv3-q136	single-hop	1	1
-conv3-q137	single-hop	1	1
-conv3-q138	single-hop	1	1
-conv3-q139	single-hop	1	1
-conv3-q140	single-hop	1	1
-conv3-q141	single-hop	1	1
-conv3-q142	single-hop	1	1
-conv3-q143	single-hop	1	1
-conv3-q144	single-hop	1	1
-conv3-q145	single-hop	1	1
-conv3-q146	single-hop	1	1
-conv3-q147	single-hop	1	1
-conv3-q148	single-hop	1	1
-conv3-q149	single-hop	1	1
-conv3-q150	single-hop	1	1
-conv3-q151	single-hop	1	1
-conv3-q152	single-hop	1	1
-conv3-q153	single-hop	1	1
-conv3-q154	single-hop	1	1
-conv3-q155	single-hop	1	1
-conv3-q156	single-hop	1	1
-conv3-q157	single-hop	1	1
-conv3-q158	single-hop	1	1
-conv3-q159	single-hop	1	1
-conv3-q160	single-hop	1	1
-conv3-q161	single-hop	1	1
-conv3-q162	single-hop	1	1
-conv3-q163	single-hop	1	1
-conv3-q164	single-hop	1	1
-conv3-q165	single-hop	1	1
-conv3-q166	single-hop	1	1
-conv3-q167	single-hop	1	1
-conv3-q168	single-hop	1	1
-conv3-q169	single-hop	1	1
-conv3-q170	single-hop	1	1
-conv3-q171	single-hop	1	1
-conv3-q172	single-hop	1	1
-conv3-q173	single-hop	1	1
-conv3-q174	single-hop	1	1
-conv3-q175	single-hop	1	1
-conv3-q176	single-hop	1	1
-conv3-q177	single-hop	1	1
-conv3-q178	single-hop	1	1
-conv3-q179	single-hop	1	1
-conv3-q180	single-hop	1	1
-conv3-q181	single-hop	1	1
-conv3-q182	single-hop	1	1
-conv3-q183	single-hop	1	1
-conv3-q184	single-hop	1	1
-conv3-q185	single-hop	1	1
-conv3-q186	single-hop	1	1
-conv3-q187	single-hop	1	1
-conv3-q188	single-hop	1	1
-conv3-q189	single-hop	1	1
-conv3-q190	single-hop	1	1
-conv3-q191	single-hop	1	1
-conv3-q192	single-hop	1	1
-conv3-q193	single-hop	1	1
-conv3-q194	single-hop	1	1
-conv3-q195	single-hop	1	1
-conv3-q196	single-hop	1	1
-conv3-q197	single-hop	1	1
-conv3-q198	single-hop	1	1
-conv4-q0	multi-hop	1	1
-conv4-q1	multi-hop	1	1
-conv4-q2	multi-hop	0	1
-conv4-q3	open-domain	1	1
-conv4-q4	multi-hop	1	1
-conv4-q5	open-domain	0	0
-conv4-q6	temporal	0	0
-conv4-q7	multi-hop	0	1
-conv4-q8	open-domain	0	0
-conv4-q9	multi-hop	1	1
-conv4-q10	temporal	1	1
-conv4-q11	multi-hop	1	1
-conv4-q12	temporal	1	1
-conv4-q13	multi-hop	1	1
-conv4-q14	multi-hop	1	1
-conv4-q15	open-domain	1	1
-conv4-q16	temporal	0	1
-conv4-q17	multi-hop	0	0
-conv4-q18	multi-hop	1	1
-conv4-q19	open-domain	0	0
-conv4-q20	temporal	1	1
-conv4-q21	multi-hop	1	1
-conv4-q22	temporal	1	1
-conv4-q23	temporal	1	1
-conv4-q24	temporal	0	0
-conv4-q25	multi-hop	1	1
-conv4-q26	multi-hop	1	1
-conv4-q27	open-domain	1	1
-conv4-q28	open-domain	0	0
-conv4-q29	multi-hop	1	1
-conv4-q30	multi-hop	1	1
-conv4-q31	temporal	1	1
-conv4-q32	open-domain	1	1
-conv4-q33	temporal	1	1
-conv4-q34	open-domain	1	1
-conv4-q35	multi-hop	1	1
-conv4-q36	multi-hop	1	1
-conv4-q37	temporal	1	1
-conv4-q38	multi-hop	1	1
-conv4-q39	temporal	1	1
-conv4-q40	temporal	1	1
-conv4-q41	multi-hop	1	1
-conv4-q42	multi-hop	1	1
-conv4-q43	multi-hop	1	1
-conv4-q44	temporal	1	1
-conv4-q45	temporal	1	1
-conv4-q46	temporal	1	1
-conv4-q47	temporal	1	1
-conv4-q48	multi-hop	1	1
-conv4-q49	multi-hop	1	1
-conv4-q50	multi-hop	1	1
-conv4-q51	open-domain	0	0
-conv4-q52	multi-hop	1	1
-conv4-q53	open-domain	0	1
-conv4-q54	temporal	1	1
-conv4-q55	temporal	0	0
-conv4-q56	temporal	1	1
-conv4-q57	multi-hop	1	1
-conv4-q58	temporal	1	1
-conv4-q59	multi-hop	1	1
-conv4-q60	temporal	0	1
-conv4-q61	multi-hop	1	1
-conv4-q62	multi-hop	1	1
-conv4-q63	temporal	1	1
-conv4-q64	temporal	1	1
-conv4-q65	multi-hop	1	1
-conv4-q66	open-domain	0	0
-conv4-q67	open-domain	0	1
-conv4-q68	temporal	1	1
-conv4-q69	temporal	1	1
-conv4-q70	open-domain	1	1
-conv4-q71	single-hop	1	1
-conv4-q72	single-hop	1	1
-conv4-q73	single-hop	1	1
-conv4-q74	single-hop	1	1
-conv4-q75	single-hop	1	1
-conv4-q76	single-hop	1	1
-conv4-q77	single-hop	1	1
-conv4-q78	single-hop	1	1
-conv4-q79	single-hop	1	1
-conv4-q80	single-hop	1	1
-conv4-q81	single-hop	1	1
-conv4-q82	single-hop	1	1
-conv4-q83	single-hop	1	1
-conv4-q84	single-hop	1	1
-conv4-q85	single-hop	1	1
-conv4-q86	single-hop	1	1
-conv4-q87	single-hop	1	1
-conv4-q88	single-hop	1	1
-conv4-q89	single-hop	1	1
-conv4-q90	single-hop	1	1
-conv4-q91	single-hop	1	1
-conv4-q92	single-hop	1	1
-conv4-q93	single-hop	1	1
-conv4-q94	single-hop	1	1
-conv4-q95	single-hop	1	1
-conv4-q96	single-hop	1	1
-conv4-q97	single-hop	1	1
-conv4-q98	single-hop	1	1
-conv4-q99	single-hop	1	1
-conv4-q100	single-hop	1	1
-conv4-q101	single-hop	1	1
-conv4-q102	single-hop	1	1
-conv4-q103	single-hop	0	0
-conv4-q104	single-hop	1	1
-conv4-q105	single-hop	1	1
-conv4-q106	single-hop	1	1
-conv4-q107	single-hop	1	1
-conv4-q108	single-hop	1	1
-conv4-q109	single-hop	1	1
-conv4-q110	single-hop	1	1
-conv4-q111	single-hop	1	1
-conv4-q112	single-hop	1	1
-conv4-q113	single-hop	1	1
-conv4-q114	single-hop	0	0
-conv4-q115	single-hop	1	1
-conv4-q116	single-hop	1	1
-conv4-q117	single-hop	1	1
-conv4-q118	single-hop	1	1
-conv4-q119	single-hop	1	1
-conv4-q120	single-hop	1	1
-conv4-q121	single-hop	1	1
-conv4-q122	single-hop	1	1
-conv4-q123	single-hop	1	1
-conv4-q124	single-hop	1	1
-conv4-q125	single-hop	1	1
-conv4-q126	single-hop	1	1
-conv4-q127	single-hop	1	1
-conv4-q128	single-hop	0	1
-conv4-q129	single-hop	1	1
-conv4-q130	single-hop	1	1
-conv4-q131	single-hop	1	1
-conv4-q132	single-hop	1	1
-conv4-q133	single-hop	1	1
-conv4-q134	single-hop	1	1
-conv4-q135	single-hop	0	0
-conv4-q136	single-hop	1	1
-conv4-q137	single-hop	1	1
-conv4-q138	single-hop	1	1
-conv4-q139	single-hop	1	1
-conv4-q140	single-hop	1	1
-conv4-q141	single-hop	1	1
-conv4-q142	single-hop	1	1
-conv4-q143	single-hop	1	1
-conv4-q144	single-hop	1	1
-conv4-q145	single-hop	1	1
-conv4-q146	single-hop	1	1
-conv4-q147	single-hop	1	1
-conv4-q148	single-hop	1	1
-conv4-q149	single-hop	1	1
-conv4-q150	single-hop	1	1
-conv4-q151	single-hop	1	1
-conv4-q152	single-hop	0	0
-conv4-q153	single-hop	1	1
-conv4-q154	single-hop	1	1
-conv4-q155	single-hop	1	1
-conv4-q156	single-hop	1	1
-conv4-q157	single-hop	1	1
-conv4-q158	single-hop	1	1
-conv4-q159	single-hop	1	1
-conv4-q160	single-hop	1	1
-conv4-q161	single-hop	1	1
-conv4-q162	single-hop	1	1
-conv4-q163	single-hop	1	1
-conv4-q164	single-hop	0	0
-conv4-q165	single-hop	0	0
-conv4-q166	single-hop	0	0
-conv4-q167	single-hop	1	1
-conv4-q168	single-hop	1	1
-conv4-q169	single-hop	0	0
-conv4-q170	single-hop	1	1
-conv4-q171	single-hop	1	1
-conv4-q172	single-hop	1	1
-conv4-q173	single-hop	1	1
-conv4-q174	single-hop	1	1
-conv4-q175	single-hop	1	1
-conv4-q176	single-hop	1	1
-conv4-q177	single-hop	1	1
-conv5-q0	temporal	1	1
-conv5-q1	temporal	1	1
-conv5-q2	multi-hop	0	1
-conv5-q3	multi-hop	1	1
-conv5-q4	temporal	0	1
-conv5-q5	temporal	0	1
-conv5-q6	temporal	1	1
-conv5-q7	temporal	1	1
-conv5-q8	temporal	1	1
-conv5-q9	multi-hop	1	1
-conv5-q10	temporal	1	1
-conv5-q11	temporal	1	1
-conv5-q12	multi-hop	1	1
-conv5-q13	temporal	1	1
-conv5-q14	multi-hop	1	1
-conv5-q15	multi-hop	1	1
-conv5-q16	temporal	0	0
-conv5-q17	multi-hop	0	0
-conv5-q18	multi-hop	0	0
-conv5-q19	open-domain	1	1
-conv5-q20	open-domain	1	1
-conv5-q21	multi-hop	1	1
-conv5-q22	temporal	1	1
-conv5-q23	multi-hop	1	1
-conv5-q24	multi-hop	1	1
-conv5-q25	temporal	1	1
-conv5-q26	multi-hop	1	1
-conv5-q27	multi-hop	1	1
-conv5-q28	multi-hop	1	1
-conv5-q29	multi-hop	0	1
-conv5-q30	temporal	1	1
-conv5-q31	multi-hop	1	1
-conv5-q32	multi-hop	1	1
-conv5-q33	open-domain	0	0
-conv5-q34	temporal	1	1
-conv5-q35	multi-hop	0	1
-conv5-q36	multi-hop	1	1
-conv5-q37	temporal	0	1
-conv5-q38	temporal	1	1
-conv5-q39	multi-hop	0	1
-conv5-q40	multi-hop	1	1
-conv5-q41	multi-hop	0	1
-conv5-q42	multi-hop	1	1
-conv5-q43	open-domain	0	0
-conv5-q44	open-domain	0	0
-conv5-q45	temporal	1	1
-conv5-q46	temporal	1	1
-conv5-q47	temporal	1	1
-conv5-q48	multi-hop	1	1
-conv5-q49	multi-hop	1	1
-conv5-q50	multi-hop	1	1
-conv5-q51	multi-hop	1	1
-conv5-q52	open-domain	0	0
-conv5-q53	open-domain	1	1
-conv5-q54	multi-hop	1	1
-conv5-q55	temporal	0	0
-conv5-q56	multi-hop	1	1
-conv5-q57	temporal	1	1
-conv5-q58	temporal	1	1
-conv5-q59	temporal	1	1
-conv5-q60	multi-hop	1	1
-conv5-q61	single-hop	1	1
-conv5-q62	single-hop	1	1
-conv5-q63	single-hop	1	1
-conv5-q64	single-hop	1	1
-conv5-q65	single-hop	1	1
-conv5-q66	single-hop	1	1
-conv5-q67	single-hop	1	1
-conv5-q68	single-hop	1	1
-conv5-q69	single-hop	1	1
-conv5-q70	single-hop	1	1
-conv5-q71	single-hop	1	1
-conv5-q72	single-hop	1	1
-conv5-q73	single-hop	1	1
-conv5-q74	single-hop	1	1
-conv5-q75	single-hop	1	1
-conv5-q76	single-hop	1	1
-conv5-q77	single-hop	1	1
-conv5-q78	single-hop	1	1
-conv5-q79	single-hop	1	1
-conv5-q80	single-hop	1	1
-conv5-q81	single-hop	1	1
-conv5-q82	single-hop	1	1
-conv5-q83	single-hop	1	1
-conv5-q84	single-hop	0	0
-conv5-q85	single-hop	1	1
-conv5-q86	single-hop	1	1
-conv5-q87	single-hop	1	1
-conv5-q88	single-hop	1	1
-conv5-q89	single-hop	1	1
-conv5-q90	single-hop	1	1
-conv5-q91	single-hop	0	0
-conv5-q92	single-hop	1	1
-conv5-q93	single-hop	1	1
-conv5-q94	single-hop	1	1
-conv5-q95	single-hop	1	1
-conv5-q96	single-hop	1	1
-conv5-q97	single-hop	1	1
-conv5-q98	single-hop	1	1
-conv5-q99	single-hop	1	1
-conv5-q100	single-hop	1	1
-conv5-q101	single-hop	1	1
-conv5-q102	single-hop	1	1
-conv5-q103	single-hop	1	1
-conv5-q104	single-hop	0	1
-conv5-q105	single-hop	1	1
-conv5-q106	single-hop	1	1
-conv5-q107	single-hop	1	1
-conv5-q108	single-hop	1	1
-conv5-q109	single-hop	1	1
-conv5-q110	single-hop	1	1
-conv5-q111	single-hop	1	1
-conv5-q112	single-hop	1	1
-conv5-q113	single-hop	1	1
-conv5-q114	single-hop	1	1
-conv5-q115	single-hop	1	1
-conv5-q116	single-hop	1	1
-conv5-q117	single-hop	1	1
-conv5-q118	single-hop	1	1
-conv5-q119	single-hop	1	1
-conv5-q120	single-hop	1	1
-conv5-q121	single-hop	1	1
-conv5-q122	single-hop	1	1
-conv6-q0	open-domain	0	0
-conv6-q1	temporal	1	1
-conv6-q2	multi-hop	0	1
-conv6-q3	multi-hop	1	1
-conv6-q4	temporal	1	1
-conv6-q5	multi-hop	1	1
-conv6-q6	open-domain	0	0
-conv6-q7	open-domain	1	1
-conv6-q8	multi-hop	1	1
-conv6-q9	multi-hop	1	1
-conv6-q10	temporal	1	1
-conv6-q11	temporal	0	0
-conv6-q12	open-domain	1	1
-conv6-q13	temporal	1	1
-conv6-q14	temporal	1	1
-conv6-q15	temporal	1	1
-conv6-q16	open-domain	1	1
-conv6-q17	open-domain	0	0
-conv6-q18	multi-hop	1	1
-conv6-q19	open-domain	0	0
-conv6-q20	multi-hop	1	1
-conv6-q21	temporal	1	1
-conv6-q22	multi-hop	1	1
-conv6-q23	temporal	1	1
-conv6-q24	multi-hop	1	1
-conv6-q25	open-domain	1	1
-conv6-q26	multi-hop	1	1
-conv6-q27	multi-hop	1	1
-conv6-q28	temporal	1	1
-conv6-q29	temporal	1	1
-conv6-q30	open-domain	1	1
-conv6-q31	temporal	0	0
-conv6-q32	temporal	1	1
-conv6-q33	open-domain	0	0
-conv6-q34	multi-hop	1	1
-conv6-q35	open-domain	1	1
-conv6-q36	open-domain	1	1
-conv6-q37	temporal	1	1
-conv6-q38	multi-hop	1	1
-conv6-q39	temporal	1	1
-conv6-q40	multi-hop	1	1
-conv6-q41	temporal	1	1
-conv6-q42	temporal	1	1
-conv6-q43	temporal	1	1
-conv6-q44	open-domain	1	1
-conv6-q45	multi-hop	1	1
-conv6-q46	temporal	1	1
-conv6-q47	temporal	1	1
-conv6-q48	temporal	1	1
-conv6-q49	multi-hop	0	1
-conv6-q50	temporal	1	1
-conv6-q51	multi-hop	0	1
-conv6-q52	temporal	1	1
-conv6-q53	temporal	0	0
-conv6-q54	multi-hop	1	1
-conv6-q55	temporal	1	1
-conv6-q56	multi-hop	1	1
-conv6-q57	temporal	1	1
-conv6-q58	temporal	1	1
-conv6-q59	temporal	1	1
-conv6-q60	multi-hop	1	1
-conv6-q61	temporal	1	1
-conv6-q62	temporal	1	1
-conv6-q63	temporal	1	1
-conv6-q64	temporal	1	1
-conv6-q65	temporal	1	1
-conv6-q66	temporal	1	1
-conv6-q67	single-hop	1	1
-conv6-q68	single-hop	1	1
-conv6-q69	single-hop	1	1
-conv6-q70	single-hop	1	1
-conv6-q71	single-hop	1	1
-conv6-q72	single-hop	1	1
-conv6-q73	single-hop	1	1
-conv6-q74	single-hop	1	1
-conv6-q75	single-hop	1	1
-conv6-q76	single-hop	1	1
-conv6-q77	single-hop	0	0
-conv6-q78	single-hop	1	1
-conv6-q79	single-hop	1	1
-conv6-q80	single-hop	1	1
-conv6-q81	single-hop	0	0
-conv6-q82	single-hop	1	1
-conv6-q83	single-hop	1	1
-conv6-q84	single-hop	1	1
-conv6-q85	single-hop	1	1
-conv6-q86	single-hop	1	1
-conv6-q87	single-hop	1	1
-conv6-q88	single-hop	1	1
-conv6-q89	single-hop	1	1
-conv6-q90	single-hop	1	1
-conv6-q91	single-hop	0	0
-conv6-q92	single-hop	1	1
-conv6-q93	single-hop	0	1
-conv6-q94	single-hop	1	1
-conv6-q95	single-hop	1	1
-conv6-q96	single-hop	1	1
-conv6-q97	single-hop	1	1
-conv6-q98	single-hop	1	1
-conv6-q99	single-hop	1	1
-conv6-q100	single-hop	1	1
-conv6-q101	single-hop	1	1
-conv6-q102	single-hop	1	1
-conv6-q103	single-hop	1	1
-conv6-q104	single-hop	1	1
-conv6-q105	single-hop	1	1
-conv6-q106	single-hop	1	1
-conv6-q107	single-hop	1	1
-conv6-q108	single-hop	1	1
-conv6-q109	single-hop	1	1
-conv6-q110	single-hop	1	1
-conv6-q111	single-hop	1	1
-conv6-q112	single-hop	1	1
-conv6-q113	single-hop	1	1
-conv6-q114	single-hop	1	1
-conv6-q115	single-hop	1	1
-conv6-q116	single-hop	1	1
-conv6-q117	single-hop	1	1
-conv6-q118	single-hop	1	1
-conv6-q119	single-hop	1	1
-conv6-q120	single-hop	1	1
-conv6-q121	single-hop	1	1
-conv6-q122	single-hop	1	1
-conv6-q123	single-hop	1	1
-conv6-q124	single-hop	1	1
-conv6-q125	single-hop	1	1
-conv6-q126	single-hop	1	1
-conv6-q127	single-hop	1	1
-conv6-q128	single-hop	1	1
-conv6-q129	single-hop	1	1
-conv6-q130	single-hop	1	1
-conv6-q131	single-hop	1	1
-conv6-q132	single-hop	1	1
-conv6-q133	single-hop	1	1
-conv6-q134	single-hop	1	1
-conv6-q135	single-hop	1	1
-conv6-q136	single-hop	1	1
-conv6-q137	single-hop	1	1
-conv6-q138	single-hop	1	1
-conv6-q139	single-hop	1	1
-conv6-q140	single-hop	1	1
-conv6-q141	single-hop	1	1
-conv6-q142	single-hop	1	1
-conv6-q143	single-hop	1	1
-conv6-q144	single-hop	1	1
-conv6-q145	single-hop	0	1
-conv6-q146	single-hop	1	1
-conv6-q147	single-hop	1	1
-conv6-q148	single-hop	1	1
-conv6-q149	single-hop	1	1
-conv7-q0	temporal	1	1
-conv7-q1	multi-hop	1	1
-conv7-q2	temporal	1	1
-conv7-q3	temporal	1	1
-conv7-q4	temporal	1	1
-conv7-q5	open-domain	1	1
-conv7-q6	multi-hop	1	1
-conv7-q7	temporal	1	1
-conv7-q8	multi-hop	1	1
-conv7-q9	temporal	1	1
-conv7-q10	temporal	1	1
-conv7-q11	open-domain	1	1
-conv7-q12	temporal	1	1
-conv7-q13	multi-hop	1	1
-conv7-q14	multi-hop	0	1
-conv7-q15	single-hop	1	1
-conv7-q16	single-hop	1	1
-conv7-q17	temporal	1	1
-conv7-q18	open-domain	1	1
-conv7-q19	multi-hop	1	1
-conv7-q20	multi-hop	0	1
-conv7-q21	temporal	1	1
-conv7-q22	temporal	1	1
-conv7-q23	open-domain	0	0
-conv7-q24	multi-hop	1	1
-conv7-q25	single-hop	1	1
-conv7-q26	temporal	1	1
-conv7-q27	temporal	1	1
-conv7-q28	open-domain	1	1
-conv7-q29	temporal	1	1
-conv7-q30	temporal	1	1
-conv7-q31	temporal	1	1
-conv7-q32	temporal	1	1
-conv7-q33	single-hop	1	1
-conv7-q34	temporal	1	1
-conv7-q35	temporal	1	1
-conv7-q36	open-domain	0	0
-conv7-q37	temporal	1	1
-conv7-q38	temporal	1	1
-conv7-q39	multi-hop	1	1
-conv7-q40	open-domain	1	1
-conv7-q41	multi-hop	1	1
-conv7-q42	single-hop	1	1
-conv7-q43	temporal	1	1
-conv7-q44	temporal	1	1
-conv7-q45	temporal	1	1
-conv7-q46	temporal	1	1
-conv7-q47	temporal	1	1
-conv7-q48	open-domain	0	0
-conv7-q49	single-hop	1	1
-conv7-q50	temporal	1	1
-conv7-q51	temporal	1	1
-conv7-q52	temporal	1	1
-conv7-q53	temporal	1	1
-conv7-q54	temporal	1	1
-conv7-q55	temporal	1	1
-conv7-q56	temporal	1	1
-conv7-q57	temporal	1	1
-conv7-q58	single-hop	1	1
-conv7-q59	single-hop	1	1
-conv7-q60	temporal	1	1
-conv7-q61	single-hop	1	1
-conv7-q62	single-hop	1	1
-conv7-q63	single-hop	1	1
-conv7-q64	single-hop	1	1
-conv7-q65	temporal	1	1
-conv7-q66	temporal	1	1
-conv7-q67	single-hop	1	1
-conv7-q68	temporal	1	1
-conv7-q69	single-hop	1	1
-conv7-q70	open-domain	1	1
-conv7-q71	temporal	0	1
-conv7-q72	single-hop	1	1
-conv7-q73	multi-hop	1	1
-conv7-q74	single-hop	0	1
-conv7-q75	open-domain	0	1
-conv7-q76	temporal	1	1
-conv7-q77	multi-hop	0	0
-conv7-q78	temporal	0	0
-conv7-q79	multi-hop	1	1
-conv7-q80	multi-hop	1	1
-conv7-q81	temporal	1	1
-conv7-q82	multi-hop	1	1
-conv7-q83	multi-hop	1	1
-conv7-q84	multi-hop	1	1
-conv7-q85	multi-hop	0	1
-conv7-q86	multi-hop	0	1
-conv7-q87	multi-hop	0	1
-conv7-q88	multi-hop	0	1
-conv7-q89	single-hop	1	1
-conv7-q90	single-hop	1	1
-conv7-q91	single-hop	1	1
-conv7-q92	single-hop	1	1
-conv7-q93	single-hop	1	1
-conv7-q94	single-hop	1	1
-conv7-q95	single-hop	1	1
-conv7-q96	single-hop	1	1
-conv7-q97	single-hop	1	1
-conv7-q98	single-hop	1	1
-conv7-q99	single-hop	0	1
-conv7-q100	single-hop	1	1
-conv7-q101	single-hop	1	1
-conv7-q102	single-hop	1	1
-conv7-q103	single-hop	1	1
-conv7-q104	single-hop	0	0
-conv7-q105	single-hop	1	1
-conv7-q106	single-hop	1	1
-conv7-q107	single-hop	1	1
-conv7-q108	single-hop	1	1
-conv7-q109	single-hop	1	1
-conv7-q110	single-hop	1	1
-conv7-q111	single-hop	1	1
-conv7-q112	single-hop	1	1
-conv7-q113	single-hop	1	1
-conv7-q114	single-hop	1	1
-conv7-q115	single-hop	0	0
-conv7-q116	single-hop	0	1
-conv7-q117	single-hop	1	1
-conv7-q118	single-hop	1	1
-conv7-q119	single-hop	1	1
-conv7-q120	single-hop	1	1
-conv7-q121	single-hop	1	1
-conv7-q122	single-hop	1	1
-conv7-q123	single-hop	1	1
-conv7-q124	single-hop	1	1
-conv7-q125	single-hop	1	1
-conv7-q126	single-hop	1	1
-conv7-q127	single-hop	1	1
-conv7-q128	single-hop	1	1
-conv7-q129	single-hop	1	1
-conv7-q130	single-hop	1	1
-conv7-q131	single-hop	1	1
-conv7-q132	single-hop	1	1
-conv7-q133	single-hop	1	1
-conv7-q134	single-hop	1	1
-conv7-q135	single-hop	1	1
-conv7-q136	single-hop	1	1
-conv7-q137	single-hop	1	1
-conv7-q138	single-hop	1	1
-conv7-q139	single-hop	1	1
-conv7-q140	single-hop	1	1
-conv7-q141	single-hop	0	0
-conv7-q142	single-hop	1	1
-conv7-q143	single-hop	1	1
-conv7-q144	single-hop	1	1
-conv7-q145	single-hop	0	1
-conv7-q146	single-hop	1	1
-conv7-q147	single-hop	1	1
-conv7-q148	single-hop	1	1
-conv7-q149	single-hop	1	1
-conv7-q150	single-hop	1	1
-conv7-q151	single-hop	1	1
-conv7-q152	single-hop	1	1
-conv7-q153	single-hop	1	1
-conv7-q154	single-hop	1	1
-conv7-q155	single-hop	1	1
-conv7-q156	single-hop	1	1
-conv7-q157	single-hop	1	1
-conv7-q158	single-hop	0	1
-conv7-q159	single-hop	1	1
-conv7-q160	single-hop	1	1
-conv7-q161	single-hop	1	1
-conv7-q162	single-hop	1	1
-conv7-q163	single-hop	1	1
-conv7-q164	single-hop	1	1
-conv7-q165	single-hop	1	1
-conv7-q166	single-hop	1	1
-conv7-q167	single-hop	1	1
-conv7-q168	single-hop	1	1
-conv7-q169	single-hop	1	1
-conv7-q170	single-hop	1	1
-conv7-q171	single-hop	1	1
-conv7-q172	single-hop	1	1
-conv7-q173	single-hop	1	1
-conv7-q174	single-hop	0	1
-conv7-q175	single-hop	1	1
-conv7-q176	single-hop	1	1
-conv7-q177	single-hop	1	1
-conv7-q178	single-hop	1	1
-conv7-q179	single-hop	0	0
-conv7-q180	single-hop	0	1
-conv7-q181	single-hop	1	1
-conv7-q182	single-hop	1	1
-conv7-q183	single-hop	1	1
-conv7-q184	single-hop	1	1
-conv7-q185	single-hop	0	0
-conv7-q186	single-hop	1	1
-conv7-q187	single-hop	1	1
-conv7-q188	single-hop	1	1
-conv7-q189	single-hop	1	1
-conv7-q190	single-hop	1	1
-conv8-q0	multi-hop	1	1
-conv8-q1	multi-hop	1	1
-conv8-q2	multi-hop	1	1
-conv8-q3	multi-hop	1	1
-conv8-q4	temporal	1	1
-conv8-q5	open-domain	1	1
-conv8-q6	multi-hop	1	1
-conv8-q7	multi-hop	1	1
-conv8-q8	multi-hop	1	1
-conv8-q9	temporal	1	1
-conv8-q10	open-domain	1	1
-conv8-q11	multi-hop	1	1
-conv8-q12	temporal	1	1
-conv8-q13	temporal	1	1
-conv8-q14	multi-hop	0	0
-conv8-q15	multi-hop	1	1
-conv8-q16	multi-hop	1	1
-conv8-q17	temporal	1	1
-conv8-q18	multi-hop	1	1
-conv8-q19	open-domain	1	1
-conv8-q20	open-domain	1	1
-conv8-q21	multi-hop	1	1
-conv8-q22	temporal	1	1
-conv8-q23	temporal	1	1
-conv8-q24	temporal	0	0
-conv8-q25	temporal	1	1
-conv8-q26	multi-hop	1	1
-conv8-q27	open-domain	1	1
-conv8-q28	multi-hop	1	1
-conv8-q29	multi-hop	1	1
-conv8-q30	temporal	1	1
-conv8-q31	open-domain	1	1
-conv8-q32	multi-hop	0	0
-conv8-q33	multi-hop	1	1
-conv8-q34	multi-hop	0	1
-conv8-q35	temporal	1	1
-conv8-q36	multi-hop	0	1
-conv8-q37	multi-hop	0	1
-conv8-q38	open-domain	1	1
-conv8-q39	temporal	1	1
-conv8-q40	temporal	1	1
-conv8-q41	temporal	1	1
-conv8-q42	multi-hop	1	1
-conv8-q43	open-domain	0	1
-conv8-q44	multi-hop	1	1
-conv8-q45	temporal	1	1
-conv8-q46	open-domain	1	1
-conv8-q47	temporal	1	1
-conv8-q48	multi-hop	1	1
-conv8-q49	multi-hop	1	1
-conv8-q50	multi-hop	1	1
-conv8-q51	open-domain	1	1
-conv8-q52	temporal	1	1
-conv8-q53	temporal	1	1
-conv8-q54	multi-hop	0	1
-conv8-q55	multi-hop	1	1
-conv8-q56	multi-hop	1	1
-conv8-q57	open-domain	0	1
-conv8-q58	temporal	1	1
-conv8-q59	temporal	1	1
-conv8-q60	temporal	1	1
-conv8-q61	temporal	1	1
-conv8-q62	multi-hop	1	1
-conv8-q63	temporal	1	1
-conv8-q64	multi-hop	0	0
-conv8-q65	open-domain	1	1
-conv8-q66	temporal	1	1
-conv8-q67	temporal	1	1
-conv8-q68	temporal	1	1
-conv8-q69	multi-hop	1	1
-conv8-q70	temporal	1	1
-conv8-q71	open-domain	1	1
-conv8-q72	multi-hop	1	1
-conv8-q73	temporal	1	1
-conv8-q74	temporal	0	1
-conv8-q75	temporal	1	1
-conv8-q76	temporal	1	1
-conv8-q77	multi-hop	1	1
-conv8-q78	multi-hop	1	1
-conv8-q79	temporal	1	1
-conv8-q80	temporal	0	1
-conv8-q81	multi-hop	0	1
-conv8-q82	multi-hop	1	1
-conv8-q83	single-hop	1	1
-conv8-q84	single-hop	1	1
-conv8-q85	single-hop	1	1
-conv8-q86	single-hop	1	1
-conv8-q87	single-hop	1	1
-conv8-q88	single-hop	1	1
-conv8-q89	single-hop	1	1
-conv8-q90	single-hop	1	1
-conv8-q91	single-hop	1	1
-conv8-q92	single-hop	1	1
-conv8-q93	single-hop	1	1
-conv8-q94	single-hop	1	1
-conv8-q95	single-hop	1	1
-conv8-q96	single-hop	1	1
-conv8-q97	single-hop	1	1
-conv8-q98	single-hop	1	1
-conv8-q99	single-hop	1	1
-conv8-q100	single-hop	1	1
-conv8-q101	single-hop	1	1
-conv8-q102	single-hop	1	1
-conv8-q103	single-hop	0	1
-conv8-q104	single-hop	1	1
-conv8-q105	single-hop	1	1
-conv8-q106	single-hop	1	1
-conv8-q107	single-hop	1	1
-conv8-q108	single-hop	1	1
-conv8-q109	single-hop	0	0
-conv8-q110	single-hop	1	1
-conv8-q111	single-hop	1	1
-conv8-q112	single-hop	0	0
-conv8-q113	single-hop	1	1
-conv8-q114	single-hop	1	1
-conv8-q115	single-hop	1	1
-conv8-q116	single-hop	1	1
-conv8-q117	single-hop	1	1
-conv8-q118	single-hop	0	0
-conv8-q119	single-hop	1	1
-conv8-q120	single-hop	1	1
-conv8-q121	single-hop	1	1
-conv8-q122	single-hop	0	0
-conv8-q123	single-hop	0	0
-conv8-q124	single-hop	1	1
-conv8-q125	single-hop	1	1
-conv8-q126	single-hop	1	1
-conv8-q127	single-hop	1	1
-conv8-q128	single-hop	1	1
-conv8-q129	single-hop	1	1
-conv8-q130	single-hop	1	1
-conv8-q131	single-hop	1	1
-conv8-q132	single-hop	1	1
-conv8-q133	single-hop	1	1
-conv8-q134	single-hop	1	1
-conv8-q135	single-hop	1	1
-conv8-q136	single-hop	1	1
-conv8-q137	single-hop	1	1
-conv8-q138	single-hop	1	1
-conv8-q139	single-hop	1	1
-conv8-q140	single-hop	1	1
-conv8-q141	single-hop	1	1
-conv8-q142	single-hop	1	1
-conv8-q143	single-hop	1	1
-conv8-q144	single-hop	0	0
-conv8-q145	single-hop	1	1
-conv8-q146	single-hop	1	1
-conv8-q147	single-hop	1	1
-conv8-q148	single-hop	1	1
-conv8-q149	single-hop	1	1
-conv8-q150	single-hop	1	1
-conv8-q151	single-hop	1	1
-conv8-q152	single-hop	1	1
-conv8-q153	single-hop	1	1
-conv8-q154	single-hop	1	1
-conv8-q155	single-hop	1	1
-conv9-q0	temporal	1	1
-conv9-q1	multi-hop	1	1
-conv9-q2	temporal	1	1
-conv9-q3	multi-hop	1	1
-conv9-q4	open-domain	1	1
-conv9-q5	multi-hop	1	1
-conv9-q6	multi-hop	1	1
-conv9-q7	open-domain	0	0
-conv9-q8	temporal	1	1
-conv9-q9	temporal	1	1
-conv9-q10	temporal	1	1
-conv9-q11	multi-hop	1	1
-conv9-q12	temporal	1	1
-conv9-q13	open-domain	1	1
-conv9-q14	temporal	1	1
-conv9-q15	multi-hop	1	1
-conv9-q16	temporal	1	1
-conv9-q17	temporal	1	1
-conv9-q18	multi-hop	1	1
-conv9-q19	multi-hop	1	1
-conv9-q20	multi-hop	1	1
-conv9-q21	open-domain	1	1
-conv9-q22	multi-hop	1	1
-conv9-q23	multi-hop	1	1
-conv9-q24	multi-hop	1	1
-conv9-q25	temporal	1	1
-conv9-q26	temporal	1	1
-conv9-q27	temporal	0	1
-conv9-q28	multi-hop	1	1
-conv9-q29	multi-hop	1	1
-conv9-q30	multi-hop	0	1
-conv9-q31	temporal	0	0
-conv9-q32	multi-hop	1	1
-conv9-q33	multi-hop	1	1
-conv9-q34	temporal	1	1
-conv9-q35	temporal	1	1
-conv9-q36	temporal	1	1
-conv9-q37	open-domain	1	1
-conv9-q38	temporal	1	1
-conv9-q39	open-domain	1	1
-conv9-q40	multi-hop	1	1
-conv9-q41	multi-hop	1	1
-conv9-q42	open-domain	1	1
-conv9-q43	temporal	1	1
-conv9-q44	temporal	1	1
-conv9-q45	multi-hop	0	0
-conv9-q46	multi-hop	1	1
-conv9-q47	multi-hop	0	0
-conv9-q48	temporal	0	1
-conv9-q49	multi-hop	1	1
-conv9-q50	temporal	1	1
-conv9-q51	temporal	1	1
-conv9-q52	temporal	1	1
-conv9-q53	multi-hop	1	1
-conv9-q54	multi-hop	1	1
-conv9-q55	temporal	1	1
-conv9-q56	multi-hop	0	0
-conv9-q57	temporal	1	1
-conv9-q58	multi-hop	1	1
-conv9-q59	multi-hop	1	1
-conv9-q60	multi-hop	1	1
-conv9-q61	temporal	0	0
-conv9-q62	temporal	0	0
-conv9-q63	multi-hop	0	1
-conv9-q64	multi-hop	1	1
-conv9-q65	temporal	1	1
-conv9-q66	multi-hop	1	1
-conv9-q67	temporal	0	0
-conv9-q68	temporal	1	1
-conv9-q69	temporal	1	1
-conv9-q70	temporal	1	1
-conv9-q71	single-hop	1	1
-conv9-q72	single-hop	1	1
-conv9-q73	single-hop	1	1
-conv9-q74	single-hop	1	1
-conv9-q75	single-hop	1	1
-conv9-q76	single-hop	1	1
-conv9-q77	single-hop	1	1
-conv9-q78	single-hop	1	1
-conv9-q79	single-hop	1	1
-conv9-q80	single-hop	1	1
-conv9-q81	single-hop	1	1
-conv9-q82	single-hop	1	1
-conv9-q83	single-hop	1	1
-conv9-q84	single-hop	1	1
-conv9-q85	single-hop	1	1
-conv9-q86	single-hop	1	1
-conv9-q87	single-hop	1	1
-conv9-q88	single-hop	1	1
-conv9-q89	single-hop	1	1
-conv9-q90	single-hop	1	1
-conv9-q91	single-hop	1	1
-conv9-q92	single-hop	1	1
-conv9-q93	single-hop	1	1
-conv9-q94	single-hop	1	1
-conv9-q95	single-hop	1	1
-conv9-q96	single-hop	1	1
-conv9-q97	single-hop	1	1
-conv9-q98	single-hop	1	1
-conv9-q99	single-hop	1	1
-conv9-q100	single-hop	1	1
-conv9-q101	single-hop	1	1
-conv9-q102	single-hop	1	1
-conv9-q103	single-hop	1	1
-conv9-q104	single-hop	1	1
-conv9-q105	single-hop	1	1
-conv9-q106	single-hop	1	1
-conv9-q107	single-hop	1	1
-conv9-q108	single-hop	1	1
-conv9-q109	single-hop	1	1
-conv9-q110	single-hop	0	0
-conv9-q111	single-hop	0	1
-conv9-q112	single-hop	1	1
-conv9-q113	single-hop	1	1
-conv9-q114	single-hop	1	1
-conv9-q115	single-hop	1	1
-conv9-q116	single-hop	1	1
-conv9-q117	single-hop	1	1
-conv9-q118	single-hop	1	1
-conv9-q119	single-hop	1	1
-conv9-q120	single-hop	0	1
-conv9-q121	single-hop	1	1
-conv9-q122	single-hop	1	1
-conv9-q123	single-hop	1	1
-conv9-q124	single-hop	1	1
-conv9-q125	single-hop	1	1
-conv9-q126	single-hop	1	1
-conv9-q127	single-hop	1	1
-conv9-q128	single-hop	1	1
-conv9-q129	single-hop	1	1
-conv9-q130	single-hop	0	0
-conv9-q131	single-hop	1	1
-conv9-q132	single-hop	0	0
-conv9-q133	single-hop	1	1
-conv9-q134	single-hop	1	1
-conv9-q135	single-hop	1	1
-conv9-q136	single-hop	0	1
-conv9-q137	single-hop	0	0
-conv9-q138	single-hop	1	1
-conv9-q139	single-hop	1	1
-conv9-q140	single-hop	1	1
-conv9-q141	single-hop	1	1
-conv9-q142	single-hop	1	1
-conv9-q143	single-hop	1	1
-conv9-q144	single-hop	1	1
-conv9-q145	single-hop	1	1
-conv9-q146	single-hop	1	1
-conv9-q147	single-hop	0	0
-conv9-q148	single-hop	1	1
-conv9-q149	single-hop	1	1
-conv9-q150	single-hop	1	1
-conv9-q151	single-hop	0	0
-conv9-q152	single-hop	1	1
-conv9-q153	single-hop	1	1
-conv9-q154	single-hop	1	1
-conv9-q155	single-hop	1	1
-conv9-q156	single-hop	1	1
-conv9-q157	single-hop	1	1
+question_id	category	memory_paper_judge	memory_judge_2026	full_context_paper_judge	full_context_judge_2026
+conv0-q0	temporal	1	1	1	1
+conv0-q1	temporal	1	1	1	1
+conv0-q2	open-domain	1	1	1	1
+conv0-q3	multi-hop	1	1	1	1
+conv0-q4	multi-hop	1	1	1	1
+conv0-q5	temporal	0	1	0	1
+conv0-q6	temporal	1	1	1	1
+conv0-q7	multi-hop	1	1	1	1
+conv0-q8	temporal	1	1	1	1
+conv0-q9	temporal	1	1	1	1
+conv0-q10	temporal	1	1	1	1
+conv0-q11	multi-hop	0	0	1	1
+conv0-q12	temporal	1	1	1	1
+conv0-q13	multi-hop	1	1	1	1
+conv0-q14	open-domain	1	1	1	1
+conv0-q15	multi-hop	1	1	1	1
+conv0-q16	temporal	1	1	1	1
+conv0-q17	temporal	1	1	1	1
+conv0-q18	multi-hop	1	1	1	1
+conv0-q19	multi-hop	1	1	1	1
+conv0-q20	temporal	1	1	1	1
+conv0-q21	temporal	1	1	1	1
+conv0-q22	open-domain	1	1	1	1
+conv0-q23	multi-hop	1	1	0	1
+conv0-q24	multi-hop	1	1	1	1
+conv0-q25	temporal	1	1	1	1
+conv0-q26	temporal	0	0	1	1
+conv0-q27	open-domain	1	1	1	1
+conv0-q28	temporal	0	1	1	1
+conv0-q29	temporal	1	1	1	1
+conv0-q30	open-domain	1	1	1	1
+conv0-q31	temporal	1	1	1	1
+conv0-q32	multi-hop	1	1	1	1
+conv0-q33	temporal	1	1	1	1
+conv0-q34	multi-hop	1	1	1	1
+conv0-q35	temporal	0	0	1	1
+conv0-q36	temporal	1	1	1	1
+conv0-q37	multi-hop	1	1	1	1
+conv0-q38	multi-hop	1	1	1	1
+conv0-q39	multi-hop	1	1	1	1
+conv0-q40	multi-hop	1	1	1	1
+conv0-q41	temporal	1	1	1	1
+conv0-q42	open-domain	1	1	1	1
+conv0-q43	multi-hop	1	1	1	1
+conv0-q44	temporal	1	1	1	1
+conv0-q45	temporal	1	1	1	1
+conv0-q46	open-domain	1	1	1	1
+conv0-q47	multi-hop	1	1	1	1
+conv0-q48	multi-hop	1	1	1	1
+conv0-q49	temporal	1	1	1	1
+conv0-q50	open-domain	1	1	1	1
+conv0-q51	multi-hop	1	1	1	1
+conv0-q52	multi-hop	0	1	1	1
+conv0-q53	temporal	1	1	1	1
+conv0-q54	temporal	1	1	1	1
+conv0-q55	multi-hop	1	1	1	1
+conv0-q56	multi-hop	1	1	1	1
+conv0-q57	temporal	0	1	0	1
+conv0-q58	temporal	1	1	1	1
+conv0-q59	open-domain	0	0	1	1
+conv0-q60	multi-hop	1	1	1	1
+conv0-q61	multi-hop	1	1	1	1
+conv0-q62	temporal	1	1	1	1
+conv0-q63	temporal	1	1	1	1
+conv0-q64	open-domain	1	1	1	1
+conv0-q65	multi-hop	1	1	1	1
+conv0-q66	multi-hop	1	1	1	1
+conv0-q67	temporal	1	1	1	1
+conv0-q68	temporal	1	1	1	1
+conv0-q69	open-domain	1	1	1	1
+conv0-q70	multi-hop	1	1	1	1
+conv0-q71	multi-hop	1	1	1	1
+conv0-q72	temporal	1	1	1	1
+conv0-q73	temporal	1	1	1	1
+conv0-q74	temporal	1	1	1	1
+conv0-q75	multi-hop	1	1	1	1
+conv0-q76	multi-hop	1	1	0	1
+conv0-q77	open-domain	1	1	1	1
+conv0-q78	multi-hop	1	1	1	1
+conv0-q79	temporal	1	1	1	1
+conv0-q80	temporal	1	1	1	1
+conv0-q81	open-domain	1	1	1	1
+conv0-q82	single-hop	1	1	1	1
+conv0-q83	single-hop	1	1	1	1
+conv0-q84	single-hop	1	1	1	1
+conv0-q85	single-hop	1	1	1	1
+conv0-q86	single-hop	1	1	1	1
+conv0-q87	single-hop	1	1	1	1
+conv0-q88	single-hop	1	1	1	1
+conv0-q89	single-hop	1	1	1	1
+conv0-q90	single-hop	1	1	1	1
+conv0-q91	single-hop	1	1	1	1
+conv0-q92	single-hop	1	1	1	1
+conv0-q93	single-hop	1	1	1	1
+conv0-q94	single-hop	1	1	1	1
+conv0-q95	single-hop	1	1	1	1
+conv0-q96	single-hop	1	1	1	1
+conv0-q97	single-hop	1	1	1	1
+conv0-q98	single-hop	1	1	1	1
+conv0-q99	single-hop	1	1	1	1
+conv0-q100	single-hop	1	1	1	1
+conv0-q101	single-hop	1	1	1	1
+conv0-q102	single-hop	1	1	1	1
+conv0-q103	single-hop	1	1	1	1
+conv0-q104	single-hop	1	1	1	1
+conv0-q105	single-hop	1	1	1	1
+conv0-q106	single-hop	1	1	1	1
+conv0-q107	single-hop	1	1	1	1
+conv0-q108	single-hop	1	1	1	1
+conv0-q109	single-hop	1	1	1	1
+conv0-q110	single-hop	1	1	1	1
+conv0-q111	single-hop	1	1	1	1
+conv0-q112	single-hop	1	1	1	1
+conv0-q113	single-hop	1	1	1	1
+conv0-q114	single-hop	1	1	1	1
+conv0-q115	single-hop	1	1	1	1
+conv0-q116	single-hop	1	1	1	1
+conv0-q117	single-hop	1	1	1	1
+conv0-q118	single-hop	1	1	1	1
+conv0-q119	single-hop	1	1	1	1
+conv0-q120	single-hop	1	1	1	1
+conv0-q121	single-hop	1	1	1	1
+conv0-q122	single-hop	1	1	1	1
+conv0-q123	single-hop	1	1	1	1
+conv0-q124	single-hop	1	1	1	1
+conv0-q125	single-hop	1	1	1	1
+conv0-q126	single-hop	1	1	1	1
+conv0-q127	single-hop	1	1	1	1
+conv0-q128	single-hop	1	1	1	1
+conv0-q129	single-hop	1	1	1	1
+conv0-q130	single-hop	1	1	1	1
+conv0-q131	single-hop	1	1	1	1
+conv0-q132	single-hop	1	1	1	1
+conv0-q133	single-hop	1	1	1	1
+conv0-q134	single-hop	1	1	1	1
+conv0-q135	single-hop	1	1	1	1
+conv0-q136	single-hop	1	1	1	1
+conv0-q137	single-hop	1	1	1	1
+conv0-q138	single-hop	0	0	0	0
+conv0-q139	single-hop	1	1	1	1
+conv0-q140	single-hop	1	1	1	1
+conv0-q141	single-hop	1	1	1	1
+conv0-q142	single-hop	1	1	1	1
+conv0-q143	single-hop	1	1	1	1
+conv0-q144	single-hop	1	1	1	1
+conv0-q145	single-hop	1	1	1	1
+conv0-q146	single-hop	1	1	1	1
+conv0-q147	single-hop	1	1	1	1
+conv0-q148	single-hop	1	1	1	1
+conv0-q149	single-hop	1	1	1	1
+conv0-q150	single-hop	1	1	1	1
+conv0-q151	single-hop	0	0	1	1
+conv1-q0	temporal	1	1	1	1
+conv1-q1	temporal	1	1	1	1
+conv1-q2	single-hop	1	1	1	1
+conv1-q3	multi-hop	0	1	1	1
+conv1-q4	single-hop	1	1	1	1
+conv1-q5	multi-hop	1	1	1	1
+conv1-q6	temporal	1	1	1	1
+conv1-q7	temporal	1	1	1	1
+conv1-q8	temporal	1	1	1	1
+conv1-q9	multi-hop	1	1	1	1
+conv1-q10	temporal	1	1	1	1
+conv1-q11	temporal	1	1	1	1
+conv1-q12	temporal	1	1	1	1
+conv1-q13	temporal	1	1	1	1
+conv1-q14	temporal	1	1	1	1
+conv1-q15	temporal	1	1	1	1
+conv1-q16	temporal	1	1	1	1
+conv1-q17	multi-hop	1	1	1	1
+conv1-q18	multi-hop	1	1	1	1
+conv1-q19	temporal	1	1	1	1
+conv1-q20	temporal	1	1	1	1
+conv1-q21	temporal	1	1	0	1
+conv1-q22	temporal	1	1	1	1
+conv1-q23	multi-hop	1	1	1	1
+conv1-q24	multi-hop	1	1	1	1
+conv1-q25	multi-hop	1	1	1	1
+conv1-q26	temporal	1	1	1	1
+conv1-q27	multi-hop	1	1	1	1
+conv1-q28	temporal	1	1	1	1
+conv1-q29	multi-hop	1	1	1	1
+conv1-q30	temporal	1	1	1	1
+conv1-q31	multi-hop	0	1	0	1
+conv1-q32	temporal	1	1	1	1
+conv1-q33	temporal	1	1	1	1
+conv1-q34	temporal	1	1	1	1
+conv1-q35	temporal	1	1	1	1
+conv1-q36	temporal	1	1	1	1
+conv1-q37	temporal	1	1	1	1
+conv1-q38	temporal	1	1	1	1
+conv1-q39	single-hop	1	1	1	1
+conv1-q40	single-hop	1	1	1	1
+conv1-q41	single-hop	1	1	1	1
+conv1-q42	single-hop	1	1	1	1
+conv1-q43	single-hop	0	0	0	1
+conv1-q44	single-hop	0	0	1	1
+conv1-q45	single-hop	1	1	1	1
+conv1-q46	single-hop	1	1	1	1
+conv1-q47	single-hop	1	1	1	1
+conv1-q48	single-hop	1	1	1	1
+conv1-q49	single-hop	1	1	1	1
+conv1-q50	single-hop	1	1	1	1
+conv1-q51	single-hop	1	1	1	1
+conv1-q52	single-hop	1	1	1	1
+conv1-q53	single-hop	1	1	1	1
+conv1-q54	single-hop	1	1	1	1
+conv1-q55	single-hop	1	1	1	1
+conv1-q56	single-hop	0	0	1	1
+conv1-q57	single-hop	0	1	0	0
+conv1-q58	single-hop	1	1	1	1
+conv1-q59	single-hop	1	1	1	1
+conv1-q60	single-hop	1	1	1	1
+conv1-q61	single-hop	1	1	1	1
+conv1-q62	single-hop	1	1	1	1
+conv1-q63	single-hop	1	1	1	1
+conv1-q64	single-hop	1	1	1	1
+conv1-q65	single-hop	1	1	1	1
+conv1-q66	single-hop	1	1	1	1
+conv1-q67	single-hop	1	1	1	1
+conv1-q68	single-hop	1	1	1	1
+conv1-q69	single-hop	1	1	1	1
+conv1-q70	single-hop	1	1	1	1
+conv1-q71	single-hop	1	1	1	1
+conv1-q72	single-hop	1	1	1	1
+conv1-q73	single-hop	0	0	0	0
+conv1-q74	single-hop	1	1	1	1
+conv1-q75	single-hop	0	0	1	1
+conv1-q76	single-hop	1	1	1	1
+conv1-q77	single-hop	1	1	1	1
+conv1-q78	single-hop	1	1	1	1
+conv1-q80	single-hop	1	1	1	1
+conv1-q81	single-hop	1	1	1	1
+conv2-q0	temporal	1	1	1	1
+conv2-q1	temporal	1	1	1	1
+conv2-q2	multi-hop	1	1	1	1
+conv2-q3	multi-hop	1	1	1	1
+conv2-q4	temporal	1	1	1	1
+conv2-q5	temporal	1	1	1	1
+conv2-q6	multi-hop	0	1	1	1
+conv2-q7	multi-hop	1	1	1	1
+conv2-q8	open-domain	0	0	0	1
+conv2-q9	multi-hop	1	1	1	1
+conv2-q10	temporal	1	1	1	1
+conv2-q11	multi-hop	0	1	1	1
+conv2-q12	multi-hop	1	1	1	1
+conv2-q13	temporal	1	1	1	1
+conv2-q14	open-domain	1	1	1	1
+conv2-q15	multi-hop	1	1	1	1
+conv2-q16	temporal	1	1	1	1
+conv2-q17	open-domain	1	1	1	1
+conv2-q18	multi-hop	1	1	1	1
+conv2-q19	multi-hop	1	1	1	1
+conv2-q20	temporal	1	1	1	1
+conv2-q21	multi-hop	1	1	1	1
+conv2-q22	temporal	1	1	1	1
+conv2-q23	multi-hop	0	1	1	1
+conv2-q24	temporal	1	1	1	1
+conv2-q25	multi-hop	1	1	1	1
+conv2-q26	multi-hop	1	1	1	1
+conv2-q27	temporal	0	1	1	1
+conv2-q28	multi-hop	1	1	1	1
+conv2-q29	multi-hop	1	1	1	1
+conv2-q30	multi-hop	1	1	1	1
+conv2-q31	temporal	1	1	1	1
+conv2-q32	multi-hop	1	1	1	1
+conv2-q33	multi-hop	1	1	1	1
+conv2-q34	temporal	1	1	1	1
+conv2-q35	multi-hop	1	1	1	1
+conv2-q36	multi-hop	1	1	1	1
+conv2-q37	multi-hop	1	1	1	1
+conv2-q38	temporal	1	1	1	1
+conv2-q39	open-domain	1	1	1	1
+conv2-q40	multi-hop	1	1	1	1
+conv2-q41	open-domain	0	0	1	1
+conv2-q42	multi-hop	0	0	1	1
+conv2-q43	temporal	1	1	1	1
+conv2-q44	multi-hop	1	1	1	1
+conv2-q45	open-domain	0	0	1	1
+conv2-q46	temporal	1	1	1	1
+conv2-q47	multi-hop	1	1	1	1
+conv2-q48	temporal	0	0	0	0
+conv2-q49	multi-hop	1	1	0	1
+conv2-q50	open-domain	1	1	1	1
+conv2-q51	temporal	1	1	1	1
+conv2-q52	multi-hop	1	1	1	1
+conv2-q53	temporal	1	1	1	1
+conv2-q54	temporal	1	1	1	1
+conv2-q55	temporal	1	1	1	1
+conv2-q56	temporal	1	1	1	1
+conv2-q57	multi-hop	1	1	1	1
+conv2-q58	temporal	1	1	1	1
+conv2-q59	temporal	1	1	1	1
+conv2-q60	multi-hop	1	1	1	1
+conv2-q61	temporal	1	1	1	1
+conv2-q62	multi-hop	1	1	1	1
+conv2-q63	temporal	0	0	0	1
+conv2-q64	open-domain	1	1	1	1
+conv2-q65	single-hop	1	1	1	1
+conv2-q66	single-hop	1	1	1	1
+conv2-q67	single-hop	1	1	1	1
+conv2-q68	single-hop	1	1	1	1
+conv2-q69	single-hop	1	1	1	1
+conv2-q70	single-hop	1	1	1	1
+conv2-q71	single-hop	1	1	1	1
+conv2-q72	single-hop	1	1	1	1
+conv2-q73	single-hop	1	1	1	1
+conv2-q74	single-hop	1	1	1	1
+conv2-q75	single-hop	1	1	1	1
+conv2-q76	single-hop	1	1	1	1
+conv2-q77	single-hop	1	1	1	1
+conv2-q78	single-hop	1	1	1	1
+conv2-q79	single-hop	1	1	1	1
+conv2-q80	single-hop	1	1	1	1
+conv2-q81	single-hop	1	1	1	1
+conv2-q82	single-hop	1	1	1	1
+conv2-q83	single-hop	1	1	1	1
+conv2-q84	single-hop	1	1	1	1
+conv2-q85	single-hop	0	0	0	0
+conv2-q86	single-hop	1	1	1	1
+conv2-q87	single-hop	1	1	1	1
+conv2-q88	single-hop	0	0	1	1
+conv2-q89	single-hop	1	1	1	1
+conv2-q90	single-hop	1	1	1	1
+conv2-q91	temporal	0	0	1	1
+conv2-q92	single-hop	1	1	1	1
+conv2-q93	single-hop	1	1	1	1
+conv2-q94	single-hop	1	1	1	1
+conv2-q95	single-hop	1	1	1	1
+conv2-q96	single-hop	1	1	1	1
+conv2-q97	single-hop	1	1	1	1
+conv2-q98	single-hop	1	1	1	1
+conv2-q99	single-hop	1	1	1	1
+conv2-q100	single-hop	1	1	1	1
+conv2-q101	single-hop	1	1	1	1
+conv2-q102	single-hop	1	1	1	1
+conv2-q103	single-hop	1	1	1	1
+conv2-q104	single-hop	1	1	1	1
+conv2-q105	single-hop	1	1	1	1
+conv2-q106	single-hop	1	1	1	1
+conv2-q107	single-hop	1	1	1	1
+conv2-q108	single-hop	1	1	1	1
+conv2-q109	single-hop	1	1	1	1
+conv2-q110	single-hop	1	1	1	1
+conv2-q111	single-hop	1	1	1	1
+conv2-q112	single-hop	1	1	1	1
+conv2-q113	single-hop	1	1	1	1
+conv2-q114	single-hop	1	1	1	1
+conv2-q115	single-hop	1	1	1	1
+conv2-q116	single-hop	1	1	1	1
+conv2-q117	single-hop	1	1	1	1
+conv2-q118	single-hop	1	1	1	1
+conv2-q119	single-hop	1	1	1	1
+conv2-q120	single-hop	1	1	1	1
+conv2-q121	single-hop	1	1	1	1
+conv2-q122	single-hop	1	1	1	1
+conv2-q123	single-hop	1	1	1	1
+conv2-q124	single-hop	1	1	1	1
+conv2-q125	single-hop	1	1	1	1
+conv2-q126	single-hop	1	1	1	1
+conv2-q127	single-hop	1	1	1	1
+conv2-q128	single-hop	1	1	1	1
+conv2-q129	single-hop	1	1	1	1
+conv2-q130	single-hop	1	1	1	1
+conv2-q131	single-hop	1	1	1	1
+conv2-q132	single-hop	1	1	1	1
+conv2-q133	single-hop	1	1	1	1
+conv2-q134	single-hop	1	1	1	1
+conv2-q135	single-hop	1	1	1	1
+conv2-q136	single-hop	1	1	1	1
+conv2-q137	single-hop	1	1	1	1
+conv2-q138	single-hop	1	1	1	1
+conv2-q139	single-hop	1	1	1	1
+conv2-q140	single-hop	1	1	1	1
+conv2-q141	single-hop	1	1	1	1
+conv2-q142	single-hop	1	1	1	1
+conv2-q143	single-hop	1	1	1	1
+conv2-q144	single-hop	1	1	1	1
+conv2-q145	single-hop	1	1	1	1
+conv2-q146	single-hop	1	1	1	1
+conv2-q147	single-hop	1	1	1	1
+conv2-q148	single-hop	1	1	1	1
+conv2-q149	single-hop	1	1	1	1
+conv2-q150	single-hop	1	1	1	1
+conv2-q151	single-hop	1	1	1	1
+conv3-q0	open-domain	1	1	1	1
+conv3-q1	multi-hop	1	1	1	1
+conv3-q2	temporal	1	1	1	1
+conv3-q3	temporal	1	1	1	1
+conv3-q4	open-domain	0	0	0	0
+conv3-q5	multi-hop	1	1	1	1
+conv3-q6	temporal	1	1	0	1
+conv3-q7	temporal	1	1	1	1
+conv3-q8	temporal	1	1	1	1
+conv3-q9	temporal	1	1	1	1
+conv3-q10	multi-hop	1	1	1	1
+conv3-q11	multi-hop	0	1	0	1
+conv3-q12	open-domain	1	1	0	0
+conv3-q13	temporal	1	1	1	1
+conv3-q14	open-domain	1	1	1	1
+conv3-q15	temporal	1	1	1	1
+conv3-q16	temporal	1	1	1	1
+conv3-q17	temporal	1	1	1	1
+conv3-q18	temporal	1	1	1	1
+conv3-q19	multi-hop	1	1	1	1
+conv3-q20	temporal	1	1	1	1
+conv3-q21	temporal	1	1	1	1
+conv3-q22	temporal	0	0	0	0
+conv3-q23	multi-hop	0	1	0	0
+conv3-q24	temporal	1	1	0	1
+conv3-q25	temporal	1	1	1	1
+conv3-q26	temporal	1	1	1	1
+conv3-q27	multi-hop	1	1	1	1
+conv3-q28	temporal	1	1	1	1
+conv3-q29	temporal	0	0	1	1
+conv3-q30	multi-hop	1	1	1	1
+conv3-q31	temporal	1	1	1	1
+conv3-q32	temporal	1	1	1	1
+conv3-q33	temporal	1	1	1	1
+conv3-q34	multi-hop	0	0	0	1
+conv3-q35	temporal	0	1	1	1
+conv3-q36	temporal	1	1	1	1
+conv3-q37	temporal	1	1	1	1
+conv3-q38	temporal	1	1	1	1
+conv3-q39	temporal	0	1	1	1
+conv3-q40	temporal	1	1	1	1
+conv3-q41	temporal	1	1	0	0
+conv3-q42	multi-hop	0	1	1	1
+conv3-q43	temporal	0	1	0	1
+conv3-q44	temporal	1	1	1	1
+conv3-q45	temporal	1	1	1	1
+conv3-q46	multi-hop	1	1	1	1
+conv3-q47	multi-hop	1	1	1	1
+conv3-q48	temporal	1	1	1	1
+conv3-q49	multi-hop	1	1	1	1
+conv3-q50	multi-hop	1	1	1	1
+conv3-q51	multi-hop	1	1	1	1
+conv3-q52	multi-hop	1	1	0	0
+conv3-q53	multi-hop	0	0	0	0
+conv3-q54	temporal	1	1	1	1
+conv3-q55	multi-hop	1	1	1	1
+conv3-q56	multi-hop	1	1	1	1
+conv3-q57	temporal	1	1	1	1
+conv3-q58	multi-hop	0	1	1	1
+conv3-q59	multi-hop	1	1	1	1
+conv3-q60	open-domain	1	1	1	1
+conv3-q61	multi-hop	0	1	1	1
+conv3-q62	multi-hop	1	1	0	0
+conv3-q63	multi-hop	0	1	1	1
+conv3-q64	temporal	1	1	1	1
+conv3-q65	temporal	1	1	1	1
+conv3-q66	open-domain	0	0	0	0
+conv3-q67	multi-hop	1	1	1	1
+conv3-q68	open-domain	1	1	0	1
+conv3-q69	multi-hop	1	1	1	1
+conv3-q70	multi-hop	1	1	1	1
+conv3-q71	multi-hop	1	1	1	1
+conv3-q72	temporal	1	1	1	1
+conv3-q73	open-domain	1	1	1	1
+conv3-q74	multi-hop	1	1	1	1
+conv3-q75	multi-hop	1	1	1	1
+conv3-q76	multi-hop	1	1	1	1
+conv3-q77	temporal	1	1	1	1
+conv3-q78	multi-hop	1	1	1	1
+conv3-q79	multi-hop	0	1	1	1
+conv3-q80	multi-hop	1	1	1	1
+conv3-q81	multi-hop	1	1	1	1
+conv3-q82	multi-hop	1	1	1	1
+conv3-q83	multi-hop	0	1	1	1
+conv3-q84	open-domain	1	1	1	1
+conv3-q85	open-domain	1	1	1	1
+conv3-q86	temporal	1	1	1	1
+conv3-q87	open-domain	1	1	1	1
+conv3-q88	single-hop	0	0	0	0
+conv3-q89	single-hop	1	1	1	1
+conv3-q90	single-hop	1	1	1	1
+conv3-q91	single-hop	0	0	0	0
+conv3-q92	single-hop	0	0	0	0
+conv3-q93	single-hop	1	1	1	1
+conv3-q94	single-hop	0	1	1	1
+conv3-q95	single-hop	0	0	1	1
+conv3-q96	single-hop	1	1	1	1
+conv3-q97	single-hop	1	1	1	1
+conv3-q98	single-hop	1	1	1	1
+conv3-q99	single-hop	1	1	1	1
+conv3-q100	single-hop	1	1	1	1
+conv3-q101	single-hop	1	1	1	1
+conv3-q102	single-hop	1	1	1	1
+conv3-q103	single-hop	1	1	1	1
+conv3-q104	single-hop	1	1	1	1
+conv3-q105	single-hop	1	1	1	1
+conv3-q106	single-hop	1	1	1	1
+conv3-q107	single-hop	1	1	1	1
+conv3-q108	single-hop	1	1	1	1
+conv3-q109	single-hop	1	1	1	1
+conv3-q110	single-hop	1	1	1	1
+conv3-q111	single-hop	1	1	1	1
+conv3-q112	single-hop	1	1	1	1
+conv3-q113	single-hop	1	1	1	1
+conv3-q114	single-hop	1	1	1	1
+conv3-q115	single-hop	1	1	1	1
+conv3-q116	single-hop	1	1	0	1
+conv3-q117	single-hop	1	1	1	1
+conv3-q118	single-hop	1	1	1	1
+conv3-q119	single-hop	0	0	0	1
+conv3-q120	single-hop	1	1	1	1
+conv3-q121	single-hop	1	1	1	1
+conv3-q122	single-hop	1	1	1	1
+conv3-q123	single-hop	1	1	1	1
+conv3-q124	single-hop	1	1	1	1
+conv3-q125	single-hop	1	1	1	1
+conv3-q126	single-hop	1	1	1	1
+conv3-q127	single-hop	0	0	1	1
+conv3-q128	single-hop	1	1	1	1
+conv3-q129	single-hop	1	1	1	1
+conv3-q130	single-hop	1	1	1	1
+conv3-q131	single-hop	1	1	1	1
+conv3-q132	single-hop	1	1	1	1
+conv3-q133	single-hop	1	1	1	1
+conv3-q134	single-hop	1	1	1	1
+conv3-q135	single-hop	1	1	1	1
+conv3-q136	single-hop	1	1	1	1
+conv3-q137	single-hop	1	1	1	1
+conv3-q138	single-hop	1	1	1	1
+conv3-q139	single-hop	1	1	1	1
+conv3-q140	single-hop	1	1	1	1
+conv3-q141	single-hop	1	1	1	1
+conv3-q142	single-hop	1	1	1	1
+conv3-q143	single-hop	1	1	1	1
+conv3-q144	single-hop	1	1	1	1
+conv3-q145	single-hop	1	1	1	1
+conv3-q146	single-hop	1	1	1	1
+conv3-q147	single-hop	1	1	1	1
+conv3-q148	single-hop	1	1	1	1
+conv3-q149	single-hop	1	1	1	1
+conv3-q150	single-hop	1	1	1	1
+conv3-q151	single-hop	1	1	1	1
+conv3-q152	single-hop	1	1	1	1
+conv3-q153	single-hop	1	1	1	1
+conv3-q154	single-hop	1	1	1	1
+conv3-q155	single-hop	1	1	1	1
+conv3-q156	single-hop	1	1	1	1
+conv3-q157	single-hop	1	1	1	1
+conv3-q158	single-hop	1	1	1	1
+conv3-q159	single-hop	1	1	1	1
+conv3-q160	single-hop	1	1	1	1
+conv3-q161	single-hop	1	1	1	1
+conv3-q162	single-hop	1	1	1	1
+conv3-q163	single-hop	1	1	1	1
+conv3-q164	single-hop	1	1	1	1
+conv3-q165	single-hop	1	1	1	1
+conv3-q166	single-hop	1	1	1	1
+conv3-q167	single-hop	1	1	1	1
+conv3-q168	single-hop	1	1	1	1
+conv3-q169	single-hop	1	1	1	1
+conv3-q170	single-hop	1	1	1	1
+conv3-q171	single-hop	1	1	1	1
+conv3-q172	single-hop	1	1	1	1
+conv3-q173	single-hop	1	1	1	1
+conv3-q174	single-hop	1	1	1	1
+conv3-q175	single-hop	1	1	1	1
+conv3-q176	single-hop	1	1	1	1
+conv3-q177	single-hop	1	1	1	1
+conv3-q178	single-hop	1	1	1	1
+conv3-q179	single-hop	1	1	1	1
+conv3-q180	single-hop	1	1	1	1
+conv3-q181	single-hop	1	1	1	1
+conv3-q182	single-hop	1	1	1	1
+conv3-q183	single-hop	1	1	1	1
+conv3-q184	single-hop	1	1	1	1
+conv3-q185	single-hop	1	1	1	1
+conv3-q186	single-hop	1	1	1	1
+conv3-q187	single-hop	1	1	1	1
+conv3-q188	single-hop	1	1	1	1
+conv3-q189	single-hop	1	1	1	1
+conv3-q190	single-hop	1	1	1	1
+conv3-q191	single-hop	1	1	1	1
+conv3-q192	single-hop	1	1	1	1
+conv3-q193	single-hop	1	1	1	1
+conv3-q194	single-hop	1	1	1	1
+conv3-q195	single-hop	1	1	1	1
+conv3-q196	single-hop	1	1	1	1
+conv3-q197	single-hop	1	1	1	1
+conv3-q198	single-hop	1	1	1	1
+conv4-q0	multi-hop	1	1	1	1
+conv4-q1	multi-hop	1	1	1	1
+conv4-q2	multi-hop	0	1	0	1
+conv4-q3	open-domain	1	1	1	1
+conv4-q4	multi-hop	1	1	1	1
+conv4-q5	open-domain	0	0	1	1
+conv4-q6	temporal	0	0	0	0
+conv4-q7	multi-hop	0	1	0	1
+conv4-q8	open-domain	0	0	0	0
+conv4-q9	multi-hop	1	1	1	1
+conv4-q10	temporal	1	1	1	1
+conv4-q11	multi-hop	1	1	1	1
+conv4-q12	temporal	1	1	1	1
+conv4-q13	multi-hop	1	1	1	1
+conv4-q14	multi-hop	1	1	1	1
+conv4-q15	open-domain	1	1	1	1
+conv4-q16	temporal	0	1	1	1
+conv4-q17	multi-hop	0	0	1	1
+conv4-q18	multi-hop	1	1	1	1
+conv4-q19	open-domain	0	0	0	0
+conv4-q20	temporal	1	1	1	1
+conv4-q21	multi-hop	1	1	1	1
+conv4-q22	temporal	1	1	1	1
+conv4-q23	temporal	1	1	1	1
+conv4-q24	temporal	0	0	1	1
+conv4-q25	multi-hop	1	1	1	1
+conv4-q26	multi-hop	1	1	1	1
+conv4-q27	open-domain	1	1	1	1
+conv4-q28	open-domain	0	0	1	1
+conv4-q29	multi-hop	1	1	1	1
+conv4-q30	multi-hop	1	1	1	1
+conv4-q31	temporal	1	1	1	1
+conv4-q32	open-domain	1	1	1	1
+conv4-q33	temporal	1	1	1	1
+conv4-q34	open-domain	1	1	0	1
+conv4-q35	multi-hop	1	1	1	1
+conv4-q36	multi-hop	1	1	1	1
+conv4-q37	temporal	1	1	1	1
+conv4-q38	multi-hop	1	1	1	1
+conv4-q39	temporal	1	1	1	1
+conv4-q40	temporal	1	1	1	1
+conv4-q41	multi-hop	1	1	1	1
+conv4-q42	multi-hop	1	1	1	1
+conv4-q43	multi-hop	1	1	1	1
+conv4-q44	temporal	1	1	1	1
+conv4-q45	temporal	1	1	1	1
+conv4-q46	temporal	1	1	1	1
+conv4-q47	temporal	1	1	1	1
+conv4-q48	multi-hop	1	1	1	1
+conv4-q49	multi-hop	1	1	1	1
+conv4-q50	multi-hop	1	1	1	1
+conv4-q51	open-domain	0	0	0	0
+conv4-q52	multi-hop	1	1	1	1
+conv4-q53	open-domain	0	1	1	1
+conv4-q54	temporal	1	1	1	1
+conv4-q55	temporal	0	0	0	0
+conv4-q56	temporal	1	1	0	0
+conv4-q57	multi-hop	1	1	1	1
+conv4-q58	temporal	1	1	1	1
+conv4-q59	multi-hop	1	1	1	1
+conv4-q60	temporal	0	1	0	1
+conv4-q61	multi-hop	1	1	1	1
+conv4-q62	multi-hop	1	1	1	1
+conv4-q63	temporal	1	1	1	1
+conv4-q64	temporal	1	1	1	1
+conv4-q65	multi-hop	1	1	1	1
+conv4-q66	open-domain	0	0	0	0
+conv4-q67	open-domain	0	1	1	1
+conv4-q68	temporal	1	1	1	1
+conv4-q69	temporal	1	1	1	1
+conv4-q70	open-domain	1	1	1	1
+conv4-q71	single-hop	1	1	1	1
+conv4-q72	single-hop	1	1	1	1
+conv4-q73	single-hop	1	1	1	1
+conv4-q74	single-hop	1	1	1	1
+conv4-q75	single-hop	1	1	1	1
+conv4-q76	single-hop	1	1	1	1
+conv4-q77	single-hop	1	1	1	1
+conv4-q78	single-hop	1	1	1	1
+conv4-q79	single-hop	1	1	1	1
+conv4-q80	single-hop	1	1	1	1
+conv4-q81	single-hop	1	1	1	1
+conv4-q82	single-hop	1	1	1	1
+conv4-q83	single-hop	1	1	1	1
+conv4-q84	single-hop	1	1	1	1
+conv4-q85	single-hop	1	1	1	1
+conv4-q86	single-hop	1	1	1	1
+conv4-q87	single-hop	1	1	1	1
+conv4-q88	single-hop	1	1	1	1
+conv4-q89	single-hop	1	1	1	1
+conv4-q90	single-hop	1	1	1	1
+conv4-q91	single-hop	1	1	1	1
+conv4-q92	single-hop	1	1	1	1
+conv4-q93	single-hop	1	1	1	1
+conv4-q94	single-hop	1	1	1	1
+conv4-q95	single-hop	1	1	1	1
+conv4-q96	single-hop	1	1	1	1
+conv4-q97	single-hop	1	1	1	1
+conv4-q98	single-hop	1	1	1	1
+conv4-q99	single-hop	1	1	1	1
+conv4-q100	single-hop	1	1	1	1
+conv4-q101	single-hop	1	1	1	1
+conv4-q102	single-hop	1	1	1	1
+conv4-q103	single-hop	0	0	1	1
+conv4-q104	single-hop	1	1	1	1
+conv4-q105	single-hop	1	1	1	1
+conv4-q106	single-hop	1	1	1	1
+conv4-q107	single-hop	1	1	1	1
+conv4-q108	single-hop	1	1	1	1
+conv4-q109	single-hop	1	1	1	1
+conv4-q110	single-hop	1	1	1	1
+conv4-q111	single-hop	1	1	1	1
+conv4-q112	single-hop	1	1	1	1
+conv4-q113	single-hop	1	1	0	0
+conv4-q114	single-hop	0	0	1	1
+conv4-q115	single-hop	1	1	1	1
+conv4-q116	single-hop	1	1	1	1
+conv4-q117	single-hop	1	1	1	1
+conv4-q118	single-hop	1	1	1	1
+conv4-q119	single-hop	1	1	1	1
+conv4-q120	single-hop	1	1	1	1
+conv4-q121	single-hop	1	1	1	1
+conv4-q122	single-hop	1	1	1	1
+conv4-q123	single-hop	1	1	1	1
+conv4-q124	single-hop	1	1	1	1
+conv4-q125	single-hop	1	1	1	1
+conv4-q126	single-hop	1	1	1	1
+conv4-q127	single-hop	1	1	1	1
+conv4-q128	single-hop	0	1	1	1
+conv4-q129	single-hop	1	1	1	1
+conv4-q130	single-hop	1	1	1	1
+conv4-q131	single-hop	1	1	1	1
+conv4-q132	single-hop	1	1	1	1
+conv4-q133	single-hop	1	1	1	1
+conv4-q134	single-hop	1	1	1	1
+conv4-q135	single-hop	0	0	0	0
+conv4-q136	single-hop	1	1	0	1
+conv4-q137	single-hop	1	1	1	1
+conv4-q138	single-hop	1	1	1	1
+conv4-q139	single-hop	1	1	1	1
+conv4-q140	single-hop	1	1	1	1
+conv4-q141	single-hop	1	1	1	1
+conv4-q142	single-hop	1	1	1	1
+conv4-q143	single-hop	1	1	1	1
+conv4-q144	single-hop	1	1	1	1
+conv4-q145	single-hop	1	1	1	1
+conv4-q146	single-hop	1	1	1	1
+conv4-q147	single-hop	1	1	1	1
+conv4-q148	single-hop	1	1	1	1
+conv4-q149	single-hop	1	1	1	1
+conv4-q150	single-hop	1	1	1	1
+conv4-q151	single-hop	1	1	1	1
+conv4-q152	single-hop	0	0	0	0
+conv4-q153	single-hop	1	1	1	1
+conv4-q154	single-hop	1	1	1	1
+conv4-q155	single-hop	1	1	1	1
+conv4-q156	single-hop	1	1	1	1
+conv4-q157	single-hop	1	1	1	1
+conv4-q158	single-hop	1	1	1	1
+conv4-q159	single-hop	1	1	1	1
+conv4-q160	single-hop	1	1	1	1
+conv4-q161	single-hop	1	1	1	1
+conv4-q162	single-hop	1	1	1	1
+conv4-q163	single-hop	1	1	1	1
+conv4-q164	single-hop	0	0	0	0
+conv4-q165	single-hop	0	0	1	1
+conv4-q166	single-hop	0	0	1	1
+conv4-q167	single-hop	1	1	1	1
+conv4-q168	single-hop	1	1	1	1
+conv4-q169	single-hop	0	0	1	1
+conv4-q170	single-hop	1	1	1	1
+conv4-q171	single-hop	1	1	1	1
+conv4-q172	single-hop	1	1	1	1
+conv4-q173	single-hop	1	1	1	1
+conv4-q174	single-hop	1	1	1	1
+conv4-q175	single-hop	1	1	1	1
+conv4-q176	single-hop	1	1	1	1
+conv4-q177	single-hop	1	1	1	1
+conv5-q0	temporal	1	1	1	1
+conv5-q1	temporal	1	1	1	1
+conv5-q2	multi-hop	0	1	1	1
+conv5-q3	multi-hop	1	1	1	1
+conv5-q4	temporal	0	1	0	1
+conv5-q5	temporal	0	1	0	1
+conv5-q6	temporal	1	1	1	1
+conv5-q7	temporal	1	1	1	1
+conv5-q8	temporal	1	1	1	1
+conv5-q9	multi-hop	1	1	1	1
+conv5-q10	temporal	1	1	1	1
+conv5-q11	temporal	1	1	1	1
+conv5-q12	multi-hop	1	1	1	1
+conv5-q13	temporal	1	1	1	1
+conv5-q14	multi-hop	1	1	1	1
+conv5-q15	multi-hop	1	1	1	1
+conv5-q16	temporal	0	0	0	0
+conv5-q17	multi-hop	0	0	1	1
+conv5-q18	multi-hop	0	0	0	0
+conv5-q19	open-domain	1	1	1	1
+conv5-q20	open-domain	1	1	1	1
+conv5-q21	multi-hop	1	1	1	1
+conv5-q22	temporal	1	1	1	1
+conv5-q23	multi-hop	1	1	1	1
+conv5-q24	multi-hop	1	1	1	1
+conv5-q25	temporal	1	1	1	1
+conv5-q26	multi-hop	1	1	1	1
+conv5-q27	multi-hop	1	1	1	1
+conv5-q28	multi-hop	1	1	1	1
+conv5-q29	multi-hop	0	1	1	1
+conv5-q30	temporal	1	1	1	1
+conv5-q31	multi-hop	1	1	1	1
+conv5-q32	multi-hop	1	1	1	1
+conv5-q33	open-domain	0	0	0	0
+conv5-q34	temporal	1	1	1	1
+conv5-q35	multi-hop	0	1	1	1
+conv5-q36	multi-hop	1	1	1	1
+conv5-q37	temporal	0	1	1	1
+conv5-q38	temporal	1	1	1	1
+conv5-q39	multi-hop	0	1	1	1
+conv5-q40	multi-hop	1	1	1	1
+conv5-q41	multi-hop	0	1	1	1
+conv5-q42	multi-hop	1	1	1	1
+conv5-q43	open-domain	0	0	0	0
+conv5-q44	open-domain	0	0	0	0
+conv5-q45	temporal	1	1	1	1
+conv5-q46	temporal	1	1	1	1
+conv5-q47	temporal	1	1	1	1
+conv5-q48	multi-hop	1	1	1	1
+conv5-q49	multi-hop	1	1	1	1
+conv5-q50	multi-hop	1	1	1	1
+conv5-q51	multi-hop	1	1	1	1
+conv5-q52	open-domain	0	0	1	1
+conv5-q53	open-domain	1	1	1	1
+conv5-q54	multi-hop	1	1	1	1
+conv5-q55	temporal	0	0	1	1
+conv5-q56	multi-hop	1	1	1	1
+conv5-q57	temporal	1	1	1	1
+conv5-q58	temporal	1	1	1	1
+conv5-q59	temporal	1	1	1	1
+conv5-q60	multi-hop	1	1	1	1
+conv5-q61	single-hop	1	1	1	1
+conv5-q62	single-hop	1	1	1	1
+conv5-q63	single-hop	1	1	1	1
+conv5-q64	single-hop	1	1	1	1
+conv5-q65	single-hop	1	1	1	1
+conv5-q66	single-hop	1	1	1	1
+conv5-q67	single-hop	1	1	1	1
+conv5-q68	single-hop	1	1	1	1
+conv5-q69	single-hop	1	1	1	1
+conv5-q70	single-hop	1	1	1	1
+conv5-q71	single-hop	1	1	1	1
+conv5-q72	single-hop	1	1	1	1
+conv5-q73	single-hop	1	1	1	1
+conv5-q74	single-hop	1	1	1	1
+conv5-q75	single-hop	1	1	1	1
+conv5-q76	single-hop	1	1	1	1
+conv5-q77	single-hop	1	1	1	1
+conv5-q78	single-hop	1	1	1	1
+conv5-q79	single-hop	1	1	1	1
+conv5-q80	single-hop	1	1	1	1
+conv5-q81	single-hop	1	1	1	1
+conv5-q82	single-hop	1	1	1	1
+conv5-q83	single-hop	1	1	1	1
+conv5-q84	single-hop	0	0	1	1
+conv5-q85	single-hop	1	1	1	1
+conv5-q86	single-hop	1	1	1	1
+conv5-q87	single-hop	1	1	1	1
+conv5-q88	single-hop	1	1	1	1
+conv5-q89	single-hop	1	1	1	1
+conv5-q90	single-hop	1	1	1	1
+conv5-q91	single-hop	0	0	1	1
+conv5-q92	single-hop	1	1	1	1
+conv5-q93	single-hop	1	1	1	1
+conv5-q94	single-hop	1	1	1	1
+conv5-q95	single-hop	1	1	1	1
+conv5-q96	single-hop	1	1	1	1
+conv5-q97	single-hop	1	1	1	1
+conv5-q98	single-hop	1	1	1	1
+conv5-q99	single-hop	1	1	1	1
+conv5-q100	single-hop	1	1	1	1
+conv5-q101	single-hop	1	1	1	1
+conv5-q102	single-hop	1	1	1	1
+conv5-q103	single-hop	1	1	1	1
+conv5-q104	single-hop	0	1	1	1
+conv5-q105	single-hop	1	1	1	1
+conv5-q106	single-hop	1	1	1	1
+conv5-q107	single-hop	1	1	1	1
+conv5-q108	single-hop	1	1	1	1
+conv5-q109	single-hop	1	1	1	1
+conv5-q110	single-hop	1	1	1	1
+conv5-q111	single-hop	1	1	1	1
+conv5-q112	single-hop	1	1	1	1
+conv5-q113	single-hop	1	1	1	1
+conv5-q114	single-hop	1	1	1	1
+conv5-q115	single-hop	1	1	1	1
+conv5-q116	single-hop	1	1	1	1
+conv5-q117	single-hop	1	1	1	1
+conv5-q118	single-hop	1	1	1	1
+conv5-q119	single-hop	1	1	1	1
+conv5-q120	single-hop	1	1	1	1
+conv5-q121	single-hop	1	1	1	1
+conv5-q122	single-hop	1	1	1	1
+conv6-q0	open-domain	0	0	0	0
+conv6-q1	temporal	1	1	1	1
+conv6-q2	multi-hop	0	1	1	1
+conv6-q3	multi-hop	1	1	1	1
+conv6-q4	temporal	1	1	1	1
+conv6-q5	multi-hop	1	1	1	1
+conv6-q6	open-domain	0	0	1	1
+conv6-q7	open-domain	1	1	1	1
+conv6-q8	multi-hop	1	1	1	1
+conv6-q9	multi-hop	1	1	1	1
+conv6-q10	temporal	1	1	1	1
+conv6-q11	temporal	0	0	0	0
+conv6-q12	open-domain	1	1	1	1
+conv6-q13	temporal	1	1	1	1
+conv6-q14	temporal	1	1	1	1
+conv6-q15	temporal	1	1	1	1
+conv6-q16	open-domain	1	1	1	1
+conv6-q17	open-domain	0	0	0	0
+conv6-q18	multi-hop	1	1	1	1
+conv6-q19	open-domain	0	0	0	0
+conv6-q20	multi-hop	1	1	1	1
+conv6-q21	temporal	1	1	1	1
+conv6-q22	multi-hop	1	1	1	1
+conv6-q23	temporal	1	1	1	1
+conv6-q24	multi-hop	1	1	1	1
+conv6-q25	open-domain	1	1	1	1
+conv6-q26	multi-hop	1	1	1	1
+conv6-q27	multi-hop	1	1	1	1
+conv6-q28	temporal	1	1	1	1
+conv6-q29	temporal	1	1	1	1
+conv6-q30	open-domain	1	1	1	1
+conv6-q31	temporal	0	0	0	0
+conv6-q32	temporal	1	1	1	1
+conv6-q33	open-domain	0	0	0	0
+conv6-q34	multi-hop	1	1	1	1
+conv6-q35	open-domain	1	1	1	1
+conv6-q36	open-domain	1	1	1	1
+conv6-q37	temporal	1	1	1	1
+conv6-q38	multi-hop	1	1	1	1
+conv6-q39	temporal	1	1	1	1
+conv6-q40	multi-hop	1	1	1	1
+conv6-q41	temporal	1	1	1	1
+conv6-q42	temporal	1	1	1	1
+conv6-q43	temporal	1	1	1	1
+conv6-q44	open-domain	1	1	1	1
+conv6-q45	multi-hop	1	1	1	1
+conv6-q46	temporal	1	1	1	1
+conv6-q47	temporal	1	1	1	1
+conv6-q48	temporal	1	1	1	1
+conv6-q49	multi-hop	0	1	1	1
+conv6-q50	temporal	1	1	1	1
+conv6-q51	multi-hop	0	1	1	1
+conv6-q52	temporal	1	1	1	1
+conv6-q53	temporal	0	0	0	0
+conv6-q54	multi-hop	1	1	1	1
+conv6-q55	temporal	1	1	1	1
+conv6-q56	multi-hop	1	1	1	1
+conv6-q57	temporal	1	1	1	1
+conv6-q58	temporal	1	1	1	1
+conv6-q59	temporal	1	1	1	1
+conv6-q60	multi-hop	1	1	1	1
+conv6-q61	temporal	1	1	1	1
+conv6-q62	temporal	1	1	1	1
+conv6-q63	temporal	1	1	1	1
+conv6-q64	temporal	1	1	1	1
+conv6-q65	temporal	1	1	0	1
+conv6-q66	temporal	1	1	1	1
+conv6-q67	single-hop	1	1	1	1
+conv6-q68	single-hop	1	1	1	1
+conv6-q69	single-hop	1	1	1	1
+conv6-q70	single-hop	1	1	1	1
+conv6-q71	single-hop	1	1	1	1
+conv6-q72	single-hop	1	1	1	1
+conv6-q73	single-hop	1	1	1	1
+conv6-q74	single-hop	1	1	1	1
+conv6-q75	single-hop	1	1	1	1
+conv6-q76	single-hop	1	1	1	1
+conv6-q77	single-hop	0	0	1	1
+conv6-q78	single-hop	1	1	1	1
+conv6-q79	single-hop	1	1	1	1
+conv6-q80	single-hop	1	1	1	1
+conv6-q81	single-hop	0	0	1	1
+conv6-q82	single-hop	1	1	1	1
+conv6-q83	single-hop	1	1	1	1
+conv6-q84	single-hop	1	1	1	1
+conv6-q85	single-hop	1	1	1	1
+conv6-q86	single-hop	1	1	1	1
+conv6-q87	single-hop	1	1	1	1
+conv6-q88	single-hop	1	1	1	1
+conv6-q89	single-hop	1	1	1	1
+conv6-q90	single-hop	1	1	1	1
+conv6-q91	single-hop	0	0	1	1
+conv6-q92	single-hop	1	1	1	1
+conv6-q93	single-hop	0	1	1	1
+conv6-q94	single-hop	1	1	1	1
+conv6-q95	single-hop	1	1	1	1
+conv6-q96	single-hop	1	1	1	1
+conv6-q97	single-hop	1	1	1	1
+conv6-q98	single-hop	1	1	1	1
+conv6-q99	single-hop	1	1	1	1
+conv6-q100	single-hop	1	1	1	1
+conv6-q101	single-hop	1	1	1	1
+conv6-q102	single-hop	1	1	1	1
+conv6-q103	single-hop	1	1	1	1
+conv6-q104	single-hop	1	1	1	1
+conv6-q105	single-hop	1	1	1	1
+conv6-q106	single-hop	1	1	1	1
+conv6-q107	single-hop	1	1	1	1
+conv6-q108	single-hop	1	1	1	1
+conv6-q109	single-hop	1	1	1	1
+conv6-q110	single-hop	1	1	1	1
+conv6-q111	single-hop	1	1	1	1
+conv6-q112	single-hop	1	1	1	1
+conv6-q113	single-hop	1	1	1	1
+conv6-q114	single-hop	1	1	1	1
+conv6-q115	single-hop	1	1	1	1
+conv6-q116	single-hop	1	1	1	1
+conv6-q117	single-hop	1	1	1	1
+conv6-q118	single-hop	1	1	1	1
+conv6-q119	single-hop	1	1	1	1
+conv6-q120	single-hop	1	1	1	1
+conv6-q121	single-hop	1	1	1	1
+conv6-q122	single-hop	1	1	1	1
+conv6-q123	single-hop	1	1	1	1
+conv6-q124	single-hop	1	1	1	1
+conv6-q125	single-hop	1	1	1	1
+conv6-q126	single-hop	1	1	1	1
+conv6-q127	single-hop	1	1	1	1
+conv6-q128	single-hop	1	1	1	1
+conv6-q129	single-hop	1	1	1	1
+conv6-q130	single-hop	1	1	1	1
+conv6-q131	single-hop	1	1	1	1
+conv6-q132	single-hop	1	1	1	1
+conv6-q133	single-hop	1	1	1	1
+conv6-q134	single-hop	1	1	1	1
+conv6-q135	single-hop	1	1	1	1
+conv6-q136	single-hop	1	1	1	1
+conv6-q137	single-hop	1	1	1	1
+conv6-q138	single-hop	1	1	1	1
+conv6-q139	single-hop	1	1	1	1
+conv6-q140	single-hop	1	1	1	1
+conv6-q141	single-hop	1	1	1	1
+conv6-q142	single-hop	1	1	1	1
+conv6-q143	single-hop	1	1	1	1
+conv6-q144	single-hop	1	1	1	1
+conv6-q145	single-hop	0	1	1	1
+conv6-q146	single-hop	1	1	1	1
+conv6-q147	single-hop	1	1	1	1
+conv6-q148	single-hop	1	1	1	1
+conv6-q149	single-hop	1	1	1	1
+conv7-q0	temporal	1	1	1	1
+conv7-q1	multi-hop	1	1	1	1
+conv7-q2	temporal	1	1	1	1
+conv7-q3	temporal	1	1	1	1
+conv7-q4	temporal	1	1	1	1
+conv7-q5	open-domain	1	1	1	1
+conv7-q6	multi-hop	1	1	1	1
+conv7-q7	temporal	1	1	1	1
+conv7-q8	multi-hop	1	1	1	1
+conv7-q9	temporal	1	1	1	1
+conv7-q10	temporal	1	1	1	1
+conv7-q11	open-domain	1	1	1	1
+conv7-q12	temporal	1	1	1	1
+conv7-q13	multi-hop	1	1	1	1
+conv7-q14	multi-hop	0	1	1	1
+conv7-q15	single-hop	1	1	1	1
+conv7-q16	single-hop	1	1	1	1
+conv7-q17	temporal	1	1	1	1
+conv7-q18	open-domain	1	1	1	1
+conv7-q19	multi-hop	1	1	1	1
+conv7-q20	multi-hop	0	1	1	1
+conv7-q21	temporal	1	1	1	1
+conv7-q22	temporal	1	1	1	1
+conv7-q23	open-domain	0	0	1	1
+conv7-q24	multi-hop	1	1	1	1
+conv7-q25	single-hop	1	1	1	1
+conv7-q26	temporal	1	1	1	1
+conv7-q27	temporal	1	1	1	1
+conv7-q28	open-domain	1	1	1	1
+conv7-q29	temporal	1	1	1	1
+conv7-q30	temporal	1	1	1	1
+conv7-q31	temporal	1	1	1	1
+conv7-q32	temporal	1	1	1	1
+conv7-q33	single-hop	1	1	1	1
+conv7-q34	temporal	1	1	1	1
+conv7-q35	temporal	1	1	1	1
+conv7-q36	open-domain	0	0	0	0
+conv7-q37	temporal	1	1	1	1
+conv7-q38	temporal	1	1	1	1
+conv7-q39	multi-hop	1	1	1	1
+conv7-q40	open-domain	1	1	1	1
+conv7-q41	multi-hop	1	1	1	1
+conv7-q42	single-hop	1	1	1	1
+conv7-q43	temporal	1	1	1	1
+conv7-q44	temporal	1	1	1	1
+conv7-q45	temporal	1	1	1	1
+conv7-q46	temporal	1	1	1	1
+conv7-q47	temporal	1	1	1	1
+conv7-q48	open-domain	0	0	1	1
+conv7-q49	single-hop	1	1	1	1
+conv7-q50	temporal	1	1	1	1
+conv7-q51	temporal	1	1	1	1
+conv7-q52	temporal	1	1	1	1
+conv7-q53	temporal	1	1	1	1
+conv7-q54	temporal	1	1	1	1
+conv7-q55	temporal	1	1	1	1
+conv7-q56	temporal	1	1	1	1
+conv7-q57	temporal	1	1	1	1
+conv7-q58	single-hop	1	1	1	1
+conv7-q59	single-hop	1	1	1	1
+conv7-q60	temporal	1	1	1	1
+conv7-q61	single-hop	1	1	1	1
+conv7-q62	single-hop	1	1	1	1
+conv7-q63	single-hop	1	1	1	1
+conv7-q64	single-hop	1	1	1	1
+conv7-q65	temporal	1	1	1	1
+conv7-q66	temporal	1	1	1	1
+conv7-q67	single-hop	1	1	1	1
+conv7-q68	temporal	1	1	1	1
+conv7-q69	single-hop	1	1	1	1
+conv7-q70	open-domain	1	1	1	1
+conv7-q71	temporal	0	1	0	1
+conv7-q72	single-hop	1	1	1	1
+conv7-q73	multi-hop	1	1	1	1
+conv7-q74	single-hop	0	1	1	1
+conv7-q75	open-domain	0	1	1	1
+conv7-q76	temporal	1	1	1	1
+conv7-q77	multi-hop	0	0	0	0
+conv7-q78	temporal	0	0	1	1
+conv7-q79	multi-hop	1	1	1	1
+conv7-q80	multi-hop	1	1	1	1
+conv7-q81	temporal	1	1	1	1
+conv7-q82	multi-hop	1	1	1	1
+conv7-q83	multi-hop	1	1	1	1
+conv7-q84	multi-hop	1	1	1	1
+conv7-q85	multi-hop	0	1	1	1
+conv7-q86	multi-hop	0	1	1	1
+conv7-q87	multi-hop	0	1	0	1
+conv7-q88	multi-hop	0	1	1	1
+conv7-q89	single-hop	1	1	1	1
+conv7-q90	single-hop	1	1	1	1
+conv7-q91	single-hop	1	1	1	1
+conv7-q92	single-hop	1	1	1	1
+conv7-q93	single-hop	1	1	1	1
+conv7-q94	single-hop	1	1	1	1
+conv7-q95	single-hop	1	1	1	1
+conv7-q96	single-hop	1	1	1	1
+conv7-q97	single-hop	1	1	1	1
+conv7-q98	single-hop	1	1	1	1
+conv7-q99	single-hop	0	1	1	1
+conv7-q100	single-hop	1	1	1	1
+conv7-q101	single-hop	1	1	1	1
+conv7-q102	single-hop	1	1	1	1
+conv7-q103	single-hop	1	1	1	1
+conv7-q104	single-hop	0	0	1	1
+conv7-q105	single-hop	1	1	1	1
+conv7-q106	single-hop	1	1	1	1
+conv7-q107	single-hop	1	1	1	1
+conv7-q108	single-hop	1	1	1	1
+conv7-q109	single-hop	1	1	1	1
+conv7-q110	single-hop	1	1	1	1
+conv7-q111	single-hop	1	1	1	1
+conv7-q112	single-hop	1	1	1	1
+conv7-q113	single-hop	1	1	1	1
+conv7-q114	single-hop	1	1	1	1
+conv7-q115	single-hop	0	0	1	1
+conv7-q116	single-hop	0	1	0	0
+conv7-q117	single-hop	1	1	1	1
+conv7-q118	single-hop	1	1	1	1
+conv7-q119	single-hop	1	1	1	1
+conv7-q120	single-hop	1	1	1	1
+conv7-q121	single-hop	1	1	1	1
+conv7-q122	single-hop	1	1	1	1
+conv7-q123	single-hop	1	1	1	1
+conv7-q124	single-hop	1	1	1	1
+conv7-q125	single-hop	1	1	1	1
+conv7-q126	single-hop	1	1	1	1
+conv7-q127	single-hop	1	1	1	1
+conv7-q128	single-hop	1	1	1	1
+conv7-q129	single-hop	1	1	1	1
+conv7-q130	single-hop	1	1	1	1
+conv7-q131	single-hop	1	1	1	1
+conv7-q132	single-hop	1	1	1	1
+conv7-q133	single-hop	1	1	1	1
+conv7-q134	single-hop	1	1	0	0
+conv7-q135	single-hop	1	1	1	1
+conv7-q136	single-hop	1	1	0	0
+conv7-q137	single-hop	1	1	1	1
+conv7-q138	single-hop	1	1	1	1
+conv7-q139	single-hop	1	1	1	1
+conv7-q140	single-hop	1	1	1	1
+conv7-q141	single-hop	0	0	1	1
+conv7-q142	single-hop	1	1	1	1
+conv7-q143	single-hop	1	1	1	1
+conv7-q144	single-hop	1	1	1	1
+conv7-q145	single-hop	0	1	1	1
+conv7-q146	single-hop	1	1	1	1
+conv7-q147	single-hop	1	1	1	1
+conv7-q148	single-hop	1	1	1	1
+conv7-q149	single-hop	1	1	1	1
+conv7-q150	single-hop	1	1	1	1
+conv7-q151	single-hop	1	1	1	0
+conv7-q152	single-hop	1	1	1	1
+conv7-q153	single-hop	1	1	1	1
+conv7-q154	single-hop	1	1	1	1
+conv7-q155	single-hop	1	1	1	1
+conv7-q156	single-hop	1	1	1	1
+conv7-q157	single-hop	1	1	1	1
+conv7-q158	single-hop	0	1	0	0
+conv7-q159	single-hop	1	1	1	1
+conv7-q160	single-hop	1	1	1	1
+conv7-q161	single-hop	1	1	1	1
+conv7-q162	single-hop	1	1	1	1
+conv7-q163	single-hop	1	1	1	1
+conv7-q164	single-hop	1	1	1	1
+conv7-q165	single-hop	1	1	1	1
+conv7-q166	single-hop	1	1	1	1
+conv7-q167	single-hop	1	1	1	1
+conv7-q168	single-hop	1	1	1	1
+conv7-q169	single-hop	1	1	1	1
+conv7-q170	single-hop	1	1	1	1
+conv7-q171	single-hop	1	1	1	1
+conv7-q172	single-hop	1	1	1	1
+conv7-q173	single-hop	1	1	1	1
+conv7-q174	single-hop	0	1	1	1
+conv7-q175	single-hop	1	1	1	1
+conv7-q176	single-hop	1	1	1	1
+conv7-q177	single-hop	1	1	1	1
+conv7-q178	single-hop	1	1	1	1
+conv7-q179	single-hop	0	0	0	0
+conv7-q180	single-hop	0	1	1	1
+conv7-q181	single-hop	1	1	1	1
+conv7-q182	single-hop	1	1	1	1
+conv7-q183	single-hop	1	1	1	1
+conv7-q184	single-hop	1	1	1	1
+conv7-q185	single-hop	0	0	1	1
+conv7-q186	single-hop	1	1	1	1
+conv7-q187	single-hop	1	1	1	1
+conv7-q188	single-hop	1	1	1	1
+conv7-q189	single-hop	1	1	1	1
+conv7-q190	single-hop	1	1	1	1
+conv8-q0	multi-hop	1	1	1	1
+conv8-q1	multi-hop	1	1	1	1
+conv8-q2	multi-hop	1	1	1	1
+conv8-q3	multi-hop	1	1	1	1
+conv8-q4	temporal	1	1	1	1
+conv8-q5	open-domain	1	1	1	1
+conv8-q6	multi-hop	1	1	1	1
+conv8-q7	multi-hop	1	1	1	1
+conv8-q8	multi-hop	1	1	1	1
+conv8-q9	temporal	1	1	1	1
+conv8-q10	open-domain	1	1	1	1
+conv8-q11	multi-hop	1	1	1	1
+conv8-q12	temporal	1	1	1	1
+conv8-q13	temporal	1	1	1	1
+conv8-q14	multi-hop	0	0	1	1
+conv8-q15	multi-hop	1	1	1	1
+conv8-q16	multi-hop	1	1	1	1
+conv8-q17	temporal	1	1	1	1
+conv8-q18	multi-hop	1	1	1	1
+conv8-q19	open-domain	1	1	1	1
+conv8-q20	open-domain	1	1	0	1
+conv8-q21	multi-hop	1	1	1	1
+conv8-q22	temporal	1	1	1	1
+conv8-q23	temporal	1	1	1	1
+conv8-q24	temporal	0	0	0	0
+conv8-q25	temporal	1	1	1	1
+conv8-q26	multi-hop	1	1	1	1
+conv8-q27	open-domain	1	1	1	1
+conv8-q28	multi-hop	1	1	1	1
+conv8-q29	multi-hop	1	1	1	1
+conv8-q30	temporal	1	1	1	1
+conv8-q31	open-domain	1	1	1	1
+conv8-q32	multi-hop	0	0	1	1
+conv8-q33	multi-hop	1	1	1	1
+conv8-q34	multi-hop	0	1	1	1
+conv8-q35	temporal	1	1	1	1
+conv8-q36	multi-hop	0	1	1	1
+conv8-q37	multi-hop	0	1	1	1
+conv8-q38	open-domain	1	1	1	1
+conv8-q39	temporal	1	1	1	1
+conv8-q40	temporal	1	1	1	1
+conv8-q41	temporal	1	1	1	1
+conv8-q42	multi-hop	1	1	1	1
+conv8-q43	open-domain	0	1	0	0
+conv8-q44	multi-hop	1	1	1	1
+conv8-q45	temporal	1	1	1	1
+conv8-q46	open-domain	1	1	1	1
+conv8-q47	temporal	1	1	1	1
+conv8-q48	multi-hop	1	1	1	1
+conv8-q49	multi-hop	1	1	1	1
+conv8-q50	multi-hop	1	1	1	1
+conv8-q51	open-domain	1	1	1	1
+conv8-q52	temporal	1	1	1	1
+conv8-q53	temporal	1	1	1	1
+conv8-q54	multi-hop	0	1	1	1
+conv8-q55	multi-hop	1	1	1	1
+conv8-q56	multi-hop	1	1	1	1
+conv8-q57	open-domain	0	1	1	1
+conv8-q58	temporal	1	1	1	1
+conv8-q59	temporal	1	1	1	1
+conv8-q60	temporal	1	1	1	1
+conv8-q61	temporal	1	1	1	1
+conv8-q62	multi-hop	1	1	1	1
+conv8-q63	temporal	1	1	1	1
+conv8-q64	multi-hop	0	0	1	1
+conv8-q65	open-domain	1	1	1	1
+conv8-q66	temporal	1	1	1	1
+conv8-q67	temporal	1	1	1	1
+conv8-q68	temporal	1	1	1	1
+conv8-q69	multi-hop	1	1	1	1
+conv8-q70	temporal	1	1	0	1
+conv8-q71	open-domain	1	1	1	1
+conv8-q72	multi-hop	1	1	1	1
+conv8-q73	temporal	1	1	1	1
+conv8-q74	temporal	0	1	0	1
+conv8-q75	temporal	1	1	1	1
+conv8-q76	temporal	1	1	1	1
+conv8-q77	multi-hop	1	1	1	1
+conv8-q78	multi-hop	1	1	1	1
+conv8-q79	temporal	1	1	1	1
+conv8-q80	temporal	0	1	0	0
+conv8-q81	multi-hop	0	1	0	1
+conv8-q82	multi-hop	1	1	1	1
+conv8-q83	single-hop	1	1	1	1
+conv8-q84	single-hop	1	1	1	1
+conv8-q85	single-hop	1	1	1	1
+conv8-q86	single-hop	1	1	1	1
+conv8-q87	single-hop	1	1	1	1
+conv8-q88	single-hop	1	1	1	1
+conv8-q89	single-hop	1	1	1	1
+conv8-q90	single-hop	1	1	1	1
+conv8-q91	single-hop	1	1	1	1
+conv8-q92	single-hop	1	1	1	1
+conv8-q93	single-hop	1	1	1	1
+conv8-q94	single-hop	1	1	1	1
+conv8-q95	single-hop	1	1	1	1
+conv8-q96	single-hop	1	1	1	1
+conv8-q97	single-hop	1	1	1	1
+conv8-q98	single-hop	1	1	1	1
+conv8-q99	single-hop	1	1	1	1
+conv8-q100	single-hop	1	1	1	1
+conv8-q101	single-hop	1	1	1	1
+conv8-q102	single-hop	1	1	1	1
+conv8-q103	single-hop	0	1	0	0
+conv8-q104	single-hop	1	1	1	1
+conv8-q105	single-hop	1	1	1	1
+conv8-q106	single-hop	1	1	0	0
+conv8-q107	single-hop	1	1	1	1
+conv8-q108	single-hop	1	1	0	1
+conv8-q109	single-hop	0	0	1	1
+conv8-q110	single-hop	1	1	1	1
+conv8-q111	single-hop	1	1	1	1
+conv8-q112	single-hop	0	0	1	1
+conv8-q113	single-hop	1	1	1	1
+conv8-q114	single-hop	1	1	1	1
+conv8-q115	single-hop	1	1	1	1
+conv8-q116	single-hop	1	1	1	1
+conv8-q117	single-hop	1	1	1	1
+conv8-q118	single-hop	0	0	1	1
+conv8-q119	single-hop	1	1	1	1
+conv8-q120	single-hop	1	1	1	1
+conv8-q121	single-hop	1	1	1	1
+conv8-q122	single-hop	0	0	1	1
+conv8-q123	single-hop	0	0	1	1
+conv8-q124	single-hop	1	1	1	1
+conv8-q125	single-hop	1	1	1	1
+conv8-q126	single-hop	1	1	1	1
+conv8-q127	single-hop	1	1	1	1
+conv8-q128	single-hop	1	1	1	1
+conv8-q129	single-hop	1	1	1	1
+conv8-q130	single-hop	1	1	1	1
+conv8-q131	single-hop	1	1	1	1
+conv8-q132	single-hop	1	1	1	1
+conv8-q133	single-hop	1	1	1	1
+conv8-q134	single-hop	1	1	1	1
+conv8-q135	single-hop	1	1	1	1
+conv8-q136	single-hop	1	1	1	1
+conv8-q137	single-hop	1	1	1	1
+conv8-q138	single-hop	1	1	1	1
+conv8-q139	single-hop	1	1	1	1
+conv8-q140	single-hop	1	1	1	1
+conv8-q141	single-hop	1	1	1	1
+conv8-q142	single-hop	1	1	1	1
+conv8-q143	single-hop	1	1	1	1
+conv8-q144	single-hop	0	0	0	0
+conv8-q145	single-hop	1	1	1	1
+conv8-q146	single-hop	1	1	1	1
+conv8-q147	single-hop	1	1	1	1
+conv8-q148	single-hop	1	1	1	1
+conv8-q149	single-hop	1	1	1	1
+conv8-q150	single-hop	1	1	1	1
+conv8-q151	single-hop	1	1	1	1
+conv8-q152	single-hop	1	1	1	1
+conv8-q153	single-hop	1	1	1	1
+conv8-q154	single-hop	1	1	1	1
+conv8-q155	single-hop	1	1	1	1
+conv9-q0	temporal	1	1	1	1
+conv9-q1	multi-hop	1	1	0	1
+conv9-q2	temporal	1	1	1	1
+conv9-q3	multi-hop	1	1	1	1
+conv9-q4	open-domain	1	1	1	1
+conv9-q5	multi-hop	1	1	1	1
+conv9-q6	multi-hop	1	1	1	1
+conv9-q7	open-domain	0	0	0	0
+conv9-q8	temporal	1	1	1	1
+conv9-q9	temporal	1	1	1	1
+conv9-q10	temporal	1	1	1	1
+conv9-q11	multi-hop	1	1	1	1
+conv9-q12	temporal	1	1	1	1
+conv9-q13	open-domain	1	1	1	1
+conv9-q14	temporal	1	1	1	1
+conv9-q15	multi-hop	1	1	1	1
+conv9-q16	temporal	1	1	1	1
+conv9-q17	temporal	1	1	1	1
+conv9-q18	multi-hop	1	1	1	1
+conv9-q19	multi-hop	1	1	1	1
+conv9-q20	multi-hop	1	1	1	1
+conv9-q21	open-domain	1	1	1	1
+conv9-q22	multi-hop	1	1	1	1
+conv9-q23	multi-hop	1	1	1	1
+conv9-q24	multi-hop	1	1	1	1
+conv9-q25	temporal	1	1	1	1
+conv9-q26	temporal	1	1	1	1
+conv9-q27	temporal	0	1	1	1
+conv9-q28	multi-hop	1	1	1	1
+conv9-q29	multi-hop	1	1	1	1
+conv9-q30	multi-hop	0	1	1	1
+conv9-q31	temporal	0	0	1	1
+conv9-q32	multi-hop	1	1	1	1
+conv9-q33	multi-hop	1	1	1	1
+conv9-q34	temporal	1	1	1	1
+conv9-q35	temporal	1	1	1	1
+conv9-q36	temporal	1	1	1	1
+conv9-q37	open-domain	1	1	1	1
+conv9-q38	temporal	1	1	1	1
+conv9-q39	open-domain	1	1	1	1
+conv9-q40	multi-hop	1	1	1	1
+conv9-q41	multi-hop	1	1	1	1
+conv9-q42	open-domain	1	1	1	1
+conv9-q43	temporal	1	1	1	1
+conv9-q44	temporal	1	1	1	1
+conv9-q45	multi-hop	0	0	1	1
+conv9-q46	multi-hop	1	1	1	1
+conv9-q47	multi-hop	0	0	0	1
+conv9-q48	temporal	0	1	1	1
+conv9-q49	multi-hop	1	1	1	1
+conv9-q50	temporal	1	1	1	1
+conv9-q51	temporal	1	1	1	1
+conv9-q52	temporal	1	1	1	1
+conv9-q53	multi-hop	1	1	1	1
+conv9-q54	multi-hop	1	1	0	1
+conv9-q55	temporal	1	1	1	1
+conv9-q56	multi-hop	0	0	1	1
+conv9-q57	temporal	1	1	1	1
+conv9-q58	multi-hop	1	1	1	1
+conv9-q59	multi-hop	1	1	1	1
+conv9-q60	multi-hop	1	1	1	1
+conv9-q61	temporal	0	0	0	0
+conv9-q62	temporal	0	0	0	0
+conv9-q63	multi-hop	0	1	1	1
+conv9-q64	multi-hop	1	1	1	1
+conv9-q65	temporal	1	1	1	1
+conv9-q66	multi-hop	1	1	1	1
+conv9-q67	temporal	0	0	0	0
+conv9-q68	temporal	1	1	1	1
+conv9-q69	temporal	1	1	1	1
+conv9-q70	temporal	1	1	1	1
+conv9-q71	single-hop	1	1	1	1
+conv9-q72	single-hop	1	1	1	1
+conv9-q73	single-hop	1	1	1	1
+conv9-q74	single-hop	1	1	1	1
+conv9-q75	single-hop	1	1	1	1
+conv9-q76	single-hop	1	1	1	1
+conv9-q77	single-hop	1	1	1	1
+conv9-q78	single-hop	1	1	1	1
+conv9-q79	single-hop	1	1	1	1
+conv9-q80	single-hop	1	1	1	1
+conv9-q81	single-hop	1	1	1	1
+conv9-q82	single-hop	1	1	1	1
+conv9-q83	single-hop	1	1	1	1
+conv9-q84	single-hop	1	1	1	1
+conv9-q85	single-hop	1	1	1	1
+conv9-q86	single-hop	1	1	1	1
+conv9-q87	single-hop	1	1	1	1
+conv9-q88	single-hop	1	1	1	1
+conv9-q89	single-hop	1	1	1	1
+conv9-q90	single-hop	1	1	1	1
+conv9-q91	single-hop	1	1	1	1
+conv9-q92	single-hop	1	1	1	1
+conv9-q93	single-hop	1	1	1	1
+conv9-q94	single-hop	1	1	1	1
+conv9-q95	single-hop	1	1	1	1
+conv9-q96	single-hop	1	1	1	1
+conv9-q97	single-hop	1	1	1	1
+conv9-q98	single-hop	1	1	1	1
+conv9-q99	single-hop	1	1	1	1
+conv9-q100	single-hop	1	1	1	1
+conv9-q101	single-hop	1	1	1	1
+conv9-q102	single-hop	1	1	1	1
+conv9-q103	single-hop	1	1	1	1
+conv9-q104	single-hop	1	1	1	1
+conv9-q105	single-hop	1	1	1	1
+conv9-q106	single-hop	1	1	1	1
+conv9-q107	single-hop	1	1	1	1
+conv9-q108	single-hop	1	1	1	1
+conv9-q109	single-hop	1	1	1	1
+conv9-q110	single-hop	0	0	1	1
+conv9-q111	single-hop	0	1	1	1
+conv9-q112	single-hop	1	1	1	1
+conv9-q113	single-hop	1	1	1	1
+conv9-q114	single-hop	1	1	1	1
+conv9-q115	single-hop	1	1	1	1
+conv9-q116	single-hop	1	1	1	1
+conv9-q117	single-hop	1	1	1	1
+conv9-q118	single-hop	1	1	1	1
+conv9-q119	single-hop	1	1	1	1
+conv9-q120	single-hop	0	1	1	1
+conv9-q121	single-hop	1	1	1	1
+conv9-q122	single-hop	1	1	1	1
+conv9-q123	single-hop	1	1	1	1
+conv9-q124	single-hop	1	1	1	1
+conv9-q125	single-hop	1	1	1	1
+conv9-q126	single-hop	1	1	1	1
+conv9-q127	single-hop	1	1	1	1
+conv9-q128	single-hop	1	1	1	1
+conv9-q129	single-hop	1	1	1	1
+conv9-q130	single-hop	0	0	1	1
+conv9-q131	single-hop	1	1	1	1
+conv9-q132	single-hop	0	0	1	1
+conv9-q133	single-hop	1	1	1	1
+conv9-q134	single-hop	1	1	1	1
+conv9-q135	single-hop	1	1	1	1
+conv9-q136	single-hop	0	1	0	1
+conv9-q137	single-hop	0	0	0	0
+conv9-q138	single-hop	1	1	1	1
+conv9-q139	single-hop	1	1	1	1
+conv9-q140	single-hop	1	1	1	1
+conv9-q141	single-hop	1	1	1	1
+conv9-q142	single-hop	1	1	1	1
+conv9-q143	single-hop	1	1	1	1
+conv9-q144	single-hop	1	1	1	1
+conv9-q145	single-hop	1	1	1	1
+conv9-q146	single-hop	1	1	1	1
+conv9-q147	single-hop	0	0	1	1
+conv9-q148	single-hop	1	1	1	1
+conv9-q149	single-hop	1	1	1	1
+conv9-q150	single-hop	1	1	1	1
+conv9-q151	single-hop	0	0	0	0
+conv9-q152	single-hop	1	1	1	1
+conv9-q153	single-hop	1	1	1	1
+conv9-q154	single-hop	1	1	1	1
+conv9-q155	single-hop	1	1	1	1
+conv9-q156	single-hop	1	1	1	1
+conv9-q157	single-hop	1	1	1	1

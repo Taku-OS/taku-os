@@ -192,6 +192,28 @@ These are self-reported, from other readers and judges, so they compare only rou
 
 **Cost:** answers $67.33, paper judge $14.54 and 2026 judge $18.44 (list price).
 
+**Full context: no memory at all** ([fullctx.py](fullctx.py), [paper J](locomo-fullcontext-judge-paper.txt), [2026 judge](locomo-fullcontext-judge-2026.txt)). For comparison, Sonnet 5.5 was given each chat's whole history (about 26k tokens) and no tools. The history was in its system prompt, so it was cached across that chat's questions. It answered the same 1,540 questions:
+
+| Category | Memory search, paper J | Full context, paper J | Memory search, 2026 | Full context, 2026 |
+| --- | --- | --- | --- | --- |
+| **Overall** | 88.3% | **93.8% (1444)** | 93.2% | **96.1% (1480)** |
+| Single-hop | 92.6% | 96.8% | 94.6% | 97.4% |
+| Temporal | 88.2% | 90.9% | 93.5% | 95.3% |
+| Multi-hop | 81.9% | 93.3% | 95.0% | 97.9% |
+| Open-domain | 68.8% | 78.1% | 74.0% | 82.3% |
+
+Question by question, under paper J:
+
+- **Both right:** 1,334.
+- **Only full context right:** 110.
+- **Only memory search right:** 25.
+- **Both wrong:** 71.
+
+At this size, then, searching memory costs about 5.5 points against reading everything. The loss is largest on multi-hop questions, whose evidence the searches gathered completely only 43.7% of the time. Full context was also cheaper here: $20.80 against $67.33, because 96% of its input tokens were cached reads of the same history (about 45k input tokens per question, including the CLI's own prompt).
+
+This does not carry over to a phone's memory. A LoCoMo chat is a few weeks of messages with one person. LongMemEval's haystacks are already about 180k tokens per question, which priced at $0.74 a question with no cache to share. A phone that has captured months of messages, pages and notifications holds far more than any context window. Full context is not run for LongMemEval here.
+
+
 ## Checks
 
 - **Builds.**
