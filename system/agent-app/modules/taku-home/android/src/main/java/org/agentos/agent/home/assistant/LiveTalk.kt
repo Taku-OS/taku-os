@@ -47,6 +47,7 @@ internal data class LiveTalkSnapshot(
   val disclosure get() = when (provider.takeIf { lifecycle == "connecting" || lifecycle == "active" }) {
     "fal-grok" -> "Live Talk sends microphone audio, conversation context, and task details for spoken replies to Grok Voice via fal."
     "gemini-live" -> "Live Talk sends microphone audio, conversation context, and task details for spoken replies to Google Gemini Live."
+    "moss-live" -> "Live Talk sends microphone audio, conversation context, and task details for spoken replies to MOSS-Live by MOSI."
     else -> LiveTalk.DISCLOSURE
   }
 
@@ -656,7 +657,7 @@ internal class LiveTalk(
   private fun explicitCancel(text: String): Boolean = text.trim().lowercase().trimEnd('.', '!', '。', '！') in EXPLICIT_CANCEL
 
   companion object {
-    const val DISCLOSURE = "Live Talk sends microphone audio, conversation context, and task details for spoken replies to the provider selected in Taku Audio (Grok Voice via fal or Google Gemini Live)."
+    const val DISCLOSURE = "Live Talk sends microphone audio, conversation context, and task details for spoken replies to the provider selected in Taku Audio (MOSS-Live, Grok Voice via fal, or Google Gemini Live)."
     private const val RESPONSE_GRACE_MS = 8_000L
     private val COMMANDS = setOf("submit", "correct", "cancel")
     private val CONNECTION_ERRORS = setOf("NETWORK_FAILED", "ENGINE_UNAVAILABLE", "QUEUE_BACKLOG", "CONNECT_TIMEOUT", "PROVIDER_DISCONNECTED", "SESSION_EXPIRED")

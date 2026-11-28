@@ -29,7 +29,7 @@ assert a.serial.startswith('emulator-') and adb('emu', 'avd', 'name').splitlines
 assert adb('shell', 'id', '-u') == '0'
 assert adb('shell', 'su', '2000', 'id', '-u') == '2000'
 base = '/data/local/agentos/ai/credentials/'
-for name in ['fal.json', 'fal-model.json', 'gemini-live.json']:
+for name in ['fal.json', 'fal-model.json', 'gemini-live.json', 'moss.json']:
     assert adb('shell', f'test ! -e {base + name} && echo absent') == 'absent', 'Refuse to overwrite existing voice configuration'
 wifi = adb('shell', 'settings get global wifi_on')
 mobile = adb('shell', 'settings get global mobile_data')
@@ -87,8 +87,9 @@ def public(request=None, *, method='settings', raw=None, code=None):
     assert set(result) == {'enabled', 'audioEnabled', 'systemRevision', 'audioRevision', 'reading', 'fal', 'dictation', 'live'}, result
     assert set(result['fal']) == {'configured', 'masked', 'model', 'models', 'realtimeAvailable', 'error'}, result
     assert result['fal']['realtimeAvailable'] is False
-    assert set(result['live']) == {'configured', 'profileId', 'gemini'}, result
+    assert set(result['live']) == {'configured', 'profileId', 'gemini', 'moss'}, result
     assert set(result['live']['gemini']) == {'configured', 'masked', 'error'}, result
+    assert set(result['live']['moss']) == {'configured', 'masked', 'error'}, result
     view = result['dictation'].get('assistant-entry')
     assert isinstance(view, dict), result
     assert set(view) == {'primaryProfileId', 'fallbackProfileId', 'language', 'resolvedLanguage', 'isDefault', 'error', 'backends'}, view
@@ -273,7 +274,8 @@ def public_roundtrip():
 def live_roundtrip():
     grok = public({'action': 'selectLiveProvider', 'profileId': 'fal-grok'})
     assert grok['live'] == {'profileId': 'fal-grok', 'configured': True,
-                            'gemini': {'configured': False, 'masked': None, 'error': None}}, grok
+                            'gemini': {'configured': False, 'masked': None, 'error': None},
+                            'moss': {'configured': False, 'masked': None, 'error': None}}, grok
     missing = public({'action': 'selectLiveProvider', 'profileId': 'gemini-live'})
     assert missing['live']['profileId'] == 'gemini-live' and not missing['live']['configured']
     assert missing['fal'] == grok['fal'] and missing['audioRevision'] == grok['audioRevision'] + 1
@@ -283,7 +285,8 @@ def live_roundtrip():
     write('gemini-live.json', json.dumps({'key': gemini_key}))
     legacy = public({'action': 'read'})
     assert legacy['live'] == {'profileId': 'gemini-live', 'configured': True,
-                             'gemini': {'configured': True, 'masked': '•••• ture', 'error': None}}, legacy
+                             'gemini': {'configured': True, 'masked': '•••• ture', 'error': None},
+                             'moss': {'configured': False, 'masked': None, 'error': None}}, legacy
     probe('legacy-gemini-key', liveProfile='gemini-live', liveConfigured=True, geminiConfigured=True,
           geminiCredentialKey=gemini_key)
     public({'action': 'setAudioEnabled', 'enabled': False})

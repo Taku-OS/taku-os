@@ -19,11 +19,13 @@ internal data class AudioFalSettings(
 )
 internal enum class AudioLiveProvider(val profileId: String) {
     GROK(AudioProfiles.LIVE_GROK),
-    GEMINI(AudioProfiles.LIVE_GEMINI)
+    GEMINI(AudioProfiles.LIVE_GEMINI),
+    MOSS(AudioProfiles.LIVE_MOSS)
 }
 internal enum class AudioGeminiError { KEY_UNREADABLE }
 internal data class AudioGeminiSettings(val configured: Boolean, val masked: String?, val error: AudioGeminiError?)
-internal data class AudioLiveSettings(val provider: AudioLiveProvider, val configured: Boolean, val gemini: AudioGeminiSettings)
+internal data class AudioLiveSettings(val provider: AudioLiveProvider, val configured: Boolean, val gemini: AudioGeminiSettings,
+    val moss: AudioGeminiSettings = AudioGeminiSettings(false, null, null))
 internal data class AudioSettingsSnapshot(
     val enabled: Boolean,
     val audioEnabled: Boolean,
@@ -48,7 +50,9 @@ internal data class AudioSettingsSnapshot(
                 .put("error", fal.error?.name ?: JSONObject.NULL))
             .put("live", JSONObject().put("configured", live.configured).put("profileId", live.provider.profileId)
                 .put("gemini", JSONObject().put("configured", live.gemini.configured)
-                    .put("masked", live.gemini.masked ?: JSONObject.NULL).put("error", live.gemini.error?.name ?: JSONObject.NULL)))
+                    .put("masked", live.gemini.masked ?: JSONObject.NULL).put("error", live.gemini.error?.name ?: JSONObject.NULL))
+                .put("moss", JSONObject().put("configured", live.moss.configured)
+                    .put("masked", live.moss.masked ?: JSONObject.NULL).put("error", live.moss.error?.name ?: JSONObject.NULL)))
     }
 }
 
@@ -65,6 +69,11 @@ internal sealed class AudioSettingsCommand {
         override fun toString() = "SaveLiveKey([redacted])"
     }
     object RemoveLiveKey : AudioSettingsCommand()
+    class SaveMossKey(private val key: String) : AudioSettingsCommand() {
+        internal fun addKey(request: JSONObject) { request.put("key", key) }
+        override fun toString() = "SaveMossKey([redacted])"
+    }
+    object RemoveMossKey : AudioSettingsCommand()
     data class SelectLiveProvider(val provider: AudioLiveProvider) : AudioSettingsCommand()
     data class SetAudioEnabled(val enabled: Boolean) : AudioSettingsCommand()
     data class ConfigureReading(val language: String, val voiceId: String, val speed: Double) : AudioSettingsCommand()
@@ -89,8 +98,8 @@ internal object AudioSettings {
             if (tokens.nextClean() != '\u0000') invalid()
             val action = string(request, "action")
             val fields = when (action) {
-                "read", "removeFalKey", "removeLiveKey" -> setOf("action")
-                "saveFalKey", "saveLiveKey" -> setOf("action", "key")
+                "read", "removeFalKey", "removeLiveKey", "removeMossKey" -> setOf("action")
+                "saveFalKey", "saveLiveKey", "saveMossKey" -> setOf("action", "key")
                 "selectFalModel" -> setOf("action", "model")
                 "selectLiveProvider" -> setOf("action", "profileId")
                 "setAudioEnabled" -> setOf("action", "enabled")
@@ -108,6 +117,8 @@ internal object AudioSettings {
                 "selectFalModel" -> AudioSettingsCommand.SelectFalModel(string(request, "model"))
                 "saveLiveKey" -> AudioSettingsCommand.SaveLiveKey(string(request, "key"))
                 "removeLiveKey" -> AudioSettingsCommand.RemoveLiveKey
+                "saveMossKey" -> AudioSettingsCommand.SaveMossKey(string(request, "key"))
+                "removeMossKey" -> AudioSettingsCommand.RemoveMossKey
                 "selectLiveProvider" -> AudioSettingsCommand.SelectLiveProvider(liveProvider(string(request, "profileId")) ?: invalid())
                 "setAudioEnabled" -> AudioSettingsCommand.SetAudioEnabled(request.opt("enabled") as? Boolean ?: invalid())
                 "configureReading" -> {
@@ -162,6 +173,8 @@ internal object AudioSettings {
             is AudioSettingsCommand.SelectFalModel -> put("action", "selectFalModel").put("model", command.model)
             is AudioSettingsCommand.SaveLiveKey -> { put("action", "saveLiveKey"); command.addKey(this) }
             AudioSettingsCommand.RemoveLiveKey -> put("action", "removeLiveKey")
+            is AudioSettingsCommand.SaveMossKey -> { put("action", "saveMossKey"); command.addKey(this) }
+            AudioSettingsCommand.RemoveMossKey -> put("action", "removeMossKey")
             is AudioSettingsCommand.SelectLiveProvider -> put("action", "selectLiveProvider").put("profileId", command.provider.profileId)
             is AudioSettingsCommand.SetAudioEnabled -> put("action", "setAudioEnabled").put("enabled", command.enabled)
             is AudioSettingsCommand.ConfigureReading -> put("action", "configureReading").put("language", command.language)
@@ -205,10 +218,14 @@ internal object AudioSettings {
         val gemini = live.getJSONObject("gemini")
         val geminiMasked = if (gemini.isNull("masked")) null else text(gemini, "masked")
         val geminiError = if (gemini.isNull("error")) null else AudioGeminiError.valueOf(text(gemini, "error"))
+        val moss = live.optJSONObject("moss")
+        val mossSettings = if (moss == null) AudioGeminiSettings(false, null, null) else AudioGeminiSettings(boolean(moss, "configured"),
+            if (moss.isNull("masked")) null else text(moss, "masked"),
+            if (moss.isNull("error")) null else AudioGeminiError.valueOf(text(moss, "error")))
         return AudioSettingsSnapshot(boolean(value, "enabled"), boolean(value, "audioEnabled"),
             revision("systemRevision"), revision("audioRevision"), Collections.unmodifiableMap(reading),
             AudioFalSettings(boolean(fal, "configured"), masked, text(fal, "model"), Collections.unmodifiableList(models), falError),
-            AudioLiveSettings(provider, boolean(live, "configured"), AudioGeminiSettings(boolean(gemini, "configured"), geminiMasked, geminiError)),
+            AudioLiveSettings(provider, boolean(live, "configured"), AudioGeminiSettings(boolean(gemini, "configured"), geminiMasked, geminiError), mossSettings),
             DictationResolver(context).inspect(value))
     }
 

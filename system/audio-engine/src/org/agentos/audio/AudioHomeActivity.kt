@@ -35,6 +35,9 @@ class AudioHomeActivity : Activity() {
     private lateinit var geminiState: TextView
     private lateinit var saveGeminiKey: TextView
     private lateinit var removeGeminiKey: TextView
+    private lateinit var mossState: TextView
+    private lateinit var saveMossKey: TextView
+    private lateinit var removeMossKey: TextView
     private lateinit var refresh: TextView
     private lateinit var ui: AudioUi
 
@@ -90,6 +93,11 @@ class AudioHomeActivity : Activity() {
         ui.add(live, geminiState, 14)
         saveGeminiKey = ui.action(live, ui.s("audio_home_add_gemini_key"), "audio_save_gemini_key", primary = true) { editKey(AudioLiveProvider.GEMINI) }
         removeGeminiKey = ui.action(live, ui.s("audio_home_remove_gemini_key"), "audio_remove_gemini_key") { confirmRemoveKey(AudioLiveProvider.GEMINI) }
+        ui.rule(live)
+        mossState = ui.text("", 13, AudioUi.INK).apply { id = ui.id("audio_moss_state") }
+        ui.add(live, mossState, 14)
+        saveMossKey = ui.action(live, ui.s("audio_home_add_moss_key"), "audio_save_moss_key", primary = true) { editKey(AudioLiveProvider.MOSS) }
+        removeMossKey = ui.action(live, ui.s("audio_home_remove_moss_key"), "audio_remove_moss_key") { confirmRemoveKey(AudioLiveProvider.MOSS) }
 
         ui.section(root, ui.s("audio_home_features_section"))
         val features = ui.card(root)
@@ -204,6 +212,7 @@ class AudioHomeActivity : Activity() {
         liveService.text = when (live?.provider) {
             AudioLiveProvider.GROK -> ui.s(if (live.configured) "audio_home_live_grok_summary" else "audio_home_live_grok_missing")
             AudioLiveProvider.GEMINI -> ui.s(if (live.configured) "audio_home_live_gemini_summary" else "audio_home_live_gemini_missing")
+            AudioLiveProvider.MOSS -> ui.s(if (live.configured) "audio_home_live_moss_summary" else "audio_home_live_moss_missing")
             null -> ui.s("audio_home_live_pending")
         }
         val gemini = live?.gemini
@@ -217,38 +226,61 @@ class AudioHomeActivity : Activity() {
         saveGeminiKey.text = ui.s(if (geminiHasKey) "audio_home_replace_gemini_key" else "audio_home_add_gemini_key")
         saveGeminiKey.isEnabled = editable
         removeGeminiKey.isEnabled = editable && geminiHasKey
+        val moss = live?.moss
+        val mossHasKey = moss?.configured == true || moss?.error == AudioGeminiError.KEY_UNREADABLE
+        mossState.text = when {
+            moss == null -> ui.s("audio_home_moss_key_pending")
+            moss.configured -> ui.s("audio_home_moss_key_saved", moss.masked ?: ui.s("audio_home_key_hidden"))
+            moss.error == AudioGeminiError.KEY_UNREADABLE -> ui.s("audio_home_key_unreadable")
+            else -> ui.s("audio_home_moss_key_missing")
+        }
+        saveMossKey.text = ui.s(if (mossHasKey) "audio_home_replace_moss_key" else "audio_home_add_moss_key")
+        saveMossKey.isEnabled = editable
+        removeMossKey.isEnabled = editable && mossHasKey
         rendering = false
     }
 
     private fun editKey(provider: AudioLiveProvider) {
         if (busy || snapshot == null || keyDialog != null) return
-        val gemini = provider == AudioLiveProvider.GEMINI
-        val hint = ui.s(if (gemini) "audio_home_gemini_key_hint" else "audio_home_key_hint")
+        val hint = ui.s(when (provider) {
+            AudioLiveProvider.GEMINI -> "audio_home_gemini_key_hint"
+            AudioLiveProvider.MOSS -> "audio_home_moss_key_hint"
+            AudioLiveProvider.GROK -> "audio_home_key_hint"
+        })
         keyDialog = ui.keyDialog(
-            title = (if (gemini) saveGeminiKey else saveKey).text.toString(),
+            title = when (provider) { AudioLiveProvider.GEMINI -> saveGeminiKey; AudioLiveProvider.MOSS -> saveMossKey; AudioLiveProvider.GROK -> saveKey }.text.toString(),
             privacy = ui.s("audio_home_key_privacy"),
             hint = hint,
             required = hint,
             cancel = ui.s("audio_home_cancel"),
             save = ui.s("audio_home_save"),
-            inputId = if (gemini) "audio_gemini_key_input" else "audio_fal_key_input",
+            inputId = when (provider) { AudioLiveProvider.GEMINI -> "audio_gemini_key_input"; AudioLiveProvider.MOSS -> "audio_moss_key_input"; AudioLiveProvider.GROK -> "audio_fal_key_input" },
             onDismiss = { keyDialog = null }
-        ) { value -> request(if (gemini) AudioSettingsCommand.SaveLiveKey(value) else AudioSettingsCommand.SaveFalKey(value)) }
+        ) { value -> request(when (provider) {
+            AudioLiveProvider.GEMINI -> AudioSettingsCommand.SaveLiveKey(value)
+            AudioLiveProvider.MOSS -> AudioSettingsCommand.SaveMossKey(value)
+            AudioLiveProvider.GROK -> AudioSettingsCommand.SaveFalKey(value)
+        }) }
     }
 
     private fun confirmRemoveKey(provider: AudioLiveProvider) {
         if (busy || snapshot == null) return
-        val gemini = provider == AudioLiveProvider.GEMINI
-        AlertDialog.Builder(this).setTitle(ui.s(if (gemini) "audio_home_remove_gemini_key_title" else "audio_home_remove_key_title"))
-            .setMessage(ui.s(if (gemini) "audio_home_remove_gemini_key_summary" else "audio_home_remove_key_summary"))
+        val prefix = when (provider) { AudioLiveProvider.GEMINI -> "audio_home_remove_gemini_key"; AudioLiveProvider.MOSS -> "audio_home_remove_moss_key"; AudioLiveProvider.GROK -> "audio_home_remove_key" }
+        AlertDialog.Builder(this).setTitle(ui.s("${prefix}_title"))
+            .setMessage(ui.s("${prefix}_summary"))
             .setNegativeButton(ui.s("audio_home_cancel"), null).setPositiveButton(ui.s("audio_home_remove")) { _, _ ->
-                request(if (gemini) AudioSettingsCommand.RemoveLiveKey else AudioSettingsCommand.RemoveFalKey)
+                request(when (provider) {
+                    AudioLiveProvider.GEMINI -> AudioSettingsCommand.RemoveLiveKey
+                    AudioLiveProvider.MOSS -> AudioSettingsCommand.RemoveMossKey
+                    AudioLiveProvider.GROK -> AudioSettingsCommand.RemoveFalKey
+                })
             }.show()
     }
 
     private fun providerName(provider: AudioLiveProvider): String = ui.s(when (provider) {
         AudioLiveProvider.GROK -> "audio_home_live_grok"
         AudioLiveProvider.GEMINI -> "audio_home_live_gemini"
+        AudioLiveProvider.MOSS -> "audio_home_live_moss"
     })
 
     private fun selectLiveProvider() {

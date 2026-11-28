@@ -48,7 +48,7 @@ class AudioOpenAccessProvider : ContentProvider() {
             if (extras != null && !extras.isEmpty) throw AudioSettings.failure("INVALID_ARGUMENT")
             val command = AudioSettings.decode(arg)
             if (!isTrustedCaller(appContext, callerUid)) {
-                if (command is AudioSettingsCommand.SaveFalKey || command is AudioSettingsCommand.RemoveFalKey) {
+                if (command.changesCredential()) {
                     return envelope(JSONObject().put("ok", false).put("code", "PERMISSION_DENIED").put("message", "Voice credential changes require Taku Audio settings"))
                 }
                 if (!isControlGranted(appContext, callerUid)) {
@@ -66,6 +66,11 @@ class AudioOpenAccessProvider : ContentProvider() {
             Binder.restoreCallingIdentity(identity)
         }
     }
+
+    /** Voice keys are written only by Taku Audio settings or trusted system callers, never by App Permission Center grants. */
+    private fun AudioSettingsCommand.changesCredential(): Boolean = this is AudioSettingsCommand.SaveFalKey ||
+        this is AudioSettingsCommand.RemoveFalKey || this is AudioSettingsCommand.SaveLiveKey || this is AudioSettingsCommand.RemoveLiveKey ||
+        this is AudioSettingsCommand.SaveMossKey || this is AudioSettingsCommand.RemoveMossKey
 
     private fun envelope(value: JSONObject) = Bundle().apply { putString("result", value.toString()) }
     override fun getType(uri: Uri) = "application/json"

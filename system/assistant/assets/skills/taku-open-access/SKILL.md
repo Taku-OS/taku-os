@@ -285,6 +285,9 @@ taku_call "$V" settings '{"action":"resetDictation","scope":"assistant-entry"}'
 taku_call "$V" settings '{"action":"selectLiveProvider","profileId":"gemini-live"}'
 taku_call "$V" settings '{"action":"saveLiveKey","key":"GEMINI_API_KEY"}'
 taku_call "$V" settings '{"action":"removeLiveKey"}'
+taku_call "$V" settings '{"action":"selectLiveProvider","profileId":"moss-live"}'
+taku_call "$V" settings '{"action":"saveMossKey","key":"MOSS_API_KEY"}'
+taku_call "$V" settings '{"action":"removeMossKey"}'
 taku_call "$V" settings '{"action":"removeFalKey"}'
 ```
 
@@ -292,9 +295,9 @@ Use `$V`, method `settings`, JSON `action`. Supply only the fields listed for ea
 
 | Action | Fields |
 |---|---|
-| `read`, `removeFalKey`, `removeLiveKey` | none |
-| `saveFalKey`, `saveLiveKey` | `key` (trimmed 1–4096 characters, no internal whitespace, control characters or commas) |
-| `selectLiveProvider` | `profileId` (`fal-grok` or `gemini-live`), effective on next open |
+| `read`, `removeFalKey`, `removeLiveKey`, `removeMossKey` | none |
+| `saveFalKey`, `saveLiveKey`, `saveMossKey` | `key` (trimmed 1–4096 characters, no internal whitespace, control characters or commas) |
+| `selectLiveProvider` | `profileId` (`moss-live`, `fal-grok` or `gemini-live`), effective on next open |
 | `selectFalModel` | `model` from `fal.models`; needs a readable key |
 | `setAudioEnabled` | boolean `enabled`; disabling revokes managed sessions |
 | `configureReading`, `resetReading` | `language` (`zh-CN` or `en-US`); configure also needs `voiceId` (shipped choices, `LANG-local-N`) and `speed` (0.5–2.0) |
@@ -896,7 +899,7 @@ Other errors include `NETWORK_FAILED`, `RESOURCE_BUSY`, and `AEC_UNAVAILABLE`.
 `assistant/get` and Live Talk actions return the same `result.liveTalk` shown by the GUI.
 It is null before the first session. Read `sessionId`, `threadId`, `sequence`, `generation`,
 `lifecycle`, `provider`, `muted`, `capturing`, `speech`, `playback`, `input`, `output`,
-`levels`, `task`, `error`, and `setup`. `provider` is the effective `fal-grok` or
+`levels`, `task`, `error`, and `setup`. `provider` is the effective `moss-live`, `fal-grok` or
 `gemini-live` returned by the Audio Engine. It is null until the engine
 accepts the open request for that connection. `liveTalkDisclosure` names the
 provider while that connection is in use and explains the selection otherwise.
@@ -911,7 +914,7 @@ can be automatically replaced. If replacement is blocked, use the original chat.
 `voice-continue` requires an active hold. A handoff that cannot open the
 thread reports `THREAD_UNAVAILABLE`.
 
-Grok Voice uses the shared fal key. Gemini Live uses the separate key managed by `saveLiveKey` and `removeLiveKey`. Removing a key ends sessions that depend on it. Provider selection takes effect on the next open, including reconnect, with no automatic fallback. The default is `fal-grok`. Settings `live.profileId` reports the selection and `live.configured` reports whether its key is readable. `live.gemini` exposes `configured`, `masked`, and `error` even when Grok is selected. Its error is null or `KEY_UNREADABLE`. Either provider can be selected before saving its key. Translation model selection is independent.
+Grok Voice uses the shared fal key. Gemini Live uses the separate key managed by `saveLiveKey` and `removeLiveKey`; MOSS-Live uses the separate key managed by `saveMossKey` and `removeMossKey`. Third-party apps cannot save or remove any voice key, even with a `taku.control` grant (`PERMISSION_DENIED`). Removing a key ends sessions that depend on it. Provider selection takes effect on the next open, including reconnect, with no automatic fallback. Until a provider is selected, a new device (or one with a MOSS key) uses `moss-live`, a device that already has a fal key keeps `fal-grok`, and one with only a Gemini key keeps `gemini-live`; the first key save stores that default. Settings `live.profileId` reports the selection and `live.configured` reports whether its key is readable. `live.gemini` and `live.moss` expose `configured`, `masked`, and `error` whichever provider is selected. Each error is null or `KEY_UNREADABLE`. Any provider can be selected before saving its key. Translation model selection is independent.
 
 ### Full chat dictation and reply playback
 

@@ -8,7 +8,8 @@ import java.nio.file.*;
 import java.security.MessageDigest;
 
 final class ByokProviders {
-    private static final String GEMINI_FILE = "gemini-live.json";
+    static final String GEMINI_FILE = "gemini-live.json";
+    static final String MOSS_FILE = "moss.json";
     private final File directory, magpie;
     private final String management;
     private final boolean notifyAudio;
@@ -81,6 +82,7 @@ final class ByokProviders {
                 String key;
                 try { key = validate((String)value); }
                 catch (IOException invalid) { throw new AudioConfigFailure("INVALID_ARGUMENT", "Enter one complete fal API Key"); }
+                if (notifyAudio) AudioConfigBridge.pinLiveDefault();
                 store("fal.json", new JSONObject().put("key", key));
                 break;
             }
@@ -108,6 +110,7 @@ final class ByokProviders {
                 String key;
                 try { key = validate(request.getString("key")); }
                 catch (IOException invalid) { throw new AudioConfigFailure("INVALID_ARGUMENT", "Enter one complete Gemini API key"); }
+                if (notifyAudio) AudioConfigBridge.pinLiveDefault();
                 store(GEMINI_FILE, new JSONObject().put("key", key));
                 break;
             }
@@ -119,23 +122,51 @@ final class ByokProviders {
         if (notifyAudio) AudioConfigBridge.credentialsChanged();
     }
 
-    private String savedGeminiKey() throws Exception {
-        File file = new File(directory, GEMINI_FILE);
+    /** MOSS-Live (moss-live-1.0) key; same 0600 storage and redaction as the other voice keys. */
+    synchronized void mossControl(JSONObject request) throws Exception {
+        switch (request.getString("action")) {
+            case "saveMossKey": {
+                String key;
+                try { key = validate(request.getString("key")); }
+                catch (IOException invalid) { throw new AudioConfigFailure("INVALID_ARGUMENT", "Enter one complete MOSS API key"); }
+                if (notifyAudio) AudioConfigBridge.pinLiveDefault();
+                store(MOSS_FILE, new JSONObject().put("key", key));
+                break;
+            }
+            case "removeMossKey":
+                if (!Files.deleteIfExists(new File(directory, MOSS_FILE).toPath())) return;
+                break;
+            default: throw new AudioConfigFailure("UNSUPPORTED_OPERATION", "Unknown MOSS-Live settings operation");
+        }
+        if (notifyAudio) AudioConfigBridge.credentialsChanged();
+    }
+
+    private String savedKey(String name) throws Exception {
+        File file = new File(directory, name);
         if (!file.exists()) return null;
         Object value = new JSONObject(new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8)).get("key");
-        if (!(value instanceof String)) throw new IOException("Invalid Gemini API key format");
+        if (!(value instanceof String)) throw new IOException("Invalid API key format");
         return validate((String)value);
     }
 
-    JSONObject geminiSettings() throws JSONException {
+    private String savedGeminiKey() throws Exception { return savedKey(GEMINI_FILE); }
+
+    private JSONObject keySettings(String name) throws JSONException {
         String key = null;
         boolean unreadable = false;
-        try { key = savedGeminiKey(); }
+        try { key = savedKey(name); }
         catch (Exception error) { unreadable = true; }
         return new JSONObject().put("configured", key != null)
                 .put("masked", key == null ? JSONObject.NULL : masked(key))
                 .put("error", unreadable ? "KEY_UNREADABLE" : JSONObject.NULL);
     }
+
+    JSONObject geminiSettings() throws JSONException { return keySettings(GEMINI_FILE); }
+
+    JSONObject mossSettings() throws JSONException { return keySettings(MOSS_FILE); }
+
+    /** Whether a voice key file exists at all, readable or not; decides the legacy Live default. */
+    boolean hasKeyFile(String name) { return new File(directory, name).exists(); }
 
     private static boolean isFalModel(String model) {
         return model.equals("kotoba") || model.equals("grok") || model.equals("whisper");
@@ -219,6 +250,16 @@ final class ByokProviders {
         try { key = savedGeminiKey(); }
         catch (Exception unreadable) { key = null; }
         if (key == null) throw new AudioConfigFailure("PROVIDER_NOT_CONFIGURED", "Add or save your Gemini API key again in Taku Audio");
+        return new JSONObject().put("key", key);
+    }
+
+    /** Used by the signed Audio Engine for MOSS-Live sessions. */
+    JSONObject mossCredential() throws Exception {
+        requireVoiceEnabled();
+        String key;
+        try { key = savedKey(MOSS_FILE); }
+        catch (Exception unreadable) { key = null; }
+        if (key == null) throw new AudioConfigFailure("PROVIDER_NOT_CONFIGURED", "Add or save your MOSS API key again in Taku Audio");
         return new JSONObject().put("key", key);
     }
 

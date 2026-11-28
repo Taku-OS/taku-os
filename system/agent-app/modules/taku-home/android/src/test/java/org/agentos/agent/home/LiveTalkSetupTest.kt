@@ -21,6 +21,12 @@ class LiveTalkSetupTest {
     assertNull(LiveTalkSetup.service("PROVIDER_REMOVED", "gemini-live", settings("gemini-live", true)))
   }
 
+  @Test fun aMissingMossKeyIsNotFixedByTheFalCard() {
+    assertNull(LiveTalkSetup.service("PROVIDER_NOT_CONFIGURED", null, settings("moss-live", false)))
+    assertNull(LiveTalkSetup.service("PROVIDER_NOT_CONFIGURED", "moss-live", null))
+    assertNull(LiveTalkSetup.service("PROVIDER_REMOVED", "moss-live", settings("moss-live", true)))
+  }
+
   @Test fun anAcceptedGrokConnectionLosingItsKeyOpensTheFalCard() {
     assertEquals("fal", LiveTalkSetup.service("PROVIDER_NOT_CONFIGURED", "fal-grok", null))
     assertEquals("fal", LiveTalkSetup.service("PROVIDER_REMOVED", "fal-grok", null))

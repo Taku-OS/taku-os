@@ -138,6 +138,8 @@ content call --uri content://org.agentos.audio.open-access --method settings --a
 content call --uri content://org.agentos.audio.open-access --method settings --arg '{"action":"selectLiveProvider","profileId":"gemini-live"}'
 content call --uri content://org.agentos.audio.open-access --method settings --arg '{"action":"saveLiveKey","key":"GEMINI_API_KEY"}'
 content call --uri content://org.agentos.audio.open-access --method settings --arg '{"action":"removeLiveKey"}'
+content call --uri content://org.agentos.audio.open-access --method settings --arg '{"action":"saveMossKey","key":"MOSS_API_KEY"}'
+content call --uri content://org.agentos.audio.open-access --method settings --arg '{"action":"removeMossKey"}'
 content call --uri content://org.agentos.audio.open-access --method settings --arg '{"action":"removeFalKey"}'
 ```
 
@@ -149,9 +151,11 @@ Each `arg` is a JSON object with exactly the fields for its action.
 | `saveFalKey` | `key`, one string containing a complete fal API Key. |
 | `removeFalKey` | None. |
 | `selectFalModel` | `model`, a string ID from the latest returned `fal.models`. |
-| `selectLiveProvider` | `profileId`, either `fal-grok` or `gemini-live`. |
+| `selectLiveProvider` | `profileId`: `moss-live`, `fal-grok`, or `gemini-live`. |
 | `saveLiveKey` | `key`, one string containing a Google Gemini API key. |
 | `removeLiveKey` | None. Removes only the Gemini key. |
+| `saveMossKey` | `key`, one string containing a MOSS-Live API key. |
+| `removeMossKey` | None. Removes only the MOSS-Live key. |
 | `setAudioEnabled` | `enabled`, a JSON boolean. |
 | `configureReading` | `language`, `voiceId`, and `speed`. |
 | `resetReading` | `language`. |
@@ -178,14 +182,16 @@ characters, and commas. Reading or saving settings makes no provider validation
 call and does not require OpenRouter or a model catalog refresh. Key replacement
 and removal retain the selected model. Model selection requires a readable fal key.
 
-`live.profileId` is the selected Live Talk provider. The default is `fal-grok`
-(Grok Voice via fal). The other profile is `gemini-live` (Google Gemini Live).
-`live.gemini` reports `configured`, `masked`, and `error` for the separate Gemini
-key. `masked` is null without a readable key. `error` is null or `KEY_UNREADABLE`.
+`live.profileId` is the selected Live Talk provider: `moss-live` (MOSS-Live by MOSI),
+`fal-grok` (Grok Voice via fal), or `gemini-live` (Google Gemini Live). Until one is
+selected, a new device or one with a MOSS key uses `moss-live`; a device that already
+has a fal key keeps `fal-grok`, and one with only a Gemini key keeps `gemini-live`.
+The first key save stores that default. `live.gemini` and `live.moss` report
+`configured`, `masked`, and `error` for the separate Gemini and MOSS-Live keys. `masked` is null without a readable key. `error` is null or `KEY_UNREADABLE`.
 `live.configured` reports whether the selected provider has a saved, readable key.
 The Audio Engine checks provider authorization and applies voice policy at session open.
 
-You can select either provider before saving its key. The selection applies to
+You can select any provider before saving its key. The selection applies to
 the next Live Talk open, including reconnect. Live Talk has no automatic provider
 fallback. Grok uses the fal key shared by translation and cloud dictation.
 `fal.model` applies to translation. Removing a key ends sessions that depend
