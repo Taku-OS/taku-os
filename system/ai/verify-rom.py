@@ -86,6 +86,26 @@ def pair_identity(raw, manifest, signature, package, code, shared_uid=None):
     return {'package': package, 'versionCode': code, 'certificateSha256': signer[0]}
 
 
+def verify_backend_entries(manifest):
+    app = manifest.find('application')
+    forbidden = {'android.service.voice.VoiceInteractionService', 'android.intent.category.HOME',
+                 'com.android.settings.action.IA_SETTINGS'}
+    error = 'Backend APK still advertises an assistant UI entry or lacks an application'
+    if app is None or any(forbidden.intersection(node.attrib.values()) for node in app.iter()):
+        raise ValueError(error)
+    for component in app:
+        for node in component.findall('intent-filter'):
+            if node.find("category[@name='android.intent.category.LAUNCHER']") is None:
+                continue
+            name = component.get('name', '')
+            if '.' not in name or name.startswith('.'):
+                name = manifest.get('package', '') + '.' + name.lstrip('.')
+            if (component.tag != 'activity' or name != 'org.agentos.assistant.BScreenActivity'
+                    or node.find("action[@name='android.intent.action.MAIN']") is None):
+                raise ValueError(error)
+    return app
+
+
 def verify_assistant_pair(backend, frontend, manifest, signature, root):
     if signature is None:
         raise ValueError('Assistant cutover verification requires apksigner')
@@ -100,15 +120,10 @@ def verify_assistant_pair(backend, frontend, manifest, signature, root):
     classes = definitions(backend)
     if any(f'Lorg/agentos/assistant/{cls};' in classes for cls in retired):
         raise ValueError('Backend APK still includes retired assistant classes')
-    backend_xml = manifest(backend)
-    backend_manifest = manifest_tree(backend_xml)
+    backend_manifest = manifest_tree(manifest(backend))
     backend_identity = pair_identity(backend, backend_manifest, signature, 'org.agentos.assistant',
                                      backend_code, 'android.uid.system')
-    app = backend_manifest.find('application')
-    if app is None or any(marker in backend_xml.partition('E: application')[2] for marker in (
-            'android.service.voice.VoiceInteractionService', 'android.intent.category.HOME',
-            'android.intent.category.LAUNCHER', 'com.android.settings.action.IA_SETTINGS')):
-        raise ValueError('Backend APK still advertises an assistant UI entry or lacks an application')
+    app = verify_backend_entries(backend_manifest)
     settings_action = 'org.agentos.action.AI_SETTINGS'
     default = 'android.intent.category.DEFAULT'
     forwarder = declared(app, 'activity', '.SystemAiActivity', exported='true')

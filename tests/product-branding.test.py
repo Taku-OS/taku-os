@@ -344,6 +344,19 @@ class ProductBranding(unittest.TestCase):
         self.assertEqual((ROOT / 'image/branding/previous-v8-manifest.json').read_bytes(), frozen)
         self.assertEqual(PATCH.apply(self.root, self.root / 'from-v8'), proof)
 
+    def test_cached_v10_migrates_to_current_branding(self):
+        PATCH.BASE['apply'](self.root, self.root / 'download')
+        previous, _, _ = PATCH.previous_v10_contract()
+        for record in previous['repositories']:
+            subprocess.run(['git', '-C', str(self.root / record['repository']), 'apply', '--no-index',
+                            str(ROOT / 'image/branding' / record['patch'])], check=True)
+        results = self.root / 'from-v10'
+        proof = PATCH.apply(self.root, results)
+        self.assertEqual(proof['productBranding'], CURRENT)
+        migration = json.loads((results / 'product-branding-migration.json').read_text())
+        self.assertEqual(migration['previousManifestSha256'], PATCH.PREVIOUS_V10_MANIFEST_SHA256)
+        self.assertEqual(PATCH.apply(self.root, results), proof)
+
     def test_unknown_cached_v3_edit_is_rejected_before_any_source_is_changed(self):
         self.legacy_source()
         target = self.root / 'packages/apps/Updater/app/src/main/java/org/lineageos/updater/TakuBrand.kt'

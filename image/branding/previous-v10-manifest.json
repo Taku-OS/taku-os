@@ -1,0 +1,114 @@
+{
+  "schema": "taku.product-branding-patch/1",
+  "brandingSha256": "95702a864588b094e267d86e0a6b8c9b969f03d047f4dabc72142611229c43dc",
+  "updaterVersionCode": 10,
+  "baseUpdaterManifestSha256": "ead0cdd173ef45046c15e02ddf715fc3f0ee248f7dbab7ea32d79fff33bb061c",
+  "repositories": [
+    {
+      "repository": "packages/apps/Updater",
+      "upstreamCommit": "6d50e0bf1b16fe7bca818375a3e734f4959e2e57",
+      "patch": "updater-v10.patch",
+      "patchSha256": "e3962281b8c53fd15ef5f2142b09c60f305ee0e833ad1637b3d596cda7310b2a",
+      "files": [
+        {
+          "path": "app/src/main/AndroidManifest.xml",
+          "beforeSha256": "635c36b8564c57c444282ad1b38072c7865db9ae2e471ea2bc07f3a0e4db7578",
+          "afterSha256": "355be8eaf0dca2bb1d8a781069c19949ce6a31b6874a3d6ee0d4495193a111be"
+        },
+        {
+          "path": "app/src/main/java/org/lineageos/updater/TakuBrand.kt",
+          "beforeSha256": null,
+          "afterSha256": "7d9eb5255563fe971dac72da30cf6435926196a99369377e7cf51342a1031b1d"
+        },
+        {
+          "path": "app/src/main/java/org/lineageos/updater/controller/UpdaterController.java",
+          "beforeSha256": "739c95c0c8708a1502bd7947036e18c7ba9a3e9e6cd77c7a304413470a09b82e",
+          "afterSha256": "ab8d5193d3659d511e334de95d32b1387d9cd230a015a515505ad7120a0fd11c"
+        },
+        {
+          "path": "app/src/main/java/org/lineageos/updater/data/Update.kt",
+          "beforeSha256": "9e6f990266b9e2c8d8b672dd7ee6f205fa2baacfbd4fb1b2f4c4d139e789b05f",
+          "afterSha256": "c07b8de5fffe7f42ed1a09a6d15785fab04b73b6dbff2b7538eac1820c838049"
+        },
+        {
+          "path": "app/src/main/java/org/lineageos/updater/data/source/local/UpdateEntity.kt",
+          "beforeSha256": "8c83b5d8ce2455815b385534a6e6f57a897d041d504c8c3ce03a2a4cd3459918",
+          "afterSha256": "5ea8718ac7354dd67b266c3f50977e92676479a036bd2790664fe15edd057d82"
+        },
+        {
+          "path": "app/src/main/java/org/lineageos/updater/data/source/local/UpdatesDatabase.kt",
+          "beforeSha256": "472ca675425ad197f64eb3c67a0042b6002cf1cc207cd6b9e8f8af0c321be64b",
+          "afterSha256": "32e4f7f4c95652a44920ab36c6b1b91e34a45758e707a36346077b1adff673f7"
+        },
+        {
+          "path": "app/src/main/java/org/lineageos/updater/data/source/network/NetworkUpdate.kt",
+          "beforeSha256": "23481770215a8b61dec9446cc2601340d7cce762feab450afafaa4a7cd9f853c",
+          "afterSha256": "bace325fa69562e4080fac1d6a22aa9322e1051614580b2eef8d9e014805544b"
+        },
+        {
+          "path": "app/src/main/java/org/lineageos/updater/deviceinfo/UpdaterCard.kt",
+          "beforeSha256": "134bcc605803b610b64979773956d40b2f21609847678cdf21d2c23d026fc74e",
+          "afterSha256": "c60ec160c8a1140194cc208e2f1f7a6b8ba9184e73a920596d6a1c3101425003"
+        },
+        {
+          "path": "app/src/main/java/org/lineageos/updater/updates/action/UpdateActionHandler.kt",
+          "beforeSha256": "da28a3a3682d0ba45b77966b4fdc91f36fdabdbf67f8727e03868a2958d75521",
+          "afterSha256": "8a0c6a9810af8e71ab9f2f637ec8b75c71b153f8f244bef6c08c71b43adab532"
+        },
+        {
+          "path": "app/src/main/java/org/lineageos/updater/updates/state/UpdateItemStateMapper.kt",
+          "beforeSha256": "6848d74978c4d52b8a6b744c024439a0b57e3d16efd76733dc5b379afb76f069",
+          "afterSha256": "84b4074afbe1816c6de3bff8ce23da65138708ea2bdfa8d4c86307e90dcbae29"
+        },
+        {
+          "path": "app/src/main/res/drawable/ic_launcher_foreground.xml",
+          "beforeSha256": "e49e16b3546da337c3aa645dc78adc1db2caa60947e577d4323afce0bae27632",
+          "afterSha256": "bcfa7bc5629ebecce7594ab241652728e830e0e84487611542d523f770666ea3"
+        },
+        {
+          "path": "app/src/main/res/drawable/taku_brand_mark.xml",
+          "beforeSha256": null,
+          "afterSha256": "bcfa7bc5629ebecce7594ab241652728e830e0e84487611542d523f770666ea3"
+        },
+        {
+          "path": "app/src/main/res/values/taku_brand.xml",
+          "beforeSha256": null,
+          "afterSha256": "24cc1300885df55fb2163fcda758de2374fbfd9a57a5f757e491eccf423205e3"
+        },
+        {
+          "path": "app/src/main/res/values-zh-rCN/taku_brand.xml",
+          "beforeSha256": null,
+          "afterSha256": "5b37722d3fd212d96ea8f1afd5af065eef4a9776cba719122c3c5e214472959d"
+        },
+        {
+          "path": "schemas/org.lineageos.updater.data.source.local.UpdatesDatabase/5.json",
+          "beforeSha256": null,
+          "afterSha256": "465c11a0166b403df44cbe51eca3b7cc4589c0e3e34550a94431aaf1ab2d9a9e"
+        }
+      ]
+    },
+    {
+      "repository": "packages/apps/Settings",
+      "upstreamCommit": "b9b9d68135714d9a84741620e9386e1d43931139",
+      "patch": "settings.patch",
+      "patchSha256": "9ac9cdb37d2ce5d835bd3ea30df8f8dc8d96f62a38b2c1e06e72aa19fb492a33",
+      "files": [
+        {
+          "path": "res/values/taku_brand.xml",
+          "beforeSha256": null,
+          "afterSha256": "b23bc17a5ebafb42b5b7b79f0d26fa53faf1c8992a8703b78db7e3b7683f9e89"
+        },
+        {
+          "path": "src/com/android/settings/deviceinfo/firmwareversion/LineageVersionDetailPreference.kt",
+          "beforeSha256": "5677c4fdc4b578ce4ecc7132dd34e4008df590552f3064a4304ca1ebc6b8fc8b",
+          "afterSha256": "bbd55c683d47164e6925b38bd7f9f4ef47d620bd07b04f626696c7e75010630a"
+        },
+        {
+          "path": "src/com/android/settings/deviceinfo/firmwareversion/LineageVersionDetailPreferenceController.java",
+          "beforeSha256": "ea6ed6ffe65a103836ce93ab9948150f2e937894e7e3dac0f56cc42e111efed1",
+          "afterSha256": "1d4fdcd6ff3f11b936e5a5c7d28ee1851a0e30e9727a40c4bd73f416961e2614"
+        }
+      ]
+    }
+  ]
+}
