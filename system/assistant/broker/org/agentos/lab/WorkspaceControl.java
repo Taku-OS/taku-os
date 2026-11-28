@@ -52,7 +52,10 @@ final class WorkspaceControl {
                 String taskTitle = close ? registry.describe(thread).optString("taskTitle") : "";
                 String selected = registry.beginControl(thread, key, generation, allocation, revision, close);
                 if (close) {
-                    stopAndClose(registry, thread, key, generation, selected, taskTitle, allocation != null);
+                    // Always confirm the host stopped before the workspace leaves the ledger: an
+                    // unconfirmed stop must stay listed (paused, with its error) so it can be retried,
+                    // whichever surface asked and whether or not it named the allocation.
+                    stopAndClose(registry, thread, key, generation, selected, taskTitle, true);
                     return list();
                 }
                 finishPause(registry, thread, key, generation, selected, action.equals("takeControl"));

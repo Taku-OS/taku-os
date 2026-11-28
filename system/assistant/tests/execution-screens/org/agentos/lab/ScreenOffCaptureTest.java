@@ -253,11 +253,42 @@ public final class ScreenOffCaptureTest {
         check(host.contains("screenWake.release()"), "the lock is released when the screen stops");
         check(host.contains("p[0].equals(\"frame\")){screenUsed();") && host.contains("requireGeneration(p[1]);\n            screenUsed();"),
                 "a viewer's frame and a capture renew the lock");
-        check(host.contains("screenUsed();\n        input.submit("), "host input renews the lock");
+        check(host.contains("wake();\n        input.submit("), "host input renews the lock and waits for the screen to be on");
+        check(host.contains("p[0].equals(\"wake\")") && host.contains("ScreenGuard.awaitOn("),
+                "the host has one wake command for every action");
         check(!host.contains("p[0].equals(\"status\")){screenUsed"), "a status poll does not keep the screen awake");
         check(host.contains("releaseIdleWake();") && host.contains("ScreenGuard.idleWakeExpired("), "an idle screen's lock is released");
         String tools = Files.readString(Path.of("system/assistant/broker/org/agentos/lab/PhoneNativeTools.java"));
         check(tools.contains("PhoneExecutionScreens.captureFailure("), "observe_background maps capture refusals");
+        int wake = tools.indexOf("PhoneGestures.wake(screen)");
+        check(wake > 0 && wake < tools.indexOf("PhoneAppLaunch.open(screen") && wake < tools.indexOf("case \"tap\":")
+                        && wake < tools.indexOf("case \"type_text\":") && wake < tools.indexOf("case \"swipe\":"),
+                "open_app, tap, swipe, touch and type_text renew and wake the screen before acting");
+    }
+
+    /**
+     * BUG-0044 review: after 10 idle minutes the wake lock is released and the screen's group goes
+     * OFF. The first Agent action afterwards (open, tap, swipe, typing) must wake it and wait for it
+     * to be on, never inject into a screen that is off.
+     */
+    static void firstActionAfterSleep() throws Exception {
+        check(ScreenGuard.idleWakeExpired(ScreenGuard.AWAKE_IDLE_MS, 0), "10 idle minutes release the wake lock");
+        long[] now = {0};
+        int[] reads = {0}, rewakes = {0};
+        int state = ScreenGuard.awaitOn(() -> ++reads[0] < 4 ? ScreenGuard.STATE_OFF : ScreenGuard.STATE_ON, true,
+                () -> rewakes[0]++, () -> now[0], ms -> now[0] += ms);
+        check(state == ScreenGuard.STATE_ON && rewakes[0] == 3, "the first action wakes an OFF screen and waits until it is ON");
+        check(ScreenGuard.awaitOn(() -> ScreenGuard.STATE_ON, true, () -> { throw new AssertionError("no rewake"); },
+                () -> 0, ms -> { throw new AssertionError("no wait"); }) == ScreenGuard.STATE_ON,
+                "an awake screen acts immediately");
+        long[] clock = {0};
+        IOException off = rejects(ScreenGuard.SCREEN_OFF, () -> ScreenGuard.awaitOn(() -> ScreenGuard.STATE_DOZE, true,
+                () -> {}, () -> clock[0], ms -> clock[0] += ms));
+        check(clock[0] >= ScreenGuard.WAKE_GRACE_MS && off.getMessage().contains("DOZE") && off.getMessage().contains("not performed"),
+                "a screen that stays off fails with SCREEN_OFF after the wake grace, without acting");
+        rejects(ScreenGuard.SCREEN_OFF, () -> ScreenGuard.awaitOn(() -> ScreenGuard.STATE_OFF, false,
+                () -> { throw new AssertionError("no wake lock to re-acquire"); }, () -> 0, ms -> {}));
+        check(code("SCREEN_OFF: x") .equals("SCREEN_OFF"), "the error keeps the code tool consumers key on");
     }
 
     public static void main(String[] args) throws Exception {
@@ -269,6 +300,7 @@ public final class ScreenOffCaptureTest {
         keepAwake();
         alwaysUnlocked();
         hostWiring();
+        firstActionAfterSleep();
         System.out.println("ScreenOffCaptureTest: " + checks + " checks passed");
     }
 }

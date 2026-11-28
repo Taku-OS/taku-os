@@ -43,8 +43,9 @@ final class ScreenGuard {
     }
 
     /**
-     * The wake lock is held only while the screen is in use: a capture, a viewer fetching frames or
-     * the host's own input renews it, and this long without any of them releases it, so a screen
+     * The wake lock is held only while the screen is in use: a capture, a viewer fetching frames, the
+     * host's own input or an Agent action (the broker sends {@code wake} before every open, tap,
+     * swipe, touch and typing step) renews it, and this long without any of them releases it, so a screen
      * kept READY overnight lets the phone sleep (code review). Status polls and frames the screen
      * renders by itself (a playing video) do not count. A capture after the release wakes it again
      * (ACQUIRE_CAUSES_WAKEUP, then the WAKE_GRACE_MS wait).
@@ -54,6 +55,31 @@ final class ScreenGuard {
     /** Whether a wake lock last renewed at [lastUseMs] should be released at [nowMs]. */
     static boolean idleWakeExpired(long nowMs, long lastUseMs) {
         return nowMs - lastUseMs >= AWAKE_IDLE_MS;
+    }
+
+    interface StateReader { int read(); }
+    interface Sleeper { void sleep(long ms) throws InterruptedException; }
+
+    /**
+     * Before an action (open, tap, swipe, touch, typing, a key) reaches the screen: the caller has
+     * renewed the wake lock; when the idle release let the screen's group go to sleep, wake it again
+     * (re-acquire, at most once per REWAKE_INTERVAL_MS) and wait up to WAKE_GRACE_MS for it to be
+     * on. Android drops input on a screen that is off, so the action must not run before then.
+     * Returns the state it found on; SCREEN_OFF when it stayed off (or cannot be woken).
+     */
+    static int awaitOn(StateReader state, boolean canWake, Runnable rewake, java.util.function.LongSupplier clock,
+            Sleeper sleeper) throws IOException, InterruptedException {
+        long start = clock.getAsLong();
+        while (true) {
+            int now = state.read();
+            if (screenOn(now)) return now;
+            if (!canWake || !awaitWake(clock.getAsLong() - start)) {
+                throw new IOException(SCREEN_OFF + ": independent screen display state is " + stateName(now)
+                        + "; the action was not performed");
+            }
+            rewake.run();
+            sleeper.sleep(50);
+        }
     }
 
     /** Whether to re-acquire the wake lock now, at most once per interval while a capture waits. */

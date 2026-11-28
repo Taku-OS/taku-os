@@ -351,7 +351,8 @@ final class NativeBridge {
    requests.values().removeIf(q->{JSONObject params=q.optJSONObject("params");return params!=null&&thread.equals(params.optString("threadId"))&&(turn.equals(params.optString("turnId"))||(current&&params.optString("turnId").isEmpty()));});
    // Only a completion for a different running turn is stale. With no turn recorded (state rebuilt
    // after a reconnect, or a turn/started never seen) it still ends the turn: DedicatedScreens
-   // checks its own active turn, and completedTurn/error must be recorded (code review).
+   // checks its own active turn (or, for a lost start, the allocation the turn itself requested),
+   // and completedTurn/error must be recorded (code review).
    if(!current){
     if(!s.optString("activeTurnId").isEmpty())return;
     // A repeated completion of the turn already recorded is a duplicate, not a lost start.

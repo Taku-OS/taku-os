@@ -359,9 +359,20 @@ public final class DedicatedScreensLifecycleTest {
         rig.screens.beginReturn(session(1), key[0], key[1]);
         rig.screens.finishControl(session(1), key[0], key[1], "agent");
         if (subAgent) rig.screens.resumeGranted(session(1), key[0], key[1]);
-        check(rig.screens.turnStarted(session(1), subAgent ? null : rig.screens.admission(session(1))),
-                "the handback's native admission is accepted");
-        rig.screens.nativeTurnStarted(session(1), turn, true);
+        // The real admission path: the broker's own handback carries a ticket marked handback; a
+        // sub-agent's resumed turn is started by Codex and arrives with no ticket at all.
+        WorkspaceAdmissions admissions = new WorkspaceAdmissions(() -> rig.screens);
+        if (!subAgent) {
+            WorkspaceAdmissions.Ticket ticket = admissions.queue("turn/start", session(1));
+            ticket.handback = true;
+            admissions.beforeSend(1, ticket);
+            admissions.response(1, true);
+        }
+        WorkspaceAdmissions.TurnStart start = admissions.turnStarted(session(1));
+        check(start != WorkspaceAdmissions.TurnStart.REJECTED, "the handback's native admission is accepted");
+        check(subAgent ? start == WorkspaceAdmissions.TurnStart.ADMITTED : start == WorkspaceAdmissions.TurnStart.HANDBACK,
+                "only the broker's own handback arrives marked; the sub-agent's carries no ticket");
+        rig.screens.nativeTurnStarted(session(1), turn, start == WorkspaceAdmissions.TurnStart.HANDBACK);
     }
 
     static void ready(Rig rig, JSONObject allocation) throws Exception {
@@ -719,6 +730,54 @@ public final class DedicatedScreensLifecycleTest {
         }
     }
 
+    /** A turn whose turn/started was lost still ends the allocation it requested, and only that. */
+    static void lostTurnStart() throws Exception {
+        Rig lost = new Rig();
+        JSONObject allocation = lost.screens.request(session(1), apps("com.game"), "lost start", "lost-turn");
+        lost.tasks.open("com.game", allocation.getInt("displayId"));
+        check(lost.screens.turnEnded(session(1), "other-turn", false) == null && lost.screens.list().length() == 1,
+                "another turn's completion does not end an allocation it did not request");
+        join(lost.screens.turnEnded(session(1), "lost-turn", false));
+        check(lost.screens.list().isEmpty() && lost.tasks.list().isEmpty() && holder(lost, "com.game").equals("-"),
+                "a failed turn whose start was lost releases its workspace slot and App");
+
+        Rig newer = new Rig();
+        newer.screens.request(session(1), apps("com.game"), "lost start", "old-turn");
+        nativeStart(newer, "new-turn");
+        check(newer.screens.turnEnded(session(1), "old-turn", false) == null && newer.screens.list().length() == 1,
+                "a late completion of a lost turn leaves a newer recorded turn alone");
+
+        Rig kept = new Rig();
+        nativeStart(kept, "first");
+        allocation = kept.request(1, "kept", "com.game");
+        openApp(kept, "first", "com.game");
+        check(kept.screens.turnEnded(session(1), "first", true) == null && kept.screens.list().length() == 1,
+                "an App left open keeps the screen after its turn");
+        check(kept.screens.turnEnded(session(1), "unseen", false) == null && kept.screens.list().length() == 1,
+                "a lost turn that requested nothing does not release a screen kept from an earlier turn");
+    }
+
+    /** The management page's close: a host that does not stop keeps the row for a retry. */
+    static void confirmedCloseTimeout() throws Exception {
+        Rig rig = new Rig();
+        JSONObject got = rig.request(1, "close", "com.game");
+        String key = got.getString("screenKey"), generation = got.getString("generation");
+        String allocation = rig.screens.list().getJSONObject(0).getString("allocationId");
+        rig.screens.beginControl(session(1), key, generation, allocation, -1, true);
+        rig.host.stopFailure = "HOST_STOP_TIMEOUT";
+        rejects("HOST_STOP_TIMEOUT", () -> rig.screens.close(session(1), key, generation, allocation, null, true));
+        rig.screens.controlFailed(session(1), key, generation, allocation, "HOST_STOP_TIMEOUT");
+        JSONObject row = rig.screens.list().getJSONObject(0);
+        check(row.getString("status").equals("paused") && row.getString("lastError").equals("HOST_STOP_TIMEOUT")
+                        && rig.host.slots.containsKey(key) && holder(rig, "com.game").equals("001"),
+                "a host stop timeout keeps the paused workspace, its host and its App for a retry");
+        rig.host.stopFailure = "";
+        rig.screens.beginControl(session(1), key, generation, allocation, -1, true);
+        rig.screens.close(session(1), key, generation, allocation, null, true);
+        check(rig.screens.list().isEmpty() && !rig.host.slots.containsKey(key) && holder(rig, "com.game").equals("-"),
+                "retrying the close stops the host and then removes the workspace");
+    }
+
     public static void main(String[] args) throws Exception {
         resetPolicy();
         if (args.length == 0 || args[0].equals("spec3")) spec3();
@@ -727,6 +786,8 @@ public final class DedicatedScreensLifecycleTest {
         if (args.length == 0 || args[0].equals("jev")) jevClose();
         if (args.length == 0 || args[0].equals("handover")) handOverRetention();
         if (args.length == 0 || args[0].equals("leaks")) retentionLeaks();
+        if (args.length == 0 || args[0].equals("lost")) lostTurnStart();
+        if (args.length == 0 || args[0].equals("close")) confirmedCloseTimeout();
         System.out.println("DedicatedScreensLifecycleTest: " + checks + " checks passed");
     }
 }

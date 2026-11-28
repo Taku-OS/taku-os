@@ -165,7 +165,10 @@ final class WorkspaceExecutionRuntime implements WorkspaceExecution.Backend {
         JSONObject guard=prepared.runtimeGuard;
         NativeBridge.Call call=new NativeBridge.Call(prepared.method,prepared.params);
         String target = prepared.params.getString("threadId");
-        call.workspaceHandback = request.action.equals("returnAndResume");
+        boolean handback = request.action.equals("returnAndResume");
+        // A relay to a sub-agent's parent is not the handback: the sub-agent's own resumed turn is
+        // (DedicatedScreens.resumeGranted gave it the credential).
+        call.workspaceHandback = handback && target.equals(request.thread);
         // The reservation is the sub-agent's; a relay to its parent would be refused by it.
         if (target.equals(request.thread)) call.workspaceRequestId=request.id;
         call.workspaceGuard=()->{
@@ -187,7 +190,7 @@ final class WorkspaceExecutionRuntime implements WorkspaceExecution.Backend {
                 if(!WorkspaceExecution.hash(Files.readAllBytes(new File(path).toPath())).equals(prepared.observation.getString("sha256")))
                     throw new IOException("WORKSPACE_OBSERVATION_CHANGED");
             }
-            if (call.workspaceHandback && prepared.method.equals("turn/steer"))
+            if (handback && prepared.method.equals("turn/steer"))
                 NativeBridge.suppressWorkspaceClose(target, prepared.params.getString("expectedTurnId"));
         };
         // The native event-loop repeats this guard immediately before the write.

@@ -47,8 +47,9 @@ public final class VirtualDisplayHost {
     static volatile CaptureRequest pendingCapture;
     /** Keeps this screen's own power group awake for its lifetime (BUG-0044); null if unavailable. */
     static PowerManager.WakeLock screenWake;
+    static Display screenDisplay;
     static long lastRewakeAt;
-    /** Last capture, viewer frame request or host input: renews screenWake (ScreenGuard.AWAKE_IDLE_MS). */
+    /** Last capture, viewer frame request, host input or Agent action: renews screenWake (ScreenGuard.AWAKE_IDLE_MS). */
     static volatile long lastUseAt=SystemClock.elapsedRealtime();
     static final class CaptureRequest {
         final String id=UUID.randomUUID().toString();
@@ -97,6 +98,17 @@ public final class VirtualDisplayHost {
         if(lock==null || !lock.isHeld() || !ScreenGuard.idleWakeExpired(SystemClock.elapsedRealtime(),lastUseAt))return;
         try { lock.release(); } catch(RuntimeException e) { System.err.println("screen wake release: "+e); }
     }
+    /**
+     * An action is about to reach the screen: renew the wake lock and, if the screen went to sleep
+     * after the idle release, wake it and wait until it is on (ScreenGuard.awaitOn).
+     */
+    static void wake() throws Exception {
+        screenUsed();
+        Display display=screenDisplay;
+        if(display==null)return;
+        ScreenGuard.awaitOn(display::getState,screenWake!=null,VirtualDisplayHost::rewakeScreen,
+            SystemClock::elapsedRealtime,Thread::sleep);
+    }
     /** Wakes the screen's group again: acquiring with ACQUIRE_CAUSES_WAKEUP is what wakes it. */
     static synchronized void rewakeScreen() {
         PowerManager.WakeLock lock=screenWake;
@@ -125,6 +137,12 @@ public final class VirtualDisplayHost {
         String[] p=request.trim().split(" +");
         if(p.length==1 && p[0].equals("frame")){screenUsed();return jpeg;}
         if(p.length==1 && p[0].equals("status"))return status().toString().getBytes(StandardCharsets.UTF_8);
+        // Before the broker's own open/tap/swipe/touch/typing step: one renewal path for every action.
+        if(p.length<=2 && p[0].equals("wake")){
+            if(p.length==2)requireGeneration(p[1]);
+            wake();
+            return status().toString().getBytes(StandardCharsets.UTF_8);
+        }
         if(p.length==2 && p[0].equals("capture")){
             requireGeneration(p[1]);
             screenUsed();
@@ -150,7 +168,7 @@ public final class VirtualDisplayHost {
         else if(p.length==2 && p[0].equals("key") && (p[1].equals("4")||p[1].equals("66")||p[1].equals("67")))command=new String[]{"/system/bin/input","-d",Integer.toString(displayId),"keyevent",p[1]};
         else if(p.length==2 && p[0].equals("launch") && p[1].equals("clock"))command=new String[]{"/system/bin/am","start","--display",Integer.toString(displayId),"-n","com.android.deskclock/.DeskClock"};
         else throw new IllegalArgumentException("unsupported mirror command");
-        screenUsed();
+        wake();
         input.submit(()->{Process process=new ProcessBuilder(command).redirectErrorStream(true).start();try(InputStream in=process.getInputStream()){byte[] buffer=new byte[512];while(in.read(buffer)!=-1){}}if(process.waitFor()!=0)throw new IOException("display input failed");return null;}).get();
         return new JSONObject().put("ok",true).put("displayId",displayId).toString().getBytes(StandardCharsets.UTF_8);
     }
@@ -200,7 +218,7 @@ public final class VirtualDisplayHost {
         }
         final VirtualDisplay vd=created;
         if(vd==null)throw new IOException("createVirtualDisplay returned null");
-        Display display=vd.getDisplay();displayId=display.getDisplayId();
+        Display display=vd.getDisplay();displayId=display.getDisplayId();screenDisplay=display;
         keepScreenAwake(ctx,displayId);
         info=new JSONObject().put("displayId",displayId).put("name",display.getName()).put("width",WIDTH).put("height",HEIGHT).put("density",DENSITY).put("flags",flags).put("uid",android.os.Process.myUid()).put("pid",android.os.Process.myPid()).put("mirrorSocket",SOCKET)
             .put("alwaysUnlocked",alwaysUnlocked(display))

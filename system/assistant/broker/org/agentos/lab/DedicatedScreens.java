@@ -182,9 +182,12 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
                 screen.completion = CompletionDisposition.RELEASE;
                 screen.heldForUser = false;
                 screen.closeDecision = null;
+                screen.handbackGranted = false;
+                if (event != Retention.PAUSED) screen.requestTurn = "";
             }
             case RETURN_BEGUN -> screen.completion = CompletionDisposition.RETURN_PENDING;
             case CONTROL_NOT_RETURNED -> {
+                screen.handbackGranted = false;
                 if (screen.completion == CompletionDisposition.RETURN_PENDING)
                     screen.completion = CompletionDisposition.RELEASE;
             }
@@ -192,6 +195,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
             case TURN_STARTED, HANDBACK_STARTED -> {
                 screen.closeDecision = null;
                 screen.heldForUser = false;
+                screen.handbackGranted = false;
                 screen.completion = switch (screen.completion) {
                     // Only the turn the return admitted is a handback; any other turn is ordinary.
                     case RETURN_PENDING -> event == Retention.HANDBACK_STARTED
@@ -321,6 +325,16 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
          * it is the one the takeover stopped, or one refused since.
          */
         boolean resumeRequired;
+        /**
+         * A sub-agent's screen was given back (resumeGranted): its parent wakes it inside Codex,
+         * so no broker ticket carries the handback. The sub-agent's next turn is that resume.
+         */
+        boolean handbackGranted;
+        /**
+         * The turn whose request_apps made this allocation, from the tool call itself: a turn whose
+         * turn/started was never seen still ends its own allocation (turnEnded), and only that.
+         */
+        String requestTurn = "";
 
         /** Why the last control change failed, for the UI. */
         String lastError = "";
@@ -767,7 +781,10 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
      */
     public void resumeGranted(String session, String key, String generation)
             throws Exception { try (CleanupWork.Held held10 = lock()) {
-        exactScreen(session, key, generation).resumeRequired = false;
+        DedicatedScreen screen = exactScreen(session, key, generation);
+        screen.resumeRequired = false;
+        // The handback credential goes with the sub-agent's own resumed turn, not the parent's relay.
+        screen.handbackGranted = screen.completion == CompletionDisposition.RETURN_PENDING;
     } }
 
     /** The session may run a turn: its screen, if it has one, is under the agent's control. */
@@ -838,13 +855,16 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         nativeTurnStarted(session, turnId, false);
     }
 
-    /** [handback]: the turn a returnAndResume admitted; only it keeps the screen as a handback. */
+    /**
+     * [handback]: the turn a returnAndResume admitted through a broker ticket; a sub-agent's first
+     * turn after resumeGranted is one too. Only such a turn keeps the screen as a handback.
+     */
     void nativeTurnStarted(String session, String turnId, boolean handback) { try (CleanupWork.Held held = lock()) {
         if (turnId.equals(activeTurns.put(session, turnId))) return;
         DedicatedScreen screen = own(session);
         if (screen != null) {
             screen.turnId = turnId;
-            transition(screen, handback ? Retention.HANDBACK_STARTED : Retention.TURN_STARTED);
+            transition(screen, handback || screen.handbackGranted ? Retention.HANDBACK_STARTED : Retention.TURN_STARTED);
         }
     } }
 
@@ -960,6 +980,20 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
     JSONObject request(String session, Map<String, String> apps, String taskTitle)
             throws Exception {
         return request(session, apps, taskTitle, false);
+    }
+
+    /** request_apps from a native turn: the allocation remembers that turn (see requestTurn). */
+    JSONObject request(String session, Map<String, String> apps, String taskTitle, String turnId)
+            throws Exception {
+        JSONObject allocation = request(session, apps, taskTitle, false);
+        if (!turnId.isEmpty())
+            try (CleanupWork.Held held = lock()) {
+                DedicatedScreen screen = own(session);
+                if (screen != null && screen.key.equals(allocation.optString("screenKey"))
+                        && screen.generation.equals(allocation.optString("generation")))
+                    screen.requestTurn = turnId;
+            }
+        return allocation;
     }
 
     private JSONObject request(String session, Map<String, String> apps, String taskTitle,
@@ -1752,6 +1786,16 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
 
     Thread turnEnded(String session, String turnId, boolean successful, CloseDecision decision) {
         try (CleanupWork.Held held = lock()) {
+            if (!activeTurns.containsKey(session)) {
+                // Its turn/started was never seen (a lost event, a reconnect). End only the
+                // allocation this very turn requested and that no recorded turn holds; a newer
+                // turn's screen, or one kept from an earlier turn, is not this turn's to end.
+                DedicatedScreen lost = own(session);
+                if (lost == null || turnId.isEmpty() || !lost.turnId.isEmpty() || !turnId.equals(lost.requestTurn))
+                    return null;
+                activeTurns.put(session, turnId);
+                lost.turnId = turnId;
+            }
             if (!turnId.equals(activeTurns.get(session))) return null;
             activeTurns.remove(session);
             DedicatedScreen screen = own(session);

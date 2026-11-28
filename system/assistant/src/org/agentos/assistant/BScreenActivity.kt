@@ -440,20 +440,24 @@ class BScreenActivity : Activity() {
             screenAction("pause", screen)
         }
         button(card, getString(R.string.workspace_open_task)) { screenAction("open", screen) }
-        button(card, getString(R.string.workspace_close), !screen.cleanupFailed) { confirmClose(screen.lease) }
+        button(card, getString(R.string.workspace_close), !screen.cleanupFailed) { confirmClose(screen) }
     }
 
     private fun screenAction(action: String, screen: ManagedWorkspace) {
         perform({ call(action, screen.lease.json()) })
     }
 
-    private fun confirmClose(lease: Lease) {
+    private fun confirmClose(screen: ManagedWorkspace) {
+        val lease = screen.lease
+        // The exact allocation: a replacement on the same display is never closed by this dialog.
+        val request = lease.json().put("returnToThread", true)
+        if (screen.allocationId.isNotEmpty()) request.put("allocationId", screen.allocationId)
         AlertDialog.Builder(this)
             .setTitle(R.string.workspace_close_title)
             .setMessage(R.string.workspace_close_copy)
             .setNegativeButton(R.string.workspace_cancel, null)
             .setPositiveButton(R.string.workspace_close) { _, _ ->
-                perform({ call("release", lease.json().put("returnToThread", true)).has("returnError") }) { returnFailed ->
+                perform({ call("release", request).has("returnError") }) { returnFailed ->
                     if (selected == lease) selected = null
                     feedback = Feedback(FeedbackArea.Page, getString(if (returnFailed) R.string.bscreen_return_failed else R.string.bscreen_closed))
                 }
@@ -565,6 +569,7 @@ class BScreenActivity : Activity() {
             status == "cleanup_failed",
             screen.optBoolean("agentAllowed", true),
             screen.optString("lastError", ""),
+            screen.optString("allocationId", ""),
         )
     }
 
@@ -599,6 +604,7 @@ class BScreenActivity : Activity() {
     private data class ManagedWorkspace(
         val lease: Lease, val app: String, val task: String, val status: String, val inputOwner: Int,
         val canPreview: Boolean, val cleanupFailed: Boolean, val agentAllowed: Boolean, val lastError: String,
+        val allocationId: String,
     )
 
     private data class Lease(val threadId: String, val screenKey: String, val generation: String) {

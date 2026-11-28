@@ -96,7 +96,7 @@ final class PhoneNativeTools {
   if (name.equals("request_apps")) {
    java.util.Map<String, String> apps = new java.util.LinkedHashMap<>();
    for (String pkg : packages(args)) apps.put(pkg, PhoneAppCatalog.requireLaunchable(pkg).optString("label", pkg));
-   return text(DedicatedScreensOnDevice.shared().request(thread, apps, args.optString("taskTitle")).toString());
+   return text(DedicatedScreensOnDevice.shared().request(thread, apps, args.optString("taskTitle"), p.optString("turnId")).toString());
   }
   if (name.equals("hand_over_screen"))
    return text(DedicatedScreensOnDevice.shared().keepForUser(thread, p.optString("turnId")).toString());
@@ -120,6 +120,8 @@ final class PhoneNativeTools {
   return out;
  }
  static JSONObject executeScreen(JSONObject call,JSONObject args,String name,PhoneExecutionScreens.Screen screen)throws Exception {
+  // Every action renews the screen's wake lock and wakes a screen that slept, not only captures.
+  if(!name.equals("observe_background")&&!name.equals("device_info"))PhoneGestures.wake(screen);
   if(name.equals("open_app"))return PhoneAppLaunch.open(screen,args.getString("packageName"),null);
   PhoneGestures.prepare(screen);
   String display=Integer.toString(screen.displayId);
