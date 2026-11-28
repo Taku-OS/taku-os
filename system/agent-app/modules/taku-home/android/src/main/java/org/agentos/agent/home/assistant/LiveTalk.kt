@@ -904,17 +904,17 @@ internal class LiveTalk(
   private suspend fun confirm(s: Session, command: Command, task: Task) {
     val request = delivery.pendingRequest(task.request.threadId, task.turnId)
     if (!current(s, command)) return
-    s.command = null
-    val text = command.inputs.joinToString(" ", transform = LiveInput::text)
-    val pending = request ?: return toolReply(s, command.callId, "notSent", "Taku is not waiting for an answer on this task.")
-    val arguments = pending.optJSONObject("params")?.optJSONObject("arguments") ?: JSONObject()
-    val response = when (val decision = LiveVoiceAnswer.decide(pending.optString("method"), arguments, command.args.opt("optionIndex") as? Int, text)) {
-      is LiveVoiceAnswer.Refuse -> return toolReply(s, command.callId, "notSent", decision.message)
-      is LiveVoiceAnswer.Answer -> decision.response
-    }
     val permit = s.permit
-    delivery.answer(task.request.threadId, pending.getString("key"), response) { permit.valid && command.permit.valid && !locked() }
-    if (current(s, command)) toolReply(s, command.callId, "answered", "Taku received the answer. Wait for the task to continue.")
+    // The command stays owned until the answer has gone through: a lock in between makes
+    // delivery.answer throw, and ensureWork then still replies UNLOCK_REQUIRED for this command.
+    LiveVoiceAnswer.confirmStep(request?.optString("method")?.ifEmpty { null }, request?.optString("key"),
+      request?.optJSONObject("params")?.optJSONObject("arguments") ?: JSONObject(), command.args.opt("optionIndex") as? Int,
+      command.inputs.joinToString(" ", transform = LiveInput::text),
+      answer = { key, response -> delivery.answer(task.request.threadId, key, response) { permit.valid && command.permit.valid && !locked() } },
+      settle = { state, message ->
+        if (s.command === command) s.command = null
+        if (current(s, command)) toolReply(s, command.callId, state, message)
+      })
   }
 
   private fun maybeAnnounce(s: Session) {

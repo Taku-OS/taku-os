@@ -34,5 +34,32 @@ fun main() {
   val lockedStatus = LiveVoiceAnswer.lockedStatus(2, 1)
   check(lockedStatus.contains("2 task(s) running") && lockedStatus.contains("1 finished") && !Regex("[0-9]{3,}").containsMatchIn(lockedStatus), "counts only, no task ids")
   check(LiveVoiceAnswer.lockedStatus(0, 0).startsWith("No task"), "no tasks")
+  // R2-m1: confirm settles (releases the command and replies) only after the answer went through.
+  run {
+    val events = mutableListOf<String>()
+    try {
+      LiveVoiceAnswer.confirmStep("phone/askUser", "k1", ask, 0, "morning",
+        answer = { _, _ -> events += "answer"; throw IllegalStateException("INPUT_REVOKED") },
+        settle = { state, _ -> events += "settle:$state" })
+      throw AssertionError("a failed answer must propagate")
+    } catch (expected: IllegalStateException) { }
+    check(events == listOf("answer"), "a lock during the answer leaves the command unsettled for UNLOCK_REQUIRED: $events")
+  }
+  run {
+    val events = mutableListOf<String>()
+    LiveVoiceAnswer.confirmStep("phone/askUser", "k1", ask, 1, "evening",
+      answer = { key, response -> events += "answer:$key:${response.getInt("optionIndex")}" },
+      settle = { state, _ -> events += "settle:$state" })
+    check(events == listOf("answer:k1:1", "settle:answered"), "answer exactly once, then settle: $events")
+  }
+  run {
+    val events = mutableListOf<String>()
+    LiveVoiceAnswer.confirmStep("phone/confirmAction", "k2", confirm, null, "yes",
+      answer = { _, _ -> events += "answer" }, settle = { state, _ -> events += "settle:$state" })
+    check(events == listOf("settle:notSent"), "a refusal never answers: $events")
+    events.clear()
+    LiveVoiceAnswer.confirmStep(null, null, JSONObject(), 0, "x", answer = { _, _ -> events += "answer" }, settle = { state, _ -> events += "settle:$state" })
+    check(events == listOf("settle:notSent"), "no pending question: $events")
+  }
   println("PASS LiveVoiceAnswerTest: askUser option answers, confirmAction cancel-only, approvals and secrets stay on screen")
 }

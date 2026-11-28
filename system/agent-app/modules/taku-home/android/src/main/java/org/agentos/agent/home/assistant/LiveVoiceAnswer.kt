@@ -15,6 +15,23 @@ internal object LiveVoiceAnswer {
   val EXPLICIT_CANCEL = setOf("cancel", "cancel it", "cancel that", "cancel the task", "cancel my task", "stop the task",
     "取消", "取消任务", "取消这个任务", "取消刚才的任务", "停止任务")
 
+  /**
+   * One voice `confirm`: refuse or [answer], and only then [settle] (release the command and reply).
+   * If [answer] throws (a lock in between, a gateway error) nothing is settled, so the caller still
+   * owns the command and reports the failure itself; the answer is never sent twice.
+   */
+  inline fun confirmStep(method: String?, key: String?, arguments: JSONObject, optionIndex: Int?, spoken: String,
+    answer: (key: String, response: JSONObject) -> Unit, settle: (state: String, message: String) -> Unit) {
+    if (method == null || key.isNullOrBlank()) return settle("notSent", "Taku is not waiting for an answer on this task.")
+    when (val decision = decide(method, arguments, optionIndex, spoken)) {
+      is Refuse -> settle("notSent", decision.message)
+      is Answer -> {
+        answer(key, decision.response)
+        settle("answered", "Taku received the answer. Wait for the task to continue.")
+      }
+    }
+  }
+
   /** Keyguard Action Gate for a tool call: what a locked phone answers instead, or null to proceed. */
   fun lockedGate(locked: Boolean, action: String): String? = when {
     !locked -> null
