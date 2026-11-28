@@ -264,7 +264,9 @@ internal fun HomeScreen(controller: HomeController, backdrop: Backdrop?, pager: 
         controller.menu?.let { target ->
           CardMenu(target, controller, scrim, controller.screenHeight, with(density) { topInset.toPx() })
         }
-        AssistantLayer(scene, controller)
+        // A power-key overlay above Home presents the same session; one composer at a time (BUG-0047).
+        val overlayHosts by controller.assistant.overlayHosts.collectAsStateWithLifecycle()
+        if (overlayHosts == 0) AssistantLayer(scene, controller)
       }
       // One place in the tree for every step, so the card morphs from step to step instead of re-mounting.
       OnboardingLayer(onboarding, controller.onboarding)

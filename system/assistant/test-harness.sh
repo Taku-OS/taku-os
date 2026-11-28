@@ -19,6 +19,8 @@ rm -rf "$result/store/classes" "$result/store/dex"
 mkdir -p "$result/store/classes" "$result/store/dex" "$result/panel/classes" "$result/panel/dex"
 compile_jvm "$result/store/classes" "$ANDROID_JAR" \
   system/assistant/broker/org/agentos/lab/*.java system/assistant/broker/org/agentos/lab/*.kt \
+  system/ai/client/org/agentos/ai/NotebookSocialSource.java \
+  tooling/app-kit/apk-shell/src/org/agentos/runtime/AppApiClient.java \
   system/assistant/tests/org/agentos/lab/HarnessStoreTest.java
 "$JDK/bin/jar" cf "$result/store/classes.jar" -C "$result/store/classes" .
 JAVA_HOME="$JDK" "$TOOLS/d8" --min-api 36 --lib "$ANDROID_JAR" --output "$result/store/dex" "$result/store/classes.jar" "$KOTLIN_LIB/kotlin-stdlib.jar"

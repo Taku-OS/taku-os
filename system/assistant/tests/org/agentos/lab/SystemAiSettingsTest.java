@@ -39,6 +39,29 @@ public final class SystemAiSettingsTest {
   JSONObject uiScenes=new JSONObject(existingUi.get(SystemAiSettings.SCENES));check(uiScenes.getString("agent-ui.text").equals("group/custom-ui"));check(uiScenes.getString("org.agentos.audio.text").equals("group/main"));
   uiScenes.remove("agent-ui.text");existingUi.put(SystemAiSettings.SCENES,uiScenes.toString());SystemAiSettings.ensurePresentationRoutes(existingUi);check(!new JSONObject(existingUi.get(SystemAiSettings.SCENES)).has("agent-ui.text"));
   JSONObject uiOff=AiPolicy.update(AiPolicy.defaults(),new JSONObject().put("apps",new JSONObject().put("agent-ui",false)),new JSONArray());SystemAiSettings.writePatch(presentation,new JSONObject().put("apps",uiOff.getJSONObject("apps")));check(!SystemAiSettings.read(presentation).getJSONObject("apps").getBoolean("agent-ui"));
-  System.out.println("PASS SystemAiSettingsTest: slot migration preserves existing bindings and discards keys");
+  notebookPolicy();
+  System.out.println("PASS SystemAiSettingsTest: slot migration and Notebook AI defaults");
+ }
+
+ static void notebookPolicy()throws Exception{
+  String notebook="org.agentos.notebook";
+  Store store=new Store();
+  check(SystemAiSettings.read(store).getJSONObject("apps").getBoolean(notebook));
+  AiPolicy.allowed(SystemAiSettings.read(store),notebook);
+
+  SystemAiSettings.writePatch(store,new JSONObject().put("enabled",false));
+  check(!SystemAiSettings.read(store).getBoolean("enabled"));
+  rejectsNotebook(store,notebook);
+
+  SystemAiSettings.writePatch(store,new JSONObject().put("enabled",true)
+    .put("apps",new JSONObject().put(notebook,false)));
+  check(!SystemAiSettings.read(store).getJSONObject("apps").getBoolean(notebook));
+  rejectsNotebook(store,notebook);
+ }
+
+ static void rejectsNotebook(Store store,String notebook)throws Exception{
+  JSONObject settings=SystemAiSettings.read(store);
+  try{AiPolicy.allowed(settings,notebook);}catch(SecurityException expected){return;}
+  throw new AssertionError("Notebook AI should be paused");
  }
 }

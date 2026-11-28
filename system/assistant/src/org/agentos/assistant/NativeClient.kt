@@ -24,10 +24,14 @@ internal object NativeClient {
 
     @JvmStatic
     @Throws(Exception::class)
-    fun exchange(request: JSONObject): JSONObject = LocalSocket().use { socket ->
+    fun exchange(request: JSONObject): JSONObject = exchange(request, 45_000)
+
+    @JvmStatic
+    @Throws(Exception::class)
+    fun exchange(request: JSONObject, timeoutMs: Int): JSONObject = LocalSocket().use { socket ->
         socket.connect(LocalSocketAddress(SOCKET_NAME))
         if (socket.peerCredentials.uid != 0) throw IOException("Invalid native service identity")
-        socket.soTimeout = 45_000
+        socket.soTimeout = timeoutMs
         socket.send(request)
 
         val input = socket.inputStream

@@ -305,9 +305,12 @@ class HomeActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
     PanelNavigation.setForeground(true)
     org.agentos.agent.home.widgets.HomeWidgetHost.get(this).start()
     PanelDirectory.get(this).start()
+    // The entry is on screen: a hold should only wait for the microphone, not the Engine connection.
+    org.agentos.agent.home.assistant.AssistantSession.get(this).prewarmVoice()
   }
   override fun onStop() {
     val session = org.agentos.agent.home.assistant.AssistantSession.get(this)
+    session.releaseVoicePrewarm()
     if (session.gesture.source == "desktop")
       session.onVoiceSurfaceStopped(session.gesture.id, isChangingConfigurations)
     PanelNavigation.setForeground(false)
@@ -321,6 +324,8 @@ class HomeActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
     org.agentos.agent.home.onboarding.OnboardingRepository.get(this).setForeground(true)
     // Invalidation is only a hint; a resume reads the revision again.
     PanelDirectory.get(this).refresh()
+    // Start can run behind the keyguard, where voice is refused; resuming after unlock renews it.
+    org.agentos.agent.home.assistant.AssistantSession.get(this).prewarmVoice()
     if (resetOnResume) { resetOnResume = false; resetAfterScreenOff = true; homeSignal++ }
   }
 

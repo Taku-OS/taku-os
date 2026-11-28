@@ -63,7 +63,7 @@ class InternalGoogleApps(unittest.TestCase):
         self.assertNotIn('skip_preprocessed_apk_checks', bp)
 
     def test_default_product_and_audio_launcher_are_included(self):
-        product = (ROOT / 'image/taku.mk').read_text()
+        product = (ROOT / 'image/taku-core.mk').read_text()
         self.assertIn('$(call inherit-product, vendor/taku/image/google-apps.mk)', product)
         self.assertIn('TakuAudioEngine', product)
         apps = {a['id']: a for a in self.real['apps']}

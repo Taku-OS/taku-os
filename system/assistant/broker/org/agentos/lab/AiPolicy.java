@@ -13,7 +13,7 @@ final class AiPolicy {
   for(int i=0;i<decisions.length();i++){JSONObject item=new JSONObject(decisions.getJSONObject(i).toString());result.put(item.put("kind","decision"));}
   return result;
  }
- static JSONObject defaults()throws Exception{return new JSONObject().put("version",1).put("revision",0).put("enabled",true).put("audioEnabled",true).put("apps",new JSONObject().put("ime",true).put("memory",true).put("agent-ui",true));}
+ static JSONObject defaults()throws Exception{return new JSONObject().put("version",1).put("revision",0).put("enabled",true).put("audioEnabled",true).put("apps",new JSONObject().put("ime",true).put("memory",true).put("agent-ui",true).put("org.agentos.notebook",true));}
  static JSONObject update(JSONObject old,JSONObject patch,JSONArray catalog)throws Exception{
   JSONObject next=new JSONObject(old.toString());
   for(String key:keys(patch)){

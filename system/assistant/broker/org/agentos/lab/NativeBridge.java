@@ -437,17 +437,29 @@ final class NativeBridge {
     DedicatedScreensOnDevice.shared().asked(params.optString("threadId"),shown.optString(confirmation?"title":"question"),shown.optString("returnTo"));
     String key=UUID.randomUUID().toString();requests.put(key,new JSONObject().put("key",key).put("id",event.get("id")).put("method",confirmation?"phone/confirmAction":"phone/askUser").put("params",snapshot));return;
    }
-   boolean observation=tool.endsWith("device_info")||matchesTool(tool,"screen_status")||tool.endsWith("observe_background")||tool.endsWith("memory_search")||tool.endsWith("memory_get")||matchesTool(tool,"apps")||(matchesTool(tool,"matter")&&params.optJSONObject("arguments")!=null&&params.getJSONObject("arguments").optString("action").equals("read"))||(matchesTool(tool,"audio")&&params.optJSONObject("arguments")!=null&&(params.getJSONObject("arguments").optString("action").equals("capabilities")||params.getJSONObject("arguments").optString("operation").equals("status")));
+   boolean observation=tool.endsWith("device_info")||matchesTool(tool,"screen_status")||tool.endsWith("observe_background")||tool.endsWith("memory_search")||tool.endsWith("memory_get")||matchesTool(tool,"notebook_recall")||matchesTool(tool,"notebook_lists")||matchesTool(tool,"notebook_query")||matchesTool(tool,"apps")||(matchesTool(tool,"matter")&&params.optJSONObject("arguments")!=null&&params.getJSONObject("arguments").optString("action").equals("read"))||(matchesTool(tool,"audio")&&params.optJSONObject("arguments")!=null&&(params.getJSONObject("arguments").optString("action").equals("capabilities")||params.getJSONObject("arguments").optString("operation").equals("status")));
    if(!observation&&mode.equals("readOnly")){server.nativeReply(event.get("id"),PhoneNativeTools.failure("This conversation is read-only; the phone operation was blocked"));return;}
    if(!observation&&hasPhoneQuestion(params.optString("threadId"))){server.nativeReply(event.get("id"),PhoneNativeTools.failure("Wait for the user to handle the current confirmation before continuing phone operations"));return;}
    if(!observation&&mode.equals("ask")){
-    String key=UUID.randomUUID().toString();JSONObject visible=new JSONObject(params.toString()).put("reason",matchesTool(tool,"prepare_foreground_draft")?"Allow preparing a draft in the current conversation input field without sending it?":"Allow this phone operation on the independent background screen: "+tool+"？");
+    String key=UUID.randomUUID().toString();JSONObject visible=new JSONObject(params.toString()).put("reason",phoneApprovalReason(tool,params.optJSONObject("arguments")));
     requests.put(key,new JSONObject().put("key",key).put("id",event.get("id")).put("method","phone/action/requestApproval").put("params",visible));return;
    }
    executePhone(server,event.get("id"),params);return;
   }
   String key=UUID.randomUUID().toString();requests.put(key,new JSONObject().put("key",key).put("id",event.get("id")).put("method",method).put("params",params));
  } }
+ private static String phoneApprovalReason(String tool,JSONObject args){
+  if(matchesTool(tool,"prepare_foreground_draft"))return "Allow preparing a draft in the current conversation input field without sending it?";
+  if(matchesTool(tool,"notebook_open"))return args!=null&&args.optString("destination").equals("source")
+      ? "Allow opening the original post for this Notebook item on the main screen?"
+      : "Allow opening this Notebook item on the main screen?";
+  if(matchesTool(tool,"notebook_create_list"))return "Allow creating this Notebook list?";
+  if(matchesTool(tool,"notebook_edit_list"))return "Allow updating this Notebook list?";
+  if(matchesTool(tool,"notebook_edit"))return "Allow updating this Notebook item?";
+  if(matchesTool(tool,"notebook_batch"))return args!=null&&args.optString("operation").equals("delete")
+      ? "Allow deleting the selected Notebook items?" : "Allow moving the selected Notebook items?";
+  return "Allow this phone operation on the independent background screen: "+tool+"?";
+ }
  static boolean matchesTool(String tool,String name){return tool.equals(name)||tool.endsWith("."+name)||tool.endsWith("/"+name)||tool.endsWith("__"+name);}
  /** A frozen thread can still call the retired namespace; answer it with a real failure, never an approval card. */
  static boolean retiredPanelTool(JSONObject params){

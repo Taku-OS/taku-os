@@ -114,7 +114,8 @@ internal class AgentGatewayProtocol private constructor() {
                 requireId(input, "requestId")
                 val fields = mutableSetOf("threadId", "requestId")
                 if (action == COMPOSER_SUBMIT) {
-                    fields.addAll(setOf("revision", "attachmentIds", "pluginIds", "action"))
+                    fields.addAll(setOf("revision", "attachmentIds", "pluginIds", "action", "invocationId"))
+                    if (input.has("invocationId")) requireId(input, "invocationId")
                     val revision = input.opt("revision") as? String ?: throw IOException("INVALID_ARGUMENT")
                     if (revision.length > 128) throw IOException("INVALID_ARGUMENT")
                     val ids = input.getJSONArray("attachmentIds")

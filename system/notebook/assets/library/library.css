@@ -1,0 +1,370 @@
+@font-face { font-family: "Hanken Grotesk"; src: url("hanken-grotesk.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
+@font-face { font-family: "Space Grotesk"; src: url("space-grotesk.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
+
+* { box-sizing:border-box}
+html, body { margin:0; font-family:"Hanken Grotesk","PingFang SC",sans-serif; color:#191b1c}
+h1, h2, h3, p { margin:0}
+b, strong { font-weight:600}
+.icon { display:inline-flex; align-items:center; justify-content:center; vertical-align:middle; flex-shrink:0}
+.icon svg { width:100%; height:100%}
+.roundbtn { width:40px; height:40px; display:grid; place-items:center; border-radius:50%; background:#ffffff0e; border:1px solid #ffffff18; color:#e9ebef}
+.secname { display:flex; align-items:center; justify-content:space-between}
+.secname h3, .detailblock h3 { font-size:20px; font-weight:500}
+.item { display:flex; gap:13px; align-items:center; padding:15px 0; border-bottom:1px solid #ffffff16}
+.item:last-child { border-bottom:0}
+.thumb { position:relative; overflow:hidden; width:64px; height:66px; border-radius:11px; flex:none}
+.thumb img { width:100%; height:100%; object-fit:cover; object-position:center 57%}
+.itemtext { flex:1; min-width:0}
+.itemtext b { font-size:16px; line-height:1.4; font-weight:500}
+.itemtext small { display:block; color:#aaaeb6; font-size:13px; margin-top:6px}
+.item>.icon { color:#a4a8ad}
+.bar { height:56px; margin:0 17px; display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); align-items:center; font-size:16px}
+.albumhead { margin:23px 21px 20px}
+.tintlabel { font-size:13px; color:#b5cdea; display:flex; align-items:center; gap:7px}
+.albumhead h1, .detailpad h1 { font-size:34px; font-weight:500; letter-spacing:-1.2px; line-height:1.3; margin:8px 0}
+.muted, .sourceby { color:#aeb4bc; font-size:14px}
+.albumhero { margin:0 16px; height:352px; position:relative; border-radius:22px; overflow:hidden; background:#353b40; box-shadow:0 0 0 1px #ffffff16}
+.albumhero>img { width:100%; height:100%; object-fit:cover; object-position:50% 57%}
+.photoveil, .kframe:after { position:absolute; inset:0; background:linear-gradient(transparent 43%,#12161908 54%,#0a0e14ab 100%)}
+.timepill, .kframe b { position:absolute; top:12px; right:12px; background:#151618aa; color:white; font:12px "Space Grotesk"; border:1px solid #ffffff35; border-radius:30px; padding:4px 9px; backdrop-filter:blur(12px)}
+.herotxt { position:absolute; bottom:22px; left:18px; right:18px}
+.herotxt small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; letter-spacing:.15px}
+.herotxt h2 { font-size:23px; line-height:1.45; font-weight:500; letter-spacing:-.65px; margin-top:4px}
+.otheritems { margin:8px 22px}
+.otheritems .item { padding:15px 0}
+.otheritems .thumb { width:72px; height:68px}
+.detailpad { padding:22px 20px 0}
+.detailpad h1 { font-size:28px; margin:9px 0 6px; letter-spacing:-.8px}
+.sourceby { display:flex; align-items:center; gap:7px; font-size:13px}
+.keys { display:grid; grid-template-columns:1fr 1fr; gap:7px; margin:20px -3px 0}
+.kframe { height:248px; border-radius:16px; overflow:hidden; position:relative}
+.kframe img { width:100%; height:100%; object-fit:cover; object-position:center 58%}
+.kframe:after { content:""}
+.kframe b { z-index:1; left:9px; right:auto; top:9px; font-size:11px; padding:3px 7px}
+.kframe span { position:absolute; z-index:1; left:10px; bottom:11px; font-size:14px; white-space:nowrap}
+.detailblock { margin-top:22px}
+.origin { display:flex; gap:10px; align-items:center; margin-top:18px; padding:12px 0; border-top:1px solid #ffffff1b; color:#b0bbc9}
+.origin div { flex:1}
+.origin b { font-size:13px; font-weight:500; color:#e1e5e9; display:block}
+.origin small { display:block; font-size:12px; margin-top:2px}
+
+button, input, textarea, select { font:inherit}
+button { border:0; cursor:pointer; background:none; color:inherit; padding:0; touch-action:manipulation}
+button:focus-visible, a:focus-visible { outline:2px solid #82b8f3; outline-offset:2px}
+button:active { filter:brightness(.89)}
+[hidden] { display:none!important}
+.screen { position:absolute; inset:0; display:flex; flex-direction:column; min-height:0; color:#f4f5f6}
+.screen>.bar { flex:none}
+.screen>.bar { min-height:56px}
+#flow { flex:1; overflow:auto; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:#ffffff26 transparent; min-height:0; padding-bottom:12px}
+.bar .roundbtn { height:42px; width:42px}
+.bar > :last-child { justify-self:end}
+.bar-action { min-height:44px; min-width:44px; display:inline-flex; align-items:center; justify-content:center; gap:5px;
+  padding:0 11px; border:1px solid var(--line); border-radius:24px; background:var(--control);
+  font-size:13px; font-weight:600; white-space:nowrap}
+.item, .albumhero { width:100%; text-align:left}
+.itemtext small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.itemtext b, .detailpad h1, .albumhead h1, .menuline span, .sheetbar h2 { overflow-wrap:anywhere}
+.albumhero { width:calc(100% - 32px); display:block}
+.secname { gap:8px}
+.quiet { color:#acbfcc; font-size:13px; display:inline-flex; align-items:center; gap:4px; min-height:34px}
+.footaction { padding:10px 18px 6px; flex:none; background:linear-gradient(transparent,#17191b 20%)}
+.primary, .pill, .tag { display:inline-flex; justify-content:center; align-items:center; gap:6px; border-radius:30px; padding:10px 15px; font-size:14px; font-weight:500}
+.primary { background:#eff1f3; color:#131517}
+.wide { width:100%; min-height:46px}
+.pill, .tag { background:#ffffff0e; color:#e5e6e8; border:1px solid #ffffff24}
+.active, .pill.active { color:#141719; background:#d8e1e7}
+.pill { min-height:34px; padding:7px 12px}
+.kframe { text-align:left}
+.kframe b { color:#fff}
+.kframe:after { pointer-events:none}
+.keys.single { grid-template-columns:1fr}
+.keys.single .kframe { height:186px}
+.keys .pill { min-height:44px}
+.summary, .frameview p, .sheetdesc { font-size:15px; line-height:1.6; color:#c1c6cf}
+.detailblock .summary { margin-top:8px}
+.tag { font-size:12px; padding:5px 10px}
+.summary { white-space:pre-wrap; overflow-wrap:anywhere}
+.origin { padding:11px 0 5px; margin-top:12px}
+.origin>div { min-width:0}
+.origin small { overflow-wrap:anywhere}
+.fine { font-size:12px; color:#929ba4; margin:10px 0 5px}
+.listpad, .frameview { padding:18px 21px}
+.muted { line-height:1.6}
+.findbox, .field input, .field select, .field textarea { border-radius:14px; background:#2a2d31; color:#f6f6f6; border:1px solid #ffffff20}
+.findbox { display:flex; align-items:center; gap:10px; padding:0 13px; height:48px}
+.findbox input { color:white; font-size:15px; outline:none; border:0; background:none; width:100%}
+#filters { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:10px 0 12px}
+#filters button { min-height:44px}
+.result-count { margin-bottom:2px; font-size:13px}
+.result-row { display:flex; align-items:center; gap:4px; border-bottom:1px solid var(--line)}
+.result-row:last-child { border-bottom:0}
+.result-row .item { flex:1; min-width:0; border:0}
+.result-row .roundbtn { width:44px; height:44px; border:0; background:transparent}
+.empty { text-align:center; margin:34px 15px; color:#abb6bf}
+.empty h3 { color:#f0f2f3; margin:10px 0 6px}
+.empty p { font-size:14px; line-height:1.6}
+.empty button { margin-top:14px}
+.frameview>img { display:block; max-width:100%; width:100%; max-height:550px; object-fit:contain; background:#08090a; border-radius:16px}
+.frameview h2 { font-size:24px; font-weight:500; line-height:1.4}
+.frameview .secname, .frameview>h2 { margin:15px 0 6px}
+.frameview small { color:#b3bac3}
+.menuline { display:flex; width:100%; align-items:center; gap:12px; padding:13px 1px; min-height:50px; text-align:left; border-bottom:1px solid #fff1}
+.menuline:last-child { border-bottom:0}
+.menuline span { flex:1; font-size:15px}
+.menuline small { color:#a1a9b3}
+.menuline>.icon { color:#c5cdd6}
+#sheet { position:absolute; inset:0; z-index:35}
+.veil { width:100%; height:100%; position:absolute; inset:0; background:#0009; backdrop-filter:blur(4px)}
+.sheetcard { position:absolute; bottom:0; left:0; right:0; padding:20px 22px 36px; background:#23262a; color:#f3f4f6; border-radius:29px 29px 0 0; max-height:calc(100% - 58px); overflow:auto; border-top:1px solid #ffffff27; box-shadow:0 -12px 50px #0003}
+.sheetbar { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px}
+.sheetbar h2 { font-size:21px; font-weight:500}
+.sheetbar .roundbtn { width:44px; height:44px}
+.sheetdesc { margin:10px 0 20px; overflow-wrap:anywhere}
+.sheet-context { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2;
+  overflow:hidden; overflow-wrap:anywhere; line-height:1.4}
+.sheet-actions { display:flex; gap:8px; margin-top:20px}
+.sheet-actions > button { flex:1; width:auto; min-height:46px}
+.field { display:block; color:#c3c9cf; font-size:13px; margin:14px 0}
+.field small { display:block; margin-top:6px; font-size:12px; line-height:1.4}
+.field input, .field select, .field textarea { display:block; width:100%; margin-top:6px; padding:11px 12px; color-scheme:dark; outline-color:#9ab8d6}
+.field textarea { resize:vertical; min-height:88px}
+.error { color:#ffb9b0; font-size:13px; margin:8px 0}
+.error:empty { display:none}
+.list-rule { white-space:pre-wrap; overflow-wrap:anywhere; margin-top:8px}
+.item.selectable { cursor:pointer; padding-inline:8px}
+.selectable input { width:22px; height:22px; margin:0; flex:none; accent-color:var(--action)}
+.selectable:has(input:checked) { background:var(--control); border-radius:12px}
+.selection-bar { flex:none; display:grid; grid-template-columns:1fr 1fr; gap:8px;
+  padding:12px 18px; color:var(--fg); background:var(--footer-background);
+  border-top:1px solid var(--line)}
+.selection-bar button { min-height:44px}
+button:disabled { opacity:.48; cursor:default}
+
+#flow.nb-homeflow { padding:5px 20px 12px; }
+.nb-section { display:flex; align-items:center; justify-content:space-between; min-height:44px}
+.nb-section h2 { font:500 21px/1.2 "Hanken Grotesk",sans-serif; letter-spacing:-.8px}
+.nb-section button { display:flex; align-items:center; gap:5px; min-height:44px; padding-left:12px; font-size:13px; color:var(--muted)}
+.notebook-header { display:grid; grid-template-columns:76px minmax(0,1fr) 76px; align-items:center; flex:none; height:47px; margin-top:6px; padding:0 12px; color:var(--fg)}
+.notebook-header h1 { margin:0; text-align:center; font:500 19px/1.25 "Hanken Grotesk",sans-serif; letter-spacing:-.45px}
+.notebook-surface .notebook-header .roundbtn { width:44px; height:44px; display:grid; place-items:center; border:0; background:transparent; color:inherit}
+.notebook-header [data-action="open-search"] .icon { width:23px!important; height:23px!important}
+.home-settings { min-height:44px; display:flex; align-items:center; justify-content:center; gap:5px;
+  font-size:13px; font-weight:600; white-space:nowrap }
+.nb-folders { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px 15px; padding:4px 2px 7px}
+.nb-folder { --hue:73,103,123; --ink:41,66,81; --paper:#dbe8ed; position:relative; isolation:isolate; overflow:visible; width:100%; height:151px; color:#fff; text-align:left; border:none; border-radius:16px; background:transparent; transition:transform .18s ease}
+.nb-folder.butter { --hue:147,118,81; --ink:96,75,51; --paper:#ead8bd}
+.nb-folder.green { --hue:85,115,98; --ink:43,73,59; --paper:#ceddd1}
+.nb-folder.lilac { --hue:106,103,132; --ink:64,62,84; --paper:#dfd9e9}
+.folder-back { position:absolute; inset:21px 2px 2px; border-radius:13px; background:linear-gradient(136deg,var(--paper),rgb(var(--hue))); box-shadow:0 7px 12px -8px #202b366b,inset 0 1px 0 #fffa}
+.folder-paper { position:absolute; border:1.5px solid #ffffffe6; overflow:hidden; border-radius:8px; background:var(--paper); box-shadow:0 1px 3px #17242b3a}
+.folder-paper.rear { left:16%; top:12px; width:77%; height:80%; transform:rotate(5deg); filter:brightness(.94)}
+.folder-paper.front { left:6.8%; top:6px; width:84%; height:84%; transform:rotate(-5deg)}
+.folder-paper img { height:100%; width:100%; object-fit:cover; object-position:center 55%; display:block}
+.folder-paper.front img { height:81%; object-position:center 59%}
+.folder-paper.front[data-pic="open"] img,.folder-paper.front[data-pic="turn"] img { object-position:50% 44%}
+.folder-paper.front[data-pic="plant"] img { object-position:70% 55%}
+.folder-paper.front[data-pic="drawing"] img { object-position:50% 44%}
+.folder-glass { position:absolute; z-index:2; inset:46% 0 0; border-radius:12px 13px 15px 15px; background:linear-gradient(172deg,rgba(var(--hue),.36) 0%,rgba(var(--hue),.5) 33%,rgba(var(--ink),.84) 100%); clip-path:url(#folder-cut); backdrop-filter:blur(7px) saturate(1.18); -webkit-backdrop-filter:blur(7px) saturate(1.18); box-shadow:inset 0 1.3px 0 #ffffffe3,inset 1px 0 0 #ffffff5e,inset -1px -1px 0 #ffffff38}
+.folder-count,.folder-mark,.nb-folder strong { position:absolute; z-index:3}
+.folder-mark { left:12px; bottom:38px; color:#fffc; filter:drop-shadow(0 1px 2px #10201c3b)}
+.folder-mark .icon { width:14px!important; height:14px!important}
+.folder-count { right:12px; bottom:14px; color:#fff; font:500 12px/1 "Space Grotesk"; font-variant-numeric:tabular-nums}
+.nb-folder strong { left:12px; right:31px; bottom:10px; font:500 18px/1.25 "Hanken Grotesk",sans-serif; letter-spacing:-.45px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-shadow:0 1px 4px #1b302338}
+.archive-link { text-align:center; margin-top:15px}
+
+@media(max-width:760px) {
+  #flow.nb-homeflow { padding:2px 17px 12px; }
+  .nb-folder { height:clamp(117px,33vw,154px); }
+  .nb-section h2 { font-size:19px; }
+  .nb-folders { gap:12px; }
+  .nb-folder strong { font-size:17px; }
+  .folder-mark { bottom:32px; }
+}
+@media(max-width:760px) and (max-height:735px) { .nb-folder { height:111px; } }
+
+/* Notebook surfaces share the same palette through navigation and modal sheets. */
+.notebook-surface {
+  color-scheme: light;
+  --fg: #182536;
+  --muted: #42556c;
+  --line: #334e6b30;
+  --card: #fafcffed;
+  --card-edge: #edf5ffbf;
+  --control: #f6faffbc;
+  --field: #fcfdff;
+  --field-edge: #90a6bf;
+  --sheet: #f0f5fc;
+  --action: #213952;
+  --on-action: #fff;
+  --destructive: #a43834;
+  --footer-background: #e1ebf7;
+  color: var(--fg);
+  background:
+    radial-gradient(ellipse 100% 37% at 5% 2%, #b3c8e87a, transparent 76%),
+    linear-gradient(161deg, #a9c1e6 0%, #c6d9f0 33%, #dbe9f8 68%, #eaf3fb 100%);
+}
+
+:root[data-theme="dark"] .notebook-surface {
+  color-scheme: dark;
+  --fg: #f1f2f4;
+  --muted: #b3bac4;
+  --line: #d6e3ef24;
+  --card: #1e2024ed;
+  --card-edge: #ffffff12;
+  --control: #ffffff0e;
+  --field: #191b20;
+  --field-edge: #49515b;
+  --sheet: #202227;
+  --action: #e6eaf0;
+  --on-action: #171a1f;
+  --destructive: #ffb2a9;
+  --footer-background: #14161a;
+  background:
+    radial-gradient(ellipse 104% 52% at 100% 56%, #1a1d224d, transparent 80%),
+    linear-gradient(165deg, #060709 0%, #111214 41%, #17181b 77%, #101114 100%);
+}
+
+.notebook-surface .roundbtn { color: var(--fg); }
+
+.notebook-surface :is(.bar, .origin, .sheetbar) .roundbtn {
+  background: var(--control);
+}
+
+/* Subtle contrast behind the folders keeps the exposed photos and glass distinct. */
+:root[data-theme="dark"] .nb-folder {
+  background: linear-gradient(143deg, #2a2c30, #202124);
+  box-shadow: inset 0 1px 0 #ffffff13;
+}
+
+:root[data-theme="dark"] .folder-paper {
+  border-color: #ffffff38;
+  box-shadow: 0 2px 7px #0006;
+}
+
+:root[data-theme="dark"] .folder-back {
+  background: linear-gradient(145deg, #54555b, rgb(var(--ink)));
+  box-shadow: inset 0 1px 0 #ffffff22;
+}
+
+:root[data-theme="dark"] .folder-glass {
+  background: linear-gradient(165deg, rgba(var(--hue), .48), rgba(var(--hue), .59) 39%, rgba(var(--ink), .91));
+  box-shadow: inset 0 1px 0 #ffffff54, inset 0 -1px 0 #ffffff13;
+}
+
+.notebook-surface .screen.app :is(.muted, .fine, .sourceby, .origin, .summary, .frameview p, .quiet, .tintlabel, .itemtext small, .menuline > .icon, .menuline small, .empty, .origin small, .frameview small, .empty p) {
+  color: var(--muted);
+}
+
+.notebook-surface .screen.app :is(.empty h3, .origin b) {
+  color: var(--fg);
+}
+
+.notebook-surface .screen.app :is(.item, .menuline, .origin),
+.notebook-surface .sheetcard .menuline {
+  border-color: var(--line);
+}
+
+.notebook-surface .screen.app .pill,
+.notebook-surface .sheetcard .pill {
+  color: var(--fg);
+  background: var(--control);
+  border-color: var(--line);
+}
+
+.notebook-surface .screen.app :is(.pill.active, .primary),
+.notebook-surface .sheetcard .primary {
+  color: var(--on-action);
+  background: var(--action);
+}
+
+.notebook-surface .screen.app .findbox {
+  color: var(--muted);
+  background: var(--card);
+  border-color: var(--line);
+}
+
+.notebook-surface .screen.app .findbox input,
+.notebook-surface .sheetcard {
+  color: var(--fg);
+}
+
+.notebook-surface .sheetcard {
+  background: var(--sheet);
+  border-color: var(--card-edge);
+}
+
+.notebook-surface .sheetcard :is(.field, .menuline > .icon, .menuline small, .sheetdesc, .sheet-context) {
+  color: var(--muted);
+}
+
+.notebook-surface .sheetcard :is(input, textarea, select) {
+  color-scheme: inherit;
+  color: var(--fg);
+  background: var(--field);
+  border-color: var(--field-edge);
+}
+
+.notebook-surface :is(input, textarea)::placeholder { color: var(--muted); }
+.notebook-surface .footaction { background: linear-gradient(transparent, var(--footer-background) 36%); }
+
+.settings-content { padding:10px 18px 22px; }
+.setting-section { margin-bottom:22px; }
+.setting-section h2 { margin:0 0 8px; font:500 18px/1.25 "Hanken Grotesk",sans-serif; }
+.setting-section > p, .setting-description { margin:0 0 11px; color:var(--muted); font-size:14px; line-height:1.45; }
+.setting-card { padding:0 14px; border:1px solid var(--card-edge); border-radius:18px; background:var(--card); }
+.setting-row { min-height:56px; padding:10px 0; border-color:var(--line); }
+.setting-row .setting-copy { display:grid; gap:3px; }
+.setting-copy b { font-size:15px; font-weight:600; }
+.setting-copy small, .setting-row > .icon { color:var(--muted); }
+.setting-copy small { font-size:13px; }
+.setting-row:disabled { opacity:.56; }
+.setting-row > .setting-switch { position:relative; flex:0 0 42px; height:24px; border:1px solid var(--line);
+  border-radius:30px; background:var(--control); }
+.setting-switch::after { content:""; position:absolute; width:16px; height:16px; top:3px; left:3px;
+  border-radius:50%; background:var(--muted); }
+.setting-row[aria-checked="true"] .setting-switch { background:var(--action); }
+.setting-row[aria-checked="true"] .setting-switch::after { left:21px; background:var(--on-action); }
+.setting-options { display:flex; flex-wrap:wrap; gap:8px; padding:12px 0; }
+.notebook-surface .setting-options .pill { flex:1; min-height:44px; color:var(--fg); border-color:var(--line); background:var(--control); }
+.notebook-surface .setting-options .pill[aria-pressed="true"] { color:var(--on-action); background:var(--action); }
+
+.danger { border-radius:30px; color:#fff; background:#a43834; font-weight:600; }
+.notebook-surface .sheetcard .error,
+.notebook-surface .sheetcard .menuline.destructive,
+.notebook-surface .sheetcard .menuline.destructive > .icon,
+.notebook-surface .screen.app .selection-bar .destructive { color:var(--destructive); }
+
+/* Android draws the system clock, camera cutout, and gesture handle over this surface. */
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-synthesis: none;
+  -webkit-text-size-adjust: 100%;
+}
+.screen {
+  padding: max(42px, var(--status-inset, 0px)) var(--right-inset, 0px)
+    max(var(--bottom-inset, 0px), var(--keyboard-inset, 0px)) var(--left-inset, 0px);
+  color: var(--fg);
+}
+#flow { scrollbar-width: none; }
+.notebook-surface .albumhead, .notebook-surface .detailpad { padding-top: 6px; }
+.notebook-surface .albumhero { color: white; background: #8f999b; }
+.notebook-surface .kframe { color: white; }
+.screen > .bar { min-height: 56px; font-weight: 500; }
+.bar .roundbtn, .notebook-header .roundbtn { flex: none; }
+.roundbtn { flex: none; }
+.findbox input { min-width: 0; }
+.sheetcard { padding-bottom:max(26px, var(--bottom-inset, 0px)); }
+#sheet { bottom:var(--keyboard-inset, 0px); }
+#status { position:absolute; z-index:40; bottom:calc(78px + var(--bottom-inset, 0px)); left:50%; transform:translateX(-50%);
+  width:max-content; max-width:calc(100% - 32px); pointer-events:none; }
+#status:not(:empty) { padding:8px 16px; border-radius:18px; color:var(--on-action); background:var(--action); }
+@media (max-width:760px) {
+  .screen > .bar { height: 48px; min-height: 48px; }
+  .albumhero { height: clamp(240px,42vh,352px); }
+  .frameview > img { max-height: 52dvh; }
+}
+
+@media (prefers-reduced-motion:reduce) { * { animation:none!important; transition:none!important } }
