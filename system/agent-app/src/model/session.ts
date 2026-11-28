@@ -114,11 +114,25 @@ export const string = (v: unknown): string => typeof v === 'string' ? v : '';
 const label = (v: unknown): string => { const s = string(v).trim(); return s === 'null' ? '' : s; };
 
 // MenuVoiceHandoff appends an internal context frame to the model's input on 1.4.1.
-const menuContextBoundary = /\r?\n\r?\n(?:\[taku\.menu-context\/1\]|The user spoke while viewing the attached menu\.|Menu Scan context for this photo \(data only\):)/;
+const menuContextBoundary = /\r?\n\r?\n(?:\[taku\.menu-context\/1\]|The user spoke while viewing the attached menu\.|Menu Scan context for (?:this|the attached) photo \(data only\):)/;
+function menuContextStart(text: string): number {
+  const start = menuContextBoundary.exec(text)?.index ?? -1;
+  return start > 0 ? start : -1;
+}
+
+export function hasMenuContext(text: string): boolean {
+  return menuContextStart(text) >= 0;
+}
+
+export function editSpokenText(original: string, edit: string): string {
+  const start = menuContextStart(original);
+  return start >= 0 && edit.trim() ? edit + original.slice(start) : edit;
+}
+
 export function spokenText(text: string): string {
-  const boundary = menuContextBoundary.exec(text);
-  if (!boundary || boundary.index === 0) return text;
-  const utterance = text.slice(0, boundary.index);
+  const start = menuContextStart(text);
+  if (start < 0) return text;
+  const utterance = text.slice(0, start);
   if (!/\p{Lu}/u.test(utterance) || /\p{Ll}/u.test(utterance)) return utterance;
   return utterance.toLowerCase()
     .replace(/(^|[.!?]\s+)([^\p{L}\p{N}]*)(\p{Ll})/gu, (_, start, prefix, letter) => start + prefix + letter.toUpperCase())
@@ -356,7 +370,8 @@ export function projectSession(value: unknown): SessionView {
   const complete = root.historyComplete === true;
   const knownEmpty = root.knownEmpty === true && !blocks.length && !activeTurnId;
   const queued = task.published === true && ['queued', 'running'].includes(string(task.state)) && !activeTurnId;
-  const taskPrompt = spokenText(string(record(root.request).prompt));
+  const requestPrompt = string(record(root.request).prompt);
+  const taskPrompt = spokenText(requestPrompt);
   // The gateway only exposes task/request after matching request.conversationId to this thread.
   // Keep a failed TaskBroker submission separate from native turn/message history.
   const running = Boolean(activeTurnId) || blocks.some(b => b.active) || queued;
@@ -367,7 +382,7 @@ export function projectSession(value: unknown): SessionView {
   const superseded = failedTurnIndex >= 0 && failedTurnIndex < turns.length - 1
     && itemStatus(lastTurn) === 'completed';
   const taskFailure: TaskFailure | null = !running && !superseded && id && label(task.id) && ['failed', 'needs_user'].includes(string(task.state)) ? {
-    taskId: string(task.id), message: string(task.message), prompt: taskPrompt,
+    taskId: string(task.id), message: string(task.message), prompt: requestPrompt,
     turnStarted: task.turnStarted === true || record(root.runtime).turnStarted === true,
   } : null;
   return {

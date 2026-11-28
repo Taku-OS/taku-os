@@ -551,6 +551,39 @@ test('a draft already waiting in the new conversation is kept', async t => {
   assert.equal(runtime.drafts.get('').text, 'Already here');
 });
 
+test('Continue afresh keeps a failed menu photo and its hidden OCR through editing and sending', async t => {
+  plainChat(t);
+  runtime.storage.set(primaryKey, 'thread-a');
+  const suffix = '\n\n[taku.menu-context/1]\n{"dishes":[{"name":"Pastrami"}]}';
+  const prompt = 'BUILD A MENU APP' + suffix;
+  const photo = {id: 'menu-photo', name: 'menu.jpg', mime: 'image/jpeg', size: 42};
+  const gateway = runtime.callAgent;
+  runtime.receipt = async ({threadId, requestId}) => ({threadId, requestId, state: 'queued'});
+  runtime.callAgent = async (action, params = {}) => {
+    if (action === 'readSession' && params.threadId === 'thread-a') {
+      return {...await gateway(action, params), request: {prompt}, task: {id: '123', state: 'failed'}};
+    }
+    if (action === 'composer/restoreTask') {
+      assert.deepEqual(params, {threadId: 'thread-a', expectedRevision: '', taskId: '123', afresh: true});
+      const stored = {threadId: '', revision: 'restored', text: prompt, attachments: [photo]};
+      runtime.drafts.set('', stored);
+      return stored;
+    }
+    return gateway(action, params);
+  };
+  const host = mount(); await flush(host);
+  host.result.onStartMainAfresh(host.result.session.taskFailure.prompt, '123'); await flush(host);
+  assert.equal(host.result.draftSessionId, '');
+  assert.equal(host.result.draft, 'Build a menu app');
+  assert.deepEqual(host.result.attachments, [photo]);
+  host.result.onDraftChange('Build an ordering app'); await flush(host);
+  assert.equal(host.result.draft, 'Build an ordering app');
+  host.result.onSend(); await flush(host);
+  assert.equal(runtime.calls.at(-1).threadId, 'thread-new');
+  assert.equal(runtime.calls.at(-1).text, 'Build an ordering app' + suffix);
+  assert.deepEqual(runtime.calls.at(-1).attachmentIds, [photo.id]);
+});
+
 test('while TAKU has no thread, a Task stays a Task and going back opens the empty conversation', async t => {
   plainChat(t);
   runtime.storage.set(primaryKey, 'thread-a');

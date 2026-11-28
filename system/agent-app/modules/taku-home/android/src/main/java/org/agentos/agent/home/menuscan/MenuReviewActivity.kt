@@ -15,12 +15,28 @@ import androidx.annotation.RequiresApi
 class MenuReviewActivity : Activity() {
   private var id = ""
   private var bitmap: Bitmap? = null
+  private val closeReview: () -> Unit = { finish() }
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     id = intent.data?.lastPathSegment.orEmpty()
     val review = MenuCapture.review(id) ?: return finish()
-    val photo = runCatching { decodeMenuPhoto(review.photo, 2_560) }.getOrNull() ?: return finish()
+    MenuCapture.previewExecutor.execute {
+      val photo = runCatching { decodeMenuPhoto(review.photo, 2_560) }.getOrNull()
+      runOnUiThread {
+        if (isFinishing || isDestroyed) {
+          photo?.recycle()
+        } else if (photo == null || MenuCapture.review(id) == null) {
+          photo?.recycle()
+          finish()
+        } else {
+          showPreview(review, photo)
+        }
+      }
+    }
+  }
+
+  private fun showPreview(review: MenuCapture.Review, photo: Bitmap) {
     bitmap = photo
     setContentView(object : View(this) {
       private val frame = RectF()
@@ -75,11 +91,11 @@ class MenuReviewActivity : Activity() {
 
   override fun onResume() {
     super.onResume()
-    MenuCapture.show(id)
+    if (!MenuCapture.show(id, closeReview)) finish()
   }
 
   override fun onPause() {
-    MenuCapture.hide(id)
+    MenuCapture.hide(closeReview)
     super.onPause()
   }
 

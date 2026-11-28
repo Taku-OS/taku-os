@@ -158,7 +158,7 @@ internal class AgentGatewayProtocol private constructor() {
                         COMPOSER_HANDOFF -> setOf("threadId", "handoffId", "text")
                         COMPOSER_PRESERVE_DRAFT -> setOf("threadId", "recoveryId", "text")
                         COMPOSER_RESTORE -> setOf("threadId", "expectedRevision", "recoveryId")
-                        COMPOSER_RESTORE_TASK -> setOf("threadId", "expectedRevision", "taskId")
+                        COMPOSER_RESTORE_TASK -> setOf("threadId", "expectedRevision", "taskId", "afresh")
                         else -> setOf("threadId")
                     }
                     PanelProtocol.exact(input, fields)
@@ -183,7 +183,10 @@ internal class AgentGatewayProtocol private constructor() {
                         if ((input.opt("text") as? String ?: throw IOException("INVALID_ARGUMENT")).length > 16_000) throw IOException("INVALID_ARGUMENT")
                     }
                     if (action == COMPOSER_RESTORE) requireId(input, "recoveryId")
-                    if (action == COMPOSER_RESTORE_TASK && !text(input, "taskId", 20).matches(Regex("[0-9]{1,20}"))) throw IOException("INVALID_TASK_ID")
+                    if (action == COMPOSER_RESTORE_TASK) {
+                        if (!text(input, "taskId", 20).matches(Regex("[0-9]{1,20}"))) throw IOException("INVALID_TASK_ID")
+                        if (input.has("afresh") && input.opt("afresh") !is Boolean) throw IOException("INVALID_ARGUMENT")
+                    }
                     return input
                 }
             }

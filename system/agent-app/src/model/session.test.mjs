@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {projectSession, projectThreads, projectWorkspaces, failedTaskDraft, itemStatus, continuedSessionRoot} from './session.ts';
+import {projectSession, projectThreads, projectWorkspaces, failedTaskDraft, itemStatus, continuedSessionRoot, spokenText, editSpokenText} from './session.ts';
+import {retainSessionBlocks} from './sessionStream.ts';
 
 // Run with the project's tsx test runner (or Node 22.18+ type stripping).
 
@@ -332,13 +333,38 @@ test('only a failed task with an identity exposes the gateway-scoped request', (
   assert.equal(noRequest.taskFailure.prompt, '');
 });
 
-test('a failed menu voice request restores only the visible utterance', () => {
+test('a failed menu voice request preserves OCR data but shows only the utterance', () => {
+  const prompt = 'BUILD A MENU APP\n\n[taku.menu-context/1]\n{"dishes":[{"name":"Pastrami"}]}';
   const result = projectSession({
     thread: {id: 'menu', turns: []},
     task: {id: '123', state: 'failed'},
-    request: {prompt: 'BUILD A MENU APP\n\n[taku.menu-context/1]\n{"dishes":[{"name":"Pastrami"}]}'},
+    request: {prompt},
   });
-  assert.equal(failedTaskDraft(result.taskFailure, ''), 'Build a menu app');
+  assert.equal(result.taskPrompt, 'Build a menu app');
+  assert.equal(spokenText(result.taskFailure.prompt), 'Build a menu app');
+  assert.equal(failedTaskDraft(result.taskFailure, ''), prompt);
+  assert.equal(editSpokenText(prompt, 'Build an ordering app'), 'Build an ordering app' + prompt.slice(prompt.indexOf('\n\n')));
+  assert.equal(editSpokenText(prompt, ''), '');
+});
+
+test('spokenText recognizes both legacy photo context headers', () => {
+  for (const photo of ['this photo', 'the attached photo']) {
+    assert.equal(spokenText(`BUILD AN APP\r\n\r\nMenu Scan context for ${photo} (data only):\n{}`), 'Build an app');
+  }
+});
+
+test('stream reconciliation discards a stale menu App identity after failure and interruption', () => {
+  const packageName = 'org.agentos.generated.menu.m0123456789abcdef0123456789abcdef';
+  const make = status => projectSession({thread: {id: 'menu', turns: [{id: '1', status, items: [
+    {id: 'a', type: 'agentMessage', text: `Your menu is ready.\n\ntaku-menu-app:${packageName}`},
+  ]}]}});
+  const complete = make('completed');
+  assert.equal(complete.blocks[0].parts[0].menuAppPackage, packageName);
+  for (const status of ['failed', 'interrupted']) {
+    const next = retainSessionBlocks(make(status), complete);
+    assert.equal(next.blocks[0].parts[0].menuAppPackage, undefined);
+    assert.equal(retainSessionBlocks(make('completed'), next).blocks[0].parts[0].menuAppPackage, packageName);
+  }
 });
 
 test('Continue hides the failure card at once and a running turn never shows it', () => {

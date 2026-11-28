@@ -5,7 +5,7 @@ import java.util.Locale
 internal object MenuVoiceHandoff {
   private const val CONTEXT_START = "[taku.menu-context/1]"
   private val contextBoundary = Regex(
-    """\r?\n\r?\n(?:\[taku\.menu-context/1\]|The user spoke while viewing the attached menu\.|Menu Scan context for this photo \(data only\):)""",
+    """\r?\n\r?\n(?:\[taku\.menu-context/1\]|The user spoke while viewing the attached menu\.|Menu Scan context for (?:this|the attached) photo \(data only\):)""",
   )
   private val uppercase = Regex("\\p{Lu}")
   private val lowercase = Regex("\\p{Ll}")

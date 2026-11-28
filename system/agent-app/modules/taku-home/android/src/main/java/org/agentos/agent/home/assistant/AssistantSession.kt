@@ -980,9 +980,7 @@ class AssistantSession private constructor(private val context: Context, private
           val submission = HomeComposer.MenuSubmission(text, menu.photo)
           try { send(text, keepVoiceEntry = true, menu = submission) }
           catch (e: AssistantException) {
-            if (editor.menuSubmission == null && text.length <= MAX_TEXT) editor.menuSubmission = submission
-            flow.update { it.copy(error = e.code,
-              failedText = editor.menuSubmission?.text?.let(MenuVoiceHandoff::spokenText) ?: it.failedText) }
+            flow.update { it.copy(error = e.code) }
           }
         }
       }
@@ -1016,7 +1014,7 @@ class AssistantSession private constructor(private val context: Context, private
         waiting != null && menu.threadId != current.threadId))
       throw AssistantException("BUSY", "Finish the current turn before submitting a menu")
     if (waiting != null) return checkDelivery(current, waiting)
-    current.menuSubmission = menu
+    if (menu == null) current.menuSubmission = null
     current.stagingMenu = menu != null && menu.threadId != current.threadId
     val edit = current.edit?.takeIf { menu == null && it.text == text }
     val generation = threadCreation.generation
@@ -1034,6 +1032,7 @@ class AssistantSession private constructor(private val context: Context, private
         composerLock.withLock {
           if (editor !== current || !flow.value.sending || flow.value.abandoned) return@withLock
           var saved = if (menu != null) {
+            current.menuSubmission = menu
             val staged = menu.prepare(
               create = { withContext(worker) { HomeComposer.createThread(gateway) } },
               handoff = composer::handoff,
@@ -1166,6 +1165,11 @@ class AssistantSession private constructor(private val context: Context, private
 
   private fun deliveryError(current: Editor, code: String, text: String?) {
     if (editor === current && !flow.value.abandoned) {
+      if (current.menuSubmission?.canRetryAfter(code) == false) {
+        current.menuSubmission = null
+        flow.update { it.copy(sending = false, pending = null, error = code, failedText = null) }
+        return
+      }
       flow.update { it.copy(sending = false, pending = null, error = code,
         failedText = text?.let(MenuVoiceHandoff::spokenText) ?: it.failedText) }
     }

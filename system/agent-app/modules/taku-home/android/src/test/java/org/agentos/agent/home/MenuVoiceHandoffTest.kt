@@ -5,6 +5,7 @@ import org.agentos.agent.home.assistant.GatewayException
 import org.agentos.agent.home.assistant.HomeComposer
 import org.agentos.agent.home.menuscan.MenuVoiceHandoff
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -46,6 +47,18 @@ class MenuVoiceHandoffTest {
     assertEquals(spoken, MenuVoiceHandoff.spokenText(message.replace("[taku.menu-context/1]\n", "")))
     assertTrue(message.endsWith(scan))
     assertTrue(message.contains("If the speech is incomplete, clarify before starting a build."))
+  }
+
+  @Test fun hidesBothLegacyPhotoContextHeaders() {
+    listOf("this photo", "the attached photo").forEach { photo ->
+      assertEquals("Build an app", MenuVoiceHandoff.spokenText("BUILD AN APP\r\n\r\nMenu Scan context for $photo (data only):\n{}"))
+    }
+  }
+
+  @Test fun missingOriginalPhotoCannotBeRetriedButAnInterruptedDeliveryCan() {
+    val submission = HomeComposer.MenuSubmission("Build an app", File("menu.jpg"))
+    assertFalse(submission.canRetryAfter("ATTACHMENT_UNAVAILABLE"))
+    assertTrue(submission.canRetryAfter("GATEWAY_UNAVAILABLE"))
   }
 
   @Test fun eachMenuVoiceSendStagesOnlyItsPhotoAndTextInANewThread() = runBlocking {

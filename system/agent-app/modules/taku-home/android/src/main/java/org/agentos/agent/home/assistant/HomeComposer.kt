@@ -24,6 +24,8 @@ internal class HomeComposer(
     var threadId: String? = null
       private set
 
+    fun canRetryAfter(code: String) = code != "ATTACHMENT_UNAVAILABLE"
+
     suspend fun prepare(
       create: suspend () -> String,
       handoff: suspend (String, String, String) -> Draft,

@@ -35,7 +35,8 @@ internal object ComposerDelivery {
             catch (_: Exception) { throw IOException("TASK_FAILURE_CHANGED") }
         val status = state.optString("state")
         if (status != "failed" && status != "needs_user") throw IOException("TASK_FAILURE_CHANGED")
-        return ComposerState.restoreTask(context.getSharedPreferences("agent-settings", Context.MODE_PRIVATE), thread, input.getString("expectedRevision"), request)
+        val draftThread = if (input.optBoolean("afresh")) "" else thread
+        return ComposerState.restoreTask(context.getSharedPreferences("agent-settings", Context.MODE_PRIVATE), draftThread, input.getString("expectedRevision"), request)
     }
 
     /**

@@ -66,23 +66,33 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
   override fun onShow(args: Bundle?, flags: Int) {
     super.onShow(args, flags)
     shown = true
-    if (ctx.getSystemService(KeyguardManager::class.java).isKeyguardLocked) { hide(); return }
+    val locked = ctx.getSystemService(KeyguardManager::class.java).isKeyguardLocked
     val version = generation
     if (menuVoiceHold) {
-      val target = SystemAssistantEntry.launch(ctx, request)
-      // Retire any previous capture grant before submitting the original menu photo.
-      IO.execute {
-        main.post {
-          if (version != generation) return@post
-          if (invocationToken != null) openAssistant(target)
-          else {
-            android.widget.Toast.makeText(ctx, "Taku is unavailable. Please try again.", android.widget.Toast.LENGTH_SHORT).show()
-            hide()
+      val gestureId = request?.getString(SystemAssistantEntry.GESTURE_ID)
+      val session = AssistantSession.get(ctx)
+      val cancelHold = { if (session.hasMenuForHold(gestureId)) session.cancelVoice() }
+      if (locked) {
+        cancelHold()
+        hide()
+      } else {
+        // Let begin retire the previous screenshot grant. The menu uses its own photo.
+        IO.execute {
+          main.post {
+            if (version != generation) return@post
+            val launch = menuHoldCanOpen(session.hasMenuForHold(gestureId),
+              ctx.getSystemService(KeyguardManager::class.java).isKeyguardLocked)
+            if (launch) openAssistant(SystemAssistantEntry.launch(ctx, request), cancelHold)
+            else {
+              cancelHold()
+              hide()
+            }
           }
         }
       }
       return
     }
+    if (locked) { hide(); return }
     if (captureReady()) deliverCapture()
     else {
       main.postDelayed({ if (shown && version == generation) deliverCapture() }, 5_000)
@@ -169,9 +179,11 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
     }
   }
 
-  private fun openAssistant(target: Intent?) {
-    try { target?.let(::startAssistantActivity) }
-    catch (failure: RuntimeException) {
+  private fun openAssistant(target: Intent?, onUnavailable: () -> Unit = {}) {
+    try {
+      if (target == null) onUnavailable() else startAssistantActivity(target)
+    } catch (failure: RuntimeException) {
+      onUnavailable()
       Log.w("TakuSystemAssistant", "Assistant UI unavailable", failure)
       android.widget.Toast.makeText(ctx, "Assistant could not open. Retry from Taku", android.widget.Toast.LENGTH_LONG).show()
     } finally { hide() }
@@ -193,3 +205,5 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
 
   companion object { private val IO = Executors.newSingleThreadExecutor() }
 }
+
+internal fun menuHoldCanOpen(held: Boolean, locked: Boolean): Boolean = held && !locked

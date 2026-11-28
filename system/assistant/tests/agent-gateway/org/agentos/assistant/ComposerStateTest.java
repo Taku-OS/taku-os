@@ -18,6 +18,7 @@ public final class ComposerStateTest {
         screenshotPreferenceIsFrozen();
         invocationCaptureIsReservedOnlyForSendableRequests();
         handoffPreservesDisplacedDraft();
+        failedMenuToFreshDraft();
         legacyHomeAndPendingDelivery();
         pluginProtocol();
         pluginLookup();
@@ -28,6 +29,10 @@ public final class ComposerStateTest {
     }
 
     private static void protocol() throws Exception {
+        JSONObject restore = new JSONObject().put("threadId", THREAD).put("expectedRevision", "").put("taskId", "123");
+        check(AgentGatewayProtocol.request("composer/restoreTask", restore.put("afresh", true).toString()).getBoolean("afresh"),
+                "restoreTask accepts an explicit fresh target");
+        rejects("INVALID_ARGUMENT", () -> AgentGatewayProtocol.request("composer/restoreTask", restore.put("afresh", "true").toString()));
         check(AgentGatewayProtocol.request("composer/write", "{\"threadId\":\"\",\"revision\":\"\",\"text\":\"\"}").length() == 3,
                 "the new slot accepts explicit empty thread, revision and text");
         check(AgentGatewayProtocol.request("composer/import", "{\"threadId\":\"\",\"text\":\" \"}").getString("text").equals(" "),
@@ -409,6 +414,25 @@ public final class ComposerStateTest {
                 "moving the new-conversation draft carries its plugins");
         String occupied = ComposerState.addPlugin(slot, "", ComposerState.read(slot, "").getString("revision"), plugin("a.two", "Two")).getString("revision");
         rejects("DRAFT_TARGET_OCCUPIED", () -> STORE.move(slot, occupied, TARGET));
+    }
+
+    private static void failedMenuToFreshDraft() throws Exception {
+        MemoryPreferences prefs = new MemoryPreferences();
+        String prompt = "Build a menu app\n\n[taku.menu-context/1]\n{OCR}";
+        JSONObject photo = new JSONObject().put("path", "/fixture/menu-photo").put("name", "menu.jpg")
+                .put("mime", "image/jpeg").put("size", 42);
+        JSONObject request = new JSONObject().put("prompt", prompt).put("attachments", new JSONArray().put(photo));
+        JSONObject restored = STORE.restoreTask(prefs, "", "", request);
+        check(restored.getString("text").equals(prompt), "the new draft receives the complete prompt");
+        check(restored.getJSONArray("attachments").getJSONObject(0).getString("id").equals("menu-photo"),
+                "the new draft retains the failed task photo");
+        String revision = restored.getString("revision");
+        rejects("DRAFT_NOT_EMPTY", () -> STORE.restoreTask(prefs, "", revision, request));
+        JSONObject moved = STORE.move(prefs, revision, TARGET);
+        check(moved.getString("text").equals(prompt) && moved.getJSONArray("attachments").length() == 1,
+                "a fresh conversation receives both the OCR and photo on draft move");
+        check(STORE.selectedAttachments(prefs, TARGET, moved.getString("revision"), new JSONArray().put("menu-photo"))
+                .getJSONObject(0).similar(photo), "the restored photo is still available to submit");
     }
 
     private interface Checked { void run() throws Exception; }
