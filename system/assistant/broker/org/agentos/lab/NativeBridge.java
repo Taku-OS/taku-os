@@ -192,7 +192,16 @@ final class NativeBridge {
     break;
    }
    default:throw new IOException("Unsupported native operation");
-  } } catch(Exception failure) { JSONObject error=new JSONObject().put("ok",false).put("message",publicError(failure));Throwable cause=failure;while(cause.getCause()!=null)cause=cause.getCause();if(cause instanceof SteerNotSubmitted)error.put("code","STEER_NOT_SUBMITTED");s.getOutputStream().write(error.toString().getBytes(StandardCharsets.UTF_8)); return; }
+  } } catch(Exception failure) {
+   JSONObject error=new JSONObject().put("ok",false).put("message",publicError(failure));
+   Throwable cause=failure;
+   while(cause.getCause()!=null)cause=cause.getCause();
+   if(cause instanceof SteerNotSubmitted)error.put("code","STEER_NOT_SUBMITTED");
+   if("systemAi".equals(input.optString("op")) && cause instanceof ImeReplyError ai
+           && "rate_limited".equals(ai.code))error.put("code",ai.code);
+   s.getOutputStream().write(error.toString().getBytes(StandardCharsets.UTF_8));
+   return;
+  }
   s.getOutputStream().write(new JSONObject().put("ok",true).put("result",answer).toString().getBytes(StandardCharsets.UTF_8));
  }catch(Exception failure){try{socket.getOutputStream().write(new JSONObject().put("ok",false).put("message",publicError(failure)).toString().getBytes(StandardCharsets.UTF_8));socket.close();}catch(Exception ignored){}}}
  /**

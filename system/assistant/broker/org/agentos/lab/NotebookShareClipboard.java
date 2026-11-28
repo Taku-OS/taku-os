@@ -7,16 +7,14 @@ import android.content.pm.ApplicationInfo;
 import android.os.IBinder;
 import android.system.Os;
 import android.text.TextUtils;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.net.HttpURLConnection;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -44,18 +42,11 @@ public final class NotebookShareClipboard {
 
     private NotebookShareClipboard() {}
 
-    static long baseline() throws Exception {
-        return Long.parseLong(runHelper("baseline"));
-    }
-
-    static String copiedLink(String packageName, long baseline) throws Exception {
-        NotebookSocialSource platform = NotebookSocialSource.byPackage(packageName);
-        if (platform == null || baseline <= 0) return null;
-        String result = runHelper("copied", packageName, Long.toString(baseline));
-        if (result.isEmpty()) return null;
+    static String resolveCandidates(NotebookSocialSource platform, String candidates) throws Exception {
+        if (candidates.isEmpty()) return null;
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(7);
         String unique = null;
-        for (String candidate : result.split("\t")) {
+        for (String candidate : candidates.split("\t")) {
             String canonical = resolve(platform, candidate, deadline);
             if (canonical == null || (unique != null && !unique.equals(canonical))) return null;
             unique = canonical;
@@ -63,90 +54,176 @@ public final class NotebookShareClipboard {
         return unique;
     }
 
-    private static String runHelper(String... args) throws Exception {
-        List<String> command = new ArrayList<>(List.of(
-                "/system/bin/app_process", "/system/bin", NotebookShareClipboard.class.getName()));
-        command.addAll(List.of(args));
-        ProcessBuilder builder = new ProcessBuilder(command).redirectError(new File("/dev/null"));
-        builder.environment().put("CLASSPATH", BROKER_JAR);
-        Process helper = builder.start();
-        try (InputStream output = helper.getInputStream()) {
-            if (!helper.waitFor(3, TimeUnit.SECONDS)) throw new IOException("NOTEBOOK_CLIPBOARD_TIMEOUT");
-            if (helper.exitValue() != 0) throw new IOException("NOTEBOOK_CLIPBOARD_UNAVAILABLE");
-            byte[] bytes = output.readNBytes(OUTPUT_LIMIT + 1);
-            if (bytes.length > OUTPUT_LIMIT) throw new IOException("NOTEBOOK_CLIPBOARD_INVALID_RESULT");
-            String result = null;
-            for (String line : new String(bytes, StandardCharsets.UTF_8).split("\n")) {
-                if (!line.startsWith(RESULT)) continue;
-                if (result != null) throw new IOException("NOTEBOOK_CLIPBOARD_INVALID_RESULT");
-                result = line.substring(RESULT.length());
+    static final class CopySession implements AutoCloseable {
+        private final Process helper;
+        private final InputStream output;
+
+        CopySession(String packageName) throws IOException {
+            ProcessBuilder builder = new ProcessBuilder("/system/bin/app_process", "/system/bin",
+                    NotebookShareClipboard.class.getName(), packageName).redirectError(new File("/dev/null"));
+            builder.environment().put("CLASSPATH", BROKER_JAR);
+            helper = builder.start();
+            output = helper.getInputStream();
+        }
+
+        boolean canCopy() throws IOException, InterruptedException {
+            return "ready".equals(response());
+        }
+
+        String candidates() throws IOException, InterruptedException {
+            var input = helper.getOutputStream();
+            input.write('r');
+            input.flush();
+            return response();
+        }
+
+        private String response() throws IOException, InterruptedException {
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
+            var line = new ByteArrayOutputStream();
+            int bytes = 0;
+            while (System.nanoTime() < deadline && bytes <= OUTPUT_LIMIT) {
+                if (output.available() == 0) {
+                    if (!helper.isAlive()) throw new IOException("NOTEBOOK_CLIPBOARD_UNAVAILABLE");
+                    Thread.sleep(15);
+                    continue;
+                }
+                int next = output.read();
+                if (next == -1) throw new IOException("NOTEBOOK_CLIPBOARD_UNAVAILABLE");
+                bytes++;
+                if (next != '\n') {
+                    line.write(next);
+                    continue;
+                }
+                String reply = line.toString("UTF-8");
+                if (reply.startsWith(RESULT)) return reply.substring(RESULT.length());
+                line.reset();
             }
-            if (result == null) throw new IOException("NOTEBOOK_CLIPBOARD_INVALID_RESULT");
-            return result;
-        } finally {
-            if (helper.isAlive()) helper.destroyForcibly();
+            throw new IOException("NOTEBOOK_CLIPBOARD_UNAVAILABLE");
+        }
+
+        @Override public void close() {
+            boolean interrupted = Thread.interrupted();
+            try {
+                helper.getOutputStream().close();
+                helper.waitFor(2, TimeUnit.SECONDS);
+            } catch (InterruptedException cancelled) {
+                interrupted = true;
+            } catch (IOException unavailable) {
+                // Closing the pipe lets the helper restore its saved clip on EOF.
+            } finally {
+                if (helper.isAlive()) helper.destroyForcibly();
+                try { output.close(); } catch (IOException ignored) { }
+                if (interrupted) Thread.currentThread().interrupt();
+            }
         }
     }
 
     public static void main(String[] args) {
         try {
-            // ClipboardService grants background reads and source attribution to Android Shell.
+            if (args.length != 1) throw new IOException();
+            NotebookSocialSource platform = NotebookSocialSource.byPackage(args[0]);
+            if (platform == null) throw new IOException();
             Os.setuid(SHELL_UID);
             requireSystemUser();
             Clipboard clipboard = new Clipboard();
-            String value;
-            if (args.length == 1 && "baseline".equals(args[0])) {
-                ClipDescription description = clipboard.description();
-                long timestamp = description == null ? 0 : description.getTimestamp();
-                value = Long.toString(Math.max(timestamp, System.currentTimeMillis()));
-            } else if (args.length == 3 && "copied".equals(args[0])) {
-                NotebookSocialSource platform = NotebookSocialSource.byPackage(args[1]);
-                if (platform == null) throw new IOException();
-                value = String.join("\t", freshCandidates(clipboard, platform, args[1], Long.parseLong(args[2])));
-            } else {
-                throw new IOException();
+            ClipDescription before = clipboard.description();
+            ClipData saved = null;
+            if (before != null) {
+                if (!canPreserve(before)) {
+                    printResult("protected");
+                    return;
+                }
+                saved = clipboard.content();
+                if (!plainText(saved) || !sameClip(before, saved.getDescription())
+                        || !sameClip(before, clipboard.description())) {
+                    printResult("protected");
+                    return;
+                }
+            } else if (clipboard.description() != null) {
+                printResult("protected");
+                return;
             }
-            requireSystemUser();
-            System.out.println(RESULT + value);
-            System.exit(0);
+
+            long baseline = Math.max(before == null ? 0 : before.getTimestamp(), System.currentTimeMillis());
+            SharedClip copied = null;
+            try {
+                printResult("ready");
+                for (int read = 0; read < 3 && System.in.read() == 'r'; read++) {
+                    if (copied == null) copied = freshClip(clipboard, platform, args[0], baseline);
+                    printResult(copied == null ? "" : String.join("\t", copied.candidates()));
+                }
+            } finally {
+                requireSystemUser();
+                if (copied == null) copied = freshClip(clipboard, platform, args[0], baseline);
+                if (copied != null && copied.source().equals(clipboard.source())
+                        && sameClip(copied.description(), clipboard.description())) {
+                    clipboard.restore(saved);
+                }
+            }
         } catch (Exception error) {
             System.exit(1);
         }
     }
+
+    private static void printResult(String value) {
+        System.out.println(RESULT + value);
+        System.out.flush();
+    }
+
+    private static boolean canPreserve(ClipDescription description) {
+        return description.getMimeTypeCount() == 1 && description.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN)
+                && !sensitive(description);
+    }
+
+    private static boolean sensitive(ClipDescription description) {
+        var extras = description.getExtras();
+        return extras != null && extras.getBoolean(ClipDescription.EXTRA_IS_SENSITIVE);
+    }
+
+    private static boolean plainText(ClipData clip) {
+        if (clip == null || clip.getItemCount() != 1) return false;
+        ClipData.Item item = clip.getItemAt(0);
+        return item.getUri() == null && item.getIntent() == null && item.getHtmlText() == null
+                && item.getText() instanceof String text && text.length() <= CLIP_TEXT_LIMIT;
+    }
+
+    private record SharedClip(ClipDescription description, String source, Set<String> candidates) {}
 
     private static void requireSystemUser() throws Exception {
         int current = (int) ActivityManager.class.getMethod("getCurrentUser").invoke(null);
         if (current != USER_SYSTEM) throw new IOException("NOTEBOOK_CLIPBOARD_USER_CHANGED");
     }
 
-    private static Set<String> freshCandidates(Clipboard clipboard, NotebookSocialSource platform,
-                                                String packageName, long baseline) throws Exception {
+    private static SharedClip freshClip(Clipboard clipboard, NotebookSocialSource platform,
+                                       String packageName, long baseline) throws Exception {
         ClipDescription description = clipboard.description();
-        if (baseline <= 0 || !linkContent(description) || description.getTimestamp() <= baseline) return Set.of();
+        if (description == null || sensitive(description) || description.getTimestamp() <= baseline) return null;
         String source = clipboard.source();
-        if (!packageName.equals(source) && !isSystemSharesheet(source)) return Set.of();
+        if (!packageName.equals(source) && !isSystemSharesheet(source)) return null;
+        var empty = new SharedClip(description, source, Set.of());
+        if (!linkContent(description)) return empty;
         ClipData clip = clipboard.content();
         if (clip == null || !sameClip(description, clip.getDescription()) || !source.equals(clipboard.source())
-                || !sameClip(description, clipboard.description())) return Set.of();
+                || !sameClip(description, clipboard.description())) return null;
 
         Set<String> candidates = new LinkedHashSet<>();
         int remainingCharacters = CLIP_TEXT_LIMIT;
         for (int i = 0; i < clip.getItemCount(); i++) {
             ClipData.Item item = clip.getItemAt(i);
             if (item.getUri() != null) addCandidate(candidates, platform, item.getUri().toString());
-            if (candidates.size() > MAX_CANDIDATES) return Set.of();
+            if (candidates.size() > MAX_CANDIDATES) return empty;
             CharSequence text = item.getText();
             if (text == null) continue;
             remainingCharacters -= text.length();
-            if (remainingCharacters < 0) return Set.of();
+            if (remainingCharacters < 0) return empty;
             var urls = URL.matcher(text);
             while (urls.find()) {
                 if (urls.end() - urls.start() > URL_LIMIT) continue;
                 addCandidate(candidates, platform, URL_PUNCTUATION.matcher(urls.group()).replaceFirst(""));
-                if (candidates.size() > MAX_CANDIDATES) return Set.of();
+                if (candidates.size() > MAX_CANDIDATES) return empty;
             }
         }
-        return candidates;
+        return new SharedClip(description, source, candidates);
     }
 
     private static boolean linkContent(ClipDescription description) {
@@ -156,7 +233,7 @@ public final class NotebookShareClipboard {
     }
 
     private static boolean sameClip(ClipDescription before, ClipDescription after) {
-        if (!linkContent(after) || before.getTimestamp() != after.getTimestamp()
+        if (after == null || before.getTimestamp() != after.getTimestamp()
                 || before.getMimeTypeCount() != after.getMimeTypeCount()
                 || !TextUtils.equals(before.getLabel(), after.getLabel())) return false;
         for (int i = 0; i < before.getMimeTypeCount(); i++) {
@@ -260,6 +337,8 @@ public final class NotebookShareClipboard {
         private final Method description;
         private final Method source;
         private final Method content;
+        private final Method set;
+        private final Method clear;
 
         Clipboard() throws Exception {
             Class<?> contract = Class.forName("android.content.IClipboard");
@@ -267,10 +346,16 @@ public final class NotebookShareClipboard {
             description = contract.getMethod("getPrimaryClipDescription", SIGNATURE);
             source = contract.getMethod("getPrimaryClipSource", SIGNATURE);
             content = contract.getMethod("getPrimaryClip", SIGNATURE);
+            set = contract.getMethod("setPrimaryClip", ClipData.class, String.class, String.class, int.class, int.class);
+            clear = contract.getMethod("clearPrimaryClip", SIGNATURE);
         }
 
         ClipDescription description() throws Exception { return (ClipDescription) description.invoke(remote, IDENTITY); }
         String source() throws Exception { return (String) source.invoke(remote, IDENTITY); }
         ClipData content() throws Exception { return (ClipData) content.invoke(remote, IDENTITY); }
+        void restore(ClipData clip) throws Exception {
+            if (clip == null) clear.invoke(remote, IDENTITY);
+            else set.invoke(remote, clip, IDENTITY[0], IDENTITY[1], IDENTITY[2], IDENTITY[3]);
+        }
     }
 }

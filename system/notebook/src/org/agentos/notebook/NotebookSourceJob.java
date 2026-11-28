@@ -198,6 +198,7 @@ public final class NotebookSourceJob extends JobService {
             return Result.CONTINUE;
         } catch (Exception failure) {
             if (active != params) return Result.RETRY;
+            if (failure instanceof AiClient.RateLimited) return Result.RETRY;
             if ("NOTEBOOK_POST_FOREGROUND_SOURCE".equals(failure.getMessage())) {
                 Log.i(TAG, "X source lookup deferred while X is in the foreground");
                 return Result.WAIT_FOR_SOURCE_EXIT;

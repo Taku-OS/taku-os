@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Set;
 import org.agentos.ai.NotebookSocialSource;
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 final class NotebookSocialSourceRequest {
@@ -65,8 +66,10 @@ final class NotebookSocialSourceRequest {
                         publicLink = search.verified();
                         navigationLink = search.navigationLink();
                     }
+                    publicLink = platform.canonicalUrl(publicLink);
                 } catch (Exception unavailable) {
-                    if (Thread.currentThread().isInterrupted()) throw unavailable;
+                    if (Thread.currentThread().isInterrupted()
+                            || "rate_limited".equals(SystemAi.errorCode(unavailable))) throw unavailable;
                     publicFailure = unavailable;
                 }
             }
@@ -87,15 +90,22 @@ final class NotebookSocialSourceRequest {
             if (nativeLink == null && publicLink == null && publicFailure != null) throw publicFailure;
             SystemAi.current(NOTEBOOK, revision);
             SystemAi.record(NOTEBOOK, model, started, "completed");
-            if (nativeLink != null && (publicLink == null || publicLink.equals(nativeLink))) {
-                return new JSONObject().put("url", nativeLink).put("via", "native_share");
-            }
-            if (publicLink != null) return new JSONObject().put("url", publicLink).put("via", "verified_web");
-            return new JSONObject();
+            return sourceResult(platform, publicLink, nativeLink);
         } catch (Exception failure) {
             SystemAi.record(NOTEBOOK, model, started, "failed", SystemAi.errorCode(failure));
             throw failure;
         }
+    }
+
+    static JSONObject sourceResult(NotebookSocialSource platform, String publicLink, String nativeLink)
+            throws JSONException {
+        String verified = platform.canonicalUrl(publicLink);
+        String shared = platform.canonicalUrl(nativeLink);
+        if (shared != null && (verified == null || verified.equals(shared))) {
+            return new JSONObject().put("url", shared).put("via", "native_share");
+        }
+        return verified == null ? new JSONObject()
+                : new JSONObject().put("url", verified).put("via", "verified_web");
     }
 
     private static String subscriptionRoute(String id) throws Exception {

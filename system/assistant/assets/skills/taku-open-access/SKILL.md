@@ -154,6 +154,20 @@ content call --user "$U" --uri "$N" --method openSource --arg '{"id":"ENTRY_ID"}
 
 `queryEntries` accepts `query`, `source`, `listId`, `from`, `to`, `sort`, `limit` and `offset`. Times are epoch milliseconds with `from` inclusive and `to` exclusive. `createList` accepts `name` and optional `rule`. `updateList` accepts `id` and requested `name` or `rule` changes. `editEntry` accepts `id` and requested `title`, `appendDescription` or `listId` changes. `batchEntries` accepts `ids`, `operation` (`move` or `delete`) and `listId` for moves. Use IDs returned by the provider. `Bundle.result` reports `ok` and `result` or an error such as `INVALID_ARGUMENT`, `ENTRY_NOT_FOUND` or `NOTEBOOK_SOURCE_UNAVAILABLE`.
 
+Use the same `content call` form with the following methods and JSON arguments. Omit `--arg` for an empty object.
+
+| Method | Arguments | Result and method-specific errors |
+| --- | --- | --- |
+| `status`, `setEnabled` | `{}` to read or `{"enabled":true}` / `{"enabled":false}` to change screenshot actions | Reports `enabled`, `accessibilityConnected`, `imageAccess`, `observing`, `state` and available capture/actions. Observation requires the accessibility service and photo permission. Read `status` again after changing the switch to confirm observation. |
+| `save` | `{}` | Saves the pending screenshot and returns the entry. `NO_PENDING_SCREENSHOT` or `NOTEBOOK_SCREENSHOT_SERVICE_UNAVAILABLE` if there is no actionable capture or service. |
+| `runAction` | `{"action":"save"}`, `send`, `edit`, `preview` or `go_to_notebook` in the same field | Returns `action`. Send opens the share UI. `go_to_notebook` requires a saved capture. Errors include `NO_PENDING_SCREENSHOT`, `NO_SAVED_SCREENSHOT`, `NOTEBOOK_ACTION_UNAVAILABLE` and `NOTEBOOK_SCREENSHOT_SERVICE_UNAVAILABLE`. |
+| `attachSource`, `retrySource` | `{"id":"ENTRY_ID","url":"https://..."}` to attach or `{"id":"ENTRY_ID"}` to retry | Returns the entry. Errors include `SOURCE_ALREADY_SET`, `SOURCE_AUTOMATIC_ONLY` for platforms with automatic lookup, `INVALID_SOURCE_URL` and `SOURCE_RETRY_UNAVAILABLE`. |
+| `open`, `openSource`, `copySource` | `{"id":"ENTRY_ID"}` | Returns the entry and opens the detail, opens the saved original, or copies its URL. Errors include `ENTRY_NOT_FOUND`, `NOTEBOOK_OPEN_UNAVAILABLE`, `NOTEBOOK_SOURCE_UNAVAILABLE` and `NOTEBOOK_SOURCE_OPEN_UNAVAILABLE`. |
+| `openPose` | `{"id":"ENTRY_ID"}` | Returns `launched` if the camera accepted the handoff. Errors include `POSE_ELIGIBILITY_UNAVAILABLE`, `POSE_NOT_ELIGIBLE` and `CAMERA_OPEN_UNAVAILABLE`. |
+| `getAppearance`, `setAppearance` | `{}` to read or `{"theme":"system"}`, `light` or `dark` in the same field | Returns `theme` and `effectiveTheme`. Errors include `INVALID_ARGUMENT` and `NOTEBOOK_APPEARANCE_UNAVAILABLE`. |
+| `list` | Optional `limit` and nonnegative `offset` | Returns a page of entries in `items` with `limit` and `offset`. An out-of-range page argument gives `INVALID_PAGE`. |
+| `refreshPlaceReminderIntent` | `{"id":"ENTRY_ID"}` | Reanalyzes the saved screenshot and returns the same fields as `placeReminderIntent`. Errors include `ENTRY_NOT_FOUND` and `PLACE_INTENT_UNAVAILABLE`. |
+
 For arrival reminders, `placeReminderStatus` takes `{}` and reports the saved switch, host status, watch count, system location, and notification availability. `setPlaceRemindersEnabled` takes `{"enabled":true}` or `{"enabled":false}`. Change it when the user asks. `PLACE_NOTIFICATIONS_REQUIRED` means the system must allow Notebook notifications before enabling. `placeReminderIntent` takes `{"id":"ENTRY_ID"}` and reports the detected place and resolution status for the item. A resolved place has coordinates and a radius. `offline`, `geocoder_unavailable`, `ambiguous`, and `not_found` keep the item saved and leave it unregistered. Coordinates come from a resolved place record.
 
 ### Memory

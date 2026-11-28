@@ -14,6 +14,7 @@ compile_jvm "$task_out/classes" "$task_json:$ANDROID_JAR" \
  system/assistant/broker/org/agentos/lab/SessionRemovals.java \
  system/assistant/broker/org/agentos/lab/CleanupWork.java \
  system/assistant/broker/org/agentos/lab/NativeBridge.java \
+ system/assistant/broker/org/agentos/lab/ImeReplyError.java \
  system/assistant/broker/org/agentos/lab/AgyGemini.java \
  system/assistant/broker/org/agentos/lab/AgyAcpPolicy.java \
  system/assistant/broker/org/agentos/lab/SystemAiSettings.java \
@@ -41,6 +42,7 @@ compile_jvm "$task_out/task-ownership" "$task_json:$ANDROID_JAR" \
  system/assistant/broker/org/agentos/lab/SessionRemovals.java \
  system/assistant/broker/org/agentos/lab/CleanupWork.java \
  system/assistant/broker/org/agentos/lab/NativeBridge.java \
+ system/assistant/broker/org/agentos/lab/ImeReplyError.java \
  system/assistant/broker/org/agentos/lab/AgyGemini.java \
  system/assistant/broker/org/agentos/lab/AgyAcpPolicy.java \
  system/assistant/broker/org/agentos/lab/SystemAiSettings.java \

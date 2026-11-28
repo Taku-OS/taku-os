@@ -161,17 +161,21 @@ final class NotebookNativeSourceLookup {
 
     private String copySharedLink(long revision) throws Exception {
         long deadline = SystemClock.elapsedRealtime() + 9_000;
+        NotebookSocialSource platform = NotebookSocialSource.byPackage(screen.packageName());
         while (SystemClock.elapsedRealtime() < deadline) {
             Thread.sleep(250);
             SystemAi.current(NOTEBOOK, revision);
-            long previous = NotebookShareClipboard.baseline();
-            if (!controls(true, new JSONObject().put("action", "copyLink")).optBoolean("performed")) continue;
-            for (int attempt = 0; attempt < 3; attempt++) {
-                Thread.sleep(170 + 100L * attempt);
-                String link = NotebookShareClipboard.copiedLink(screen.packageName(), previous);
-                if (link != null) return link;
+            String candidates = "";
+            try (var copy = new NotebookShareClipboard.CopySession(screen.packageName())) {
+                if (!copy.canCopy()) return incomplete("clipboard_protected");
+                if (!controls(true, new JSONObject().put("action", "copyLink")).optBoolean("performed")) continue;
+                for (int attempt = 0; attempt < 3 && candidates.isEmpty(); attempt++) {
+                    Thread.sleep(170 + 100L * attempt);
+                    candidates = copy.candidates();
+                }
             }
-            return incomplete("clipboard_link_unavailable");
+            String link = NotebookShareClipboard.resolveCandidates(platform, candidates);
+            return link == null ? incomplete("clipboard_link_unavailable") : link;
         }
         return incomplete("copy_unavailable");
     }
@@ -322,7 +326,7 @@ final class NotebookNativeSourceLookup {
         return reply.getJSONObject("result");
     }
 
-    private record View(String token, JSONArray controls, boolean editable) {
+    record View(String token, JSONArray controls, boolean editable) {
         boolean hasRole(int id, String role) {
             JSONObject node = controls.optJSONObject(id);
             return node != null && node.optInt("id", -1) == id && role.equals(node.optString("role"));
@@ -359,17 +363,20 @@ final class NotebookNativeSourceLookup {
             if (name.isEmpty()) return -1;
             return uniqueNavigation(node -> {
                 String label = node.optString("label").replace('，', ',');
-                int followers = label.indexOf("位粉丝");
+                int followers = NotebookSocialSource.facebookFollowerCountStart(label);
                 for (int comma = label.indexOf(','); comma >= 0 && comma < followers;
                         comma = label.indexOf(',', comma + 1)) {
                     if (account(label.substring(0, comma)).equals(name)) return true;
+                }
+                if (followers > 0) {
+                    return account(label.substring(0, followers).replaceFirst("[,\\s]+$", "")).equals(name);
                 }
                 return false;
             });
         }
 
         private static String account(String value) {
-            return Normalizer.normalize(value, Normalizer.Form.NFKC).replaceFirst("\\s+已验证$", "")
+            return Normalizer.normalize(value, Normalizer.Form.NFKC).replaceFirst("(?i)[,\\s]+(?:已验证|verified)$", "")
                     .toLowerCase(Locale.ROOT).replaceAll("[^\\p{L}\\p{N}]", "");
         }
 
@@ -381,7 +388,7 @@ final class NotebookNativeSourceLookup {
         }
 
         int facebookReelsSearchFilter() {
-            return uniqueNavigation(node -> node.optString("label").startsWith("Reels个搜索结果"));
+            return uniqueNavigation(node -> NotebookSocialSource.isFacebookReelsFilter(node.optString("label")));
         }
 
         int uniqueNavigation(java.util.function.Predicate<JSONObject> matches) {

@@ -54,11 +54,6 @@ final class NotebookBackgroundControls {
             + "(?:watch|browsing|viewing) history|history|settings and (?:activity|privacy)|see all|"
             + "搜索(?:笔记|视频|用户)?|搜尋|影片|视频|短视频|短片|用户|帖子|貼文|筆記|笔记|我的|你|个人资料|個人檔案|"
             + "观看记录|瀏覽記錄|浏览记录|活動紀錄|你的动态|你的動態|设置与隐私|設定和隱私)$");
-    private static final Pattern FACEBOOK_READ_ROW = Pattern.compile(
-            "^(?:(?:reels|照片|帖子|photos|posts)(?:个搜索结果)?[,，]\\s*第[0-9]+项[,，]\\s*共[0-9]+项|"
-            + "reels 编号[0-9]+[,，].+次播放|.+的 reels[,，].+双击即可观看|"
-            + ".+[,，]\\s*xfbsearchcontentphotoviewmodel[,，].+|"
-            + ".+[,，].*[0-9][0-9.,万千\\s]*位粉丝(?:\\s*·\\s*.+)?)$");
     private static final Pattern MUTATING = Pattern.compile(
             "^(?:follow|unfollow|subscribe|like|unlike|repost|retweet|send|message|reply|comment|post|log in|"
             + "sign in|sign up|create|save|add to|delete|report|buy|book|block|allow|agree|accept|"
@@ -216,7 +211,7 @@ final class NotebookBackgroundControls {
                         && ("视频".equals(normalized) || "用户".equals(normalized))
                     || rednoteCard
                     || "com.facebook.katana".equals(owner) && node.isClickable()
-                        && FACEBOOK_READ_ROW.matcher(normalized).matches();
+                        && NotebookSocialSource.isFacebookReadRow(normalized);
             var target = clickable == null || tapFallback ? node : clickable;
             if (target.isEnabled() && (clickable != null || tapFallback)) {
                 String role = role(normalized, id, resource(target), source, "com.facebook.katana".equals(owner),
@@ -262,7 +257,7 @@ final class NotebookBackgroundControls {
                 || ACTION_VIEW.matcher(id).find() || ACTION_VIEW.matcher(targetId).find()) return null;
         if (resultCard) return "navigate";
         if (label.isBlank()) return null;
-        if (READ_NAVIGATION.matcher(label).matches() || facebook && FACEBOOK_READ_ROW.matcher(label).matches()
+        if (READ_NAVIGATION.matcher(label).matches() || facebook && NotebookSocialSource.isFacebookReadRow(label)
                 || TIKTOK_PROFILE_RESULT.equals(targetId)) return "navigate";
         if (!id.contains("toolbar") && !targetId.contains("toolbar")
                 && (RESULT_VIEW.matcher(id).find() || RESULT_VIEW.matcher(targetId).find())) return "navigate";

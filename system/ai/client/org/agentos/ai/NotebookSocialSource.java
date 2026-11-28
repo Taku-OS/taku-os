@@ -16,6 +16,19 @@ public enum NotebookSocialSource {
     FACEBOOK("Facebook", "www.facebook.com", Set.of("facebook.com"), "com.facebook.katana", "com.facebook.lite");
 
     private static final Pattern X_POST = Pattern.compile("/([A-Za-z0-9_]{1,15}|i/web)/status/([1-9][0-9]{0,19})/?");
+    private static final String FACEBOOK_FOLLOWERS = "[0-9][0-9.,万千\\s]*"
+            + "(?:位粉丝|[kmb]?\\s+followers?)";
+    private static final String FACEBOOK_SEARCH_RESULTS = "(?:个搜索结果|[,，]?\\s+search results?)";
+    private static final Pattern FACEBOOK_REELS_FILTER = Pattern.compile(
+            "^reels" + FACEBOOK_SEARCH_RESULTS + "(?=$|[,，\\s.!])", Pattern.CASE_INSENSITIVE);
+    private static final Pattern FACEBOOK_FOLLOWER_LABEL = Pattern.compile(
+            FACEBOOK_FOLLOWERS + "(?=$|[,，\\s·.!])", Pattern.CASE_INSENSITIVE);
+    private static final Pattern FACEBOOK_READ_ROW = Pattern.compile(
+            "^(?:(?:reels|照片|帖子|photos|posts)(?:" + FACEBOOK_SEARCH_RESULTS + ")?[,，]\\s*"
+            + "(?:第[0-9]+项[,，]\\s*共[0-9]+项|item [0-9]+ of [0-9]+)"
+            + "|reels 编号[0-9]+[,，].+次播放|.+的 reels[,，].+双击即可观看"
+            + "|.+[,，]\\s*xfbsearchcontentphotoviewmodel[,，].+"
+            + "|.+[,，].*" + FACEBOOK_FOLLOWERS + "(?:\\s*·\\s*.+)?)$", Pattern.CASE_INSENSITIVE);
     private static final Pattern REDNOTE_POST = Pattern.compile(
             "/(?:[a-z]{2}(?:-[a-zA-Z]{2})?/)?(?:explore|discovery/item|user/profile/[0-9a-fA-F]{24})/"
             + "([0-9a-fA-F]{24})/?");
@@ -76,6 +89,19 @@ public enum NotebookSocialSource {
     public String canonicalUrl(String value) {
         URI uri = parse(value);
         return uri == null ? null : canonicalUrl(uri);
+    }
+
+    public static boolean isFacebookReadRow(String label) {
+        return FACEBOOK_READ_ROW.matcher(label).matches();
+    }
+
+    public static boolean isFacebookReelsFilter(String label) {
+        return FACEBOOK_REELS_FILTER.matcher(label).find();
+    }
+
+    public static int facebookFollowerCountStart(String label) {
+        Matcher count = FACEBOOK_FOLLOWER_LABEL.matcher(label);
+        return count.find() ? count.start() : -1;
     }
 
     public String handleFromPostUrl(String value) {
