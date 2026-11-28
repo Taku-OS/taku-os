@@ -202,6 +202,28 @@ internal object AssistantInvocationCapture {
 
     fun discard(context: Context, requestId: String) { screenshotFile(context, requestId).delete() }
 
+    /** Live Talk may attach the shared screen only while screenshots are allowed and the device is unlocked. */
+    fun liveScreenshotAllowed(context: Context): Boolean = screenshotsAllowed(context) &&
+        context.getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked == false &&
+        context.getSystemService(android.os.PowerManager::class.java)?.isInteractive == true
+
+    /** Stores Live Talk's screenshot for [requestId]; it is swept like any request screenshot. */
+    fun storeLive(context: Context, requestId: String, image: Bitmap) {
+        sweep(context)
+        val file = screenshotFile(context, requestId)
+        val root = file.parentFile!!
+        if (!root.isDirectory && !root.mkdirs() && !root.isDirectory) throw IOException("SCREENSHOT_UNAVAILABLE")
+        try {
+            FileOutputStream(file).use { output ->
+                if (!image.compress(Bitmap.CompressFormat.PNG, 100, output)) throw IOException("SCREENSHOT_UNAVAILABLE")
+                output.fd.sync()
+            }
+        } catch (failure: Exception) {
+            file.delete()
+            throw IOException("SCREENSHOT_UNAVAILABLE", failure)
+        }
+    }
+
     private fun screenshotFile(context: Context, id: String): File {
         if (!AgentGatewayProtocol.isUuid(id)) throw IOException("INVALID_REQUEST_ID")
         return File(File(context.filesDir, "composer-attachments"), "screen-$id.png")

@@ -285,6 +285,10 @@ taku_call "$V" settings '{"action":"resetDictation","scope":"assistant-entry"}'
 taku_call "$V" settings '{"action":"selectLiveProvider","profileId":"gemini-live"}'
 taku_call "$V" settings '{"action":"saveLiveKey","key":"GEMINI_API_KEY"}'
 taku_call "$V" settings '{"action":"removeLiveKey"}'
+taku_call "$V" settings '{"action":"selectLiveProvider","profileId":"moss-live"}'
+taku_call "$V" settings '{"action":"saveMossKey","key":"MOSS_API_KEY"}'
+taku_call "$V" settings '{"action":"removeMossKey"}'
+taku_call "$V" settings '{"action":"configureLiveStandby","enabled":true,"hotTimeoutSec":15,"coldTimeoutSec":60,"lockScreenWakeEnabled":true}'
 taku_call "$V" settings '{"action":"removeFalKey"}'
 ```
 
@@ -292,9 +296,10 @@ Use `$V`, method `settings`, JSON `action`. Supply only the fields listed for ea
 
 | Action | Fields |
 |---|---|
-| `read`, `removeFalKey`, `removeLiveKey` | none |
-| `saveFalKey`, `saveLiveKey` | `key` (trimmed 1–4096 characters, no internal whitespace, control characters or commas) |
-| `selectLiveProvider` | `profileId` (`fal-grok` or `gemini-live`), effective on next open |
+| `read`, `removeFalKey`, `removeLiveKey`, `removeMossKey` | none |
+| `saveFalKey`, `saveLiveKey`, `saveMossKey` | `key` (trimmed 1–4096 characters, no internal whitespace, control characters or commas) |
+| `selectLiveProvider` | `profileId` (`moss-live`, `fal-grok` or `gemini-live`), effective on next open |
+| `configureLiveStandby` | booleans `enabled` and `lockScreenWakeEnabled`, integers `hotTimeoutSec` (5–120) and `coldTimeoutSec` (15–600) |
 | `selectFalModel` | `model` from `fal.models`; needs a readable key |
 | `setAudioEnabled` | boolean `enabled`; disabling revokes managed sessions |
 | `configureReading`, `resetReading` | `language` (`zh-CN` or `en-US`); configure also needs `voiceId` (shipped choices, `LANG-local-N`) and `speed` (0.5–2.0) |
@@ -841,13 +846,16 @@ taku_call "$A" assistant/voice-continue   # Keep talking → existing chat
 taku_call "$A" assistant/live-start '{"threadId":"ID"}'
 taku_call "$A" assistant/live-toggle-mic
 taku_call "$A" assistant/live-set-mic '{"sessionId":"SESSION_ID","muted":true}'
+taku_call "$A" assistant/live-set-video '{"sessionId":"SESSION_ID","source":"screen"}'
+taku_call "$A" assistant/live-get
+taku_call "$A" assistant/live-standby '{"sessionId":"SESSION_ID","mode":"cold"}'
 taku_call "$A" assistant/live-stop
 taku_call "$A" assistant/voice-finish     # release: finalize and submit once
 # Legacy operation without a button on 1-1:
 taku_call "$A" assistant/voice-to-text    # finalize into the editable draft
 ```
 
-Patched Quickstep double-tap opens focused text over the current app; hold starts the selected Taku voice service. Recognition runs only while held; pauses never send. The microphone starts before the speech model or fal key is ready, retaining early audio. During `voice.phase:"Preparing"`, the island shows no listening text or animation; `Capturing` shows “Taku is listening...” and triggers the hold's only vibration, indicating it is time to speak. Releasing stops and finalizes capture, sending a successful nonempty transcript once and leaving the card open for progress and the reply. Releasing before capture starts or with an empty result sends nothing and closes the voice page; errors remain visible. A hold on an idle conversation starts from a clean card: the previous finished turn leaves the session (`assistant/get` `turn` becomes null) and never shows again, even if the hold is cancelled or empty, in which case the island closes. The thread continues, so the next message keeps its context; a running turn, a question or approval stays on the card. Tapping the expanded island card outside suggestion chips runs its primary action (open conversation or missing-fal-key setup); swiping up still collapses it. Cancel revokes undelivered capture. Keep talking enters the same conversation in Live Talk without dropping the active recording. Live utterances resume after the reply; microphone toggles pause/resume and close returns to chat. Audio stops when leaving foreground or turning off the screen; rotation and Keep talking handoff retain capture. The video control is disabled because upstream is unavailable. Outside text, Agent voice-start/open(voice) act as the press: recording continues through pauses until voice-finish releases and sends, or voice-cancel cancels. An unfinished hold is cancelled without sending at 120 s. voice-to-text appends into the draft. Failed/partial/cancelled speech never delivers. Overflow retains the full result for recovery.
+Patched Quickstep double-tap opens focused text over the current app; hold starts the selected Taku voice service. Recognition runs only while held; pauses never send. The microphone starts before the speech model or fal key is ready, retaining early audio. During `voice.phase:"Preparing"`, the island shows no listening text or animation; `Capturing` shows “Taku is listening...” and triggers the hold's only vibration, indicating it is time to speak. Releasing stops and finalizes capture, sending a successful nonempty transcript once and leaving the card open for progress and the reply. Releasing before capture starts or with an empty result sends nothing and closes the voice page; errors remain visible. A hold on an idle conversation starts from a clean card: the previous finished turn leaves the session (`assistant/get` `turn` becomes null) and never shows again, even if the hold is cancelled or empty, in which case the island closes. The thread continues, so the next message keeps its context; a running turn, a question or approval stays on the card. Tapping the expanded island card outside suggestion chips runs its primary action (open conversation or missing-fal-key setup); swiping up still collapses it. Cancel revokes undelivered capture. Keep talking enters the same conversation in Live Talk without dropping the active recording. Live utterances resume after the reply; microphone toggles pause/resume and close returns to chat. Hold-to-talk audio stops when leaving foreground or turning off the screen; a connected Live Talk session keeps listening with the screen off or locked (unless Keep listening when locked is off in Taku Audio, which ends it with `DEVICE_LOCKED`) and continues in the island's Live capsule when its chat leaves the screen; rotation and Keep talking handoff retain capture. The Live Talk panel's video button cycles off, share screen, camera, off; it is enabled only on an active, unmuted MOSS-Live connection. Outside text, Agent voice-start/open(voice) act as the press: recording continues through pauses until voice-finish releases and sends, or voice-cancel cancels. An unfinished hold is cancelled without sending at 120 s. voice-to-text appends into the draft. Failed/partial/cancelled speech never delivers. Overflow retains the full result for recovery.
 
 `assistant/live-start` takes `threadId` (empty begins a new conversation on send); stop/toggle take optional threadId and leave other chats untouched. `voice-continue` requires active (held) recording; `THREAD_UNAVAILABLE` leaves listening open. `assistant/choose-prompt {"text":"PROMPT"}` cancels undelivered capture and opens an editable draft (1–16,000 characters). It does not send.
 
@@ -870,12 +878,45 @@ Gemini Live retires its connection after its fixed lifetime, the Audio Engine
 replaces it in place with the same confirmed text context: `lifecycle` stays
 `active`, the generation does not change and no error is reported.
 
+`live-set-video` requires a nonempty `sessionId` and `source` (`none`, `screen` or `camera`); starting
+`screen` or `camera` requires an unlocked device. It works only with MOSS-Live (`VIDEO_UNSUPPORTED`
+otherwise, or when that connection has no video stream). Read `result.liveTalk.video`
+(`source`, `active`, `masked`, `reason`): `masked:true` with `DEVICE_LOCKED` means frames are
+withheld until unlock, `NETWORK_THROTTLED` means video paused for a slow network while audio
+continues, and a refused request leaves `source:"none"` with its error code as `reason`.
+Windows marked secure (passwords, payments, protected media) stay black in shared frames.
+`live-get` returns the same snapshot without changing anything. `standbyState` is `active`,
+`hot_standby` (connected, video paused) or `cold_standby` (disconnected, listening on the phone;
+speaking reconnects and keeps the words that woke it); `live-standby` with `sessionId` and `mode`
+(`hot`, `cold` or `wake`) changes it. `lockScreenMode:true` means the phone is locked: every
+delegated `submit`, `steer`, `cancel` and `confirm` is refused with `state:"blocked"` and
+`code:"UNLOCK_REQUIRED"`, `status` reports task states only, and a finished task is announced only
+as "A background task has finished. Unlock your phone to see the details."; its result is spoken
+after unlock. While the user shares the screen, a MOSS-Live
+`submit` may ask to attach it: Live Talk takes one still image (secure windows black) and sends the task
+through `live/sendMessage`; when the screen is not shared, masked, locked, or assistant screenshots
+are off, the task goes as text only and the receipt says so. With MOSS-Live, each change in a
+delegated task's state (queued, running, waiting for the user, finished, failed, cancelled) is shared
+with the model as silent context, so it can answer progress questions without interrupting.
+
 `live-set-mic` requires a nonempty `sessionId` and a JSON boolean `muted`. A repeated
 setter with the same target state makes no change. `live-stop` accepts an optional
 `sessionId` and `threadId`. `live-toggle-mic` accepts an optional `threadId`.
 Wrong IDs return `SESSION_CHANGED`. Missing or mistyped required fields return
-`INVALID_ARGUMENT`. Starting or resuming capture requires an unlocked device and the
-visible chat. The errors are `DEVICE_LOCKED`, `HOST_REQUIRED`, and `VOICE_UNAVAILABLE`
+`INVALID_ARGUMENT`. Starting capture requires an unlocked device and the visible chat;
+resuming a connected session requires only an unlocked device.
+
+Once connected, Live Talk keeps running for its own thread when the chat leaves the
+screen (Home, another app, Collapse) or when another conversation opens; only
+`live-stop`, the panel's close or Back, ending from the island, or turning off the
+screen ends it. A session still connecting or handing off from Keep talking ends
+instead. While it runs without its chat, the island shows a separate Live capsule
+(notification tag `taku-island:live`, read it with `cmd statusbar island state`):
+the capsule text is `Live`, `Listening`, `Speaking`, `Muted`, `Connecting` or
+`Disconnected`, and its card offers Open conversation (`live_open`), Pause/Resume mic
+(`live_mute`, only while active) and End Live Talk (`live_stop`). Agents use the
+same `live-set-mic` and `live-stop` methods. Reconnecting after a disconnect still
+requires the chat. The errors are `DEVICE_LOCKED`, `HOST_REQUIRED`, and `VOICE_UNAVAILABLE`
 when Taku Audio is absent. Audio Engine errors appear in `result.liveTalk.error`.
 `PROVIDER_NOT_CONFIGURED` means the selected provider's key is missing or
 unreadable. `PROVIDER_AUTH_FAILED` means the provider rejected the key. For
@@ -896,7 +937,7 @@ Other errors include `NETWORK_FAILED`, `RESOURCE_BUSY`, and `AEC_UNAVAILABLE`.
 `assistant/get` and Live Talk actions return the same `result.liveTalk` shown by the GUI.
 It is null before the first session. Read `sessionId`, `threadId`, `sequence`, `generation`,
 `lifecycle`, `provider`, `muted`, `capturing`, `speech`, `playback`, `input`, `output`,
-`levels`, `task`, `error`, and `setup`. `provider` is the effective `fal-grok` or
+`levels`, `task`, `error`, and `setup`. `provider` is the effective `moss-live`, `fal-grok` or
 `gemini-live` returned by the Audio Engine. It is null until the engine
 accepts the open request for that connection. `liveTalkDisclosure` names the
 provider while that connection is in use and explains the selection otherwise.
@@ -904,14 +945,24 @@ Lifecycle values are `connecting`, `active`, `disconnected`, `closed`, and
 `failed`. `playback` exposes a local response ID and state. `input` has
 `itemId`, `text`, and `final`. `output` has `responseId`, `text`, `final`, and
 `source:"generated"`. Generated subtitles have no sample-aligned timestamps.
-`task` carries `requestId`, `taskId`, `turnId`, `state`, `version` and `error`. Read the
+`task` carries `requestId`, `taskId`, `turnId`, `state`, `version` and `error`. `tasks` lists every
+task the session tracks, oldest first, with the same fields: when the user asks for something
+new while a task still runs, the running task keeps going in the background and the new one
+starts in its own conversation (at most 8 tasks; a ninth is refused until one finishes). Each
+background outcome is announced once. By voice, the model can `submit` a task, `steer` a running
+task (sent to its exact running turn; a task still queued without a turn takes the read-only
+correction path instead), `cancel` only on an explicit cancellation, ask for `status` (answered
+from the latest observed states without calling the Agent), and `confirm` only two kinds of
+answer: picking one of a `phone/askUser` question's options, and an explicit spoken cancellation
+of a `phone/confirmAction`. Confirming a high-risk action, `phone/action/requestApproval`,
+free-text questions and secret answers are always answered on screen. Read the
 original chat for full task replies, references, approval and user-input requests. An
 uncertain receipt is reconciled with its original ID. Only a verified `readOnly` task
 can be automatically replaced. If replacement is blocked, use the original chat.
 `voice-continue` requires an active hold. A handoff that cannot open the
 thread reports `THREAD_UNAVAILABLE`.
 
-Grok Voice uses the shared fal key. Gemini Live uses the separate key managed by `saveLiveKey` and `removeLiveKey`. Removing a key ends sessions that depend on it. Provider selection takes effect on the next open, including reconnect, with no automatic fallback. The default is `fal-grok`. Settings `live.profileId` reports the selection and `live.configured` reports whether its key is readable. `live.gemini` exposes `configured`, `masked`, and `error` even when Grok is selected. Its error is null or `KEY_UNREADABLE`. Either provider can be selected before saving its key. Translation model selection is independent.
+Grok Voice uses the shared fal key. Gemini Live uses the separate key managed by `saveLiveKey` and `removeLiveKey`; MOSS-Live uses the separate key managed by `saveMossKey` and `removeMossKey`. Third-party apps cannot save or remove any voice key, even with a `taku.control` grant (`PERMISSION_DENIED`). Removing a key ends sessions that depend on it. Provider selection takes effect on the next open, including reconnect, with no automatic fallback. Until a provider is selected, a new device (or one with a MOSS key) uses `moss-live`, a device that already has a fal key keeps `fal-grok`, and one with only a Gemini key keeps `gemini-live`; the first key save stores that default. Settings `live.profileId` reports the selection and `live.configured` reports whether its key is readable. `live.gemini` and `live.moss` expose `configured`, `masked`, and `error` whichever provider is selected. `live.standby` reports `enabled`, `hotTimeoutSec`, `coldTimeoutSec` and `lockScreenWakeEnabled` (defaults true, 15, 60, true; an unreadable saved value reads as the defaults); the Taku Audio page shows the same switches and timing. Each error is null or `KEY_UNREADABLE`. Any provider can be selected before saving its key. Translation model selection is independent.
 
 ### Full chat dictation and reply playback
 

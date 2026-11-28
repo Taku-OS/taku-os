@@ -135,13 +135,18 @@ test('inactive and loading empty chats do not adopt stale conversations', async 
   assert.deepEqual(env.selected, ['new']);
 });
 
-test('switching away from an owned conversation stops only that conversation', async t => {
+test('switching conversations keeps Live Talk running for its own thread', async t => {
   const env = environment(t, 'current');
   env.emit(snapshot('current')); await env.settle();
   await env.host.result.toggleMic();
   env.host.threadId = 'next'; env.host.render(); await env.settle();
   assert.equal(env.host.result.active, false);
-  assert.deepEqual(env.actions, [['assistant/live-set-mic', {sessionId: 'live-1', muted: true}], ['assistant/live-stop', {sessionId: 'live-1'}]]);
+  // Another conversation cannot stop or mute a session it does not own.
+  env.host.result.stop(); await env.host.result.toggleMic(); await env.settle();
+  assert.deepEqual(env.actions, [['assistant/live-set-mic', {sessionId: 'live-1', muted: true}]]);
+  env.host.threadId = 'current'; env.host.render(); await env.settle();
+  assert.equal(env.host.result.active, true);
+  assert.equal(env.host.result.state.sessionId, 'live-1');
 });
 
 test('a late closed snapshot cannot overwrite a newer session', async t => {

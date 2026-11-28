@@ -14,7 +14,8 @@ final class AudioConfigBridge {
  private static final Map<LocalSocket,BlockingQueue<String>> subscribers=new ConcurrentHashMap<>();
  private static final String DEFAULT_LIVE_PROFILE="fal-grok";
  private static final String GEMINI_LIVE_PROFILE="gemini-live";
- private static final Set<String> LIVE_PROFILES=Set.of(DEFAULT_LIVE_PROFILE,GEMINI_LIVE_PROFILE);
+ private static final String MOSS_LIVE_PROFILE="moss-live";
+ private static final Set<String> LIVE_PROFILES=Set.of(DEFAULT_LIVE_PROFILE,GEMINI_LIVE_PROFILE,MOSS_LIVE_PROFILE);
  private static boolean started;
  static synchronized void start()throws Exception {
   if(started)return;LocalServerSocket server=new LocalServerSocket("taku-audio-config");started=true;
@@ -99,13 +100,57 @@ final class AudioConfigBridge {
   JSONObject profile=readingProfile(request,request.optString("op").equals("resetReading"));
   writeReading(request.getString("language"),profile);return snapshot();
  }
+ /**
+  * Provider used while audio-settings.json has no liveProfileId. A device that already holds a
+  * fal or Gemini key (and no MOSS key) keeps the provider it was using; everything else defaults
+  * to MOSS-Live. The first credential save pins this value so adding a key never switches it.
+  */
+ static String defaultLiveProfile(ByokProviders byok) {
+  if(byok.hasKeyFile(ByokProviders.MOSS_FILE))return MOSS_LIVE_PROFILE;
+  if(byok.hasKeyFile("fal.json"))return DEFAULT_LIVE_PROFILE;
+  if(byok.hasKeyFile(ByokProviders.GEMINI_FILE))return GEMINI_LIVE_PROFILE;
+  return MOSS_LIVE_PROFILE;
+ }
+ /** Two-level standby for Live Talk; the saved value or these defaults, always within range. */
+ static JSONObject standby(JSONObject audio)throws Exception {
+  JSONObject saved=audio.optJSONObject("liveStandby");
+  JSONObject result=new JSONObject().put("enabled",true).put("hotTimeoutSec",15).put("coldTimeoutSec",60).put("lockScreenWakeEnabled",true);
+  if(saved==null)return result;
+  // An unreadable saved value falls back to the defaults; it must never break the settings snapshot.
+  try{return standbyValue(saved);}catch(AudioConfigFailure invalid){return result;}
+ }
+ private static JSONObject standbyValue(JSONObject request)throws Exception {
+  Object enabled=request.opt("enabled"),hot=request.opt("hotTimeoutSec"),cold=request.opt("coldTimeoutSec"),lock=request.opt("lockScreenWakeEnabled");
+  if(!(enabled instanceof Boolean)||!(lock instanceof Boolean)||!(hot instanceof Integer)||!(cold instanceof Integer)
+    ||(Integer)hot<5||(Integer)hot>120||(Integer)cold<15||(Integer)cold>600)
+   throw new AudioConfigFailure("INVALID_ARGUMENT","Standby needs on/off switches, a 5–120 s hot timeout and a 15–600 s cold timeout");
+  return new JSONObject().put("enabled",enabled).put("hotTimeoutSec",hot).put("coldTimeoutSec",cold).put("lockScreenWakeEnabled",lock);
+ }
+ private static synchronized void configureStandby(JSONObject request)throws Exception {
+  JSONObject value=standbyValue(request);
+  JSONObject current;
+  try {current=audioSettings();current.getLong("revision");current.getJSONObject("profiles");}
+  catch(Exception unreadable){throw new AudioConfigFailure("SETTINGS_UNREADABLE","Saved voice settings cannot be read; no configuration was changed");}
+  if(value.toString().equals(String.valueOf(current.optJSONObject("liveStandby"))))return;
+  current.put("liveStandby",value).put("revision",current.getLong("revision")+1);
+  SystemAi.save(new File(SystemAi.ROOT,"audio-settings.json"),current);changed();
+ }
  private static JSONObject liveSettings(JSONObject audio,JSONObject fal)throws Exception {
-  Object profileId=audio.has("liveProfileId")?audio.opt("liveProfileId"):DEFAULT_LIVE_PROFILE;
+  Object profileId=audio.has("liveProfileId")?audio.opt("liveProfileId"):defaultLiveProfile(NativeBridge.byok);
   if(!(profileId instanceof String)||!LIVE_PROFILES.contains(profileId))
    throw new AudioConfigFailure("SETTINGS_UNREADABLE","Select the Live Talk provider again");
-  JSONObject gemini=NativeBridge.byok.geminiSettings();
-  boolean configured=(GEMINI_LIVE_PROFILE.equals(profileId)?gemini:fal).getBoolean("configured");
-  return new JSONObject().put("profileId",profileId).put("configured",configured).put("gemini",gemini);
+  JSONObject gemini=NativeBridge.byok.geminiSettings(),moss=NativeBridge.byok.mossSettings();
+  boolean configured=(GEMINI_LIVE_PROFILE.equals(profileId)?gemini:MOSS_LIVE_PROFILE.equals(profileId)?moss:fal).getBoolean("configured");
+  return new JSONObject().put("profileId",profileId).put("configured",configured).put("gemini",gemini).put("moss",moss).put("standby",standby(audio));
+ }
+ /** Stores the effective default provider before a voice key changes which default applies. */
+ static synchronized void pinLiveDefault()throws Exception {
+  JSONObject current;
+  try {current=audioSettings();current.getLong("revision");current.getJSONObject("profiles");}
+  catch(Exception unreadable){return;}
+  if(current.has("liveProfileId"))return;
+  current.put("liveProfileId",defaultLiveProfile(NativeBridge.byok)).put("revision",current.getLong("revision")+1);
+  SystemAi.save(new File(SystemAi.ROOT,"audio-settings.json"),current);
  }
  private static synchronized void selectLiveProvider(String profileId)throws Exception {
   if(!LIVE_PROFILES.contains(profileId))
@@ -113,8 +158,7 @@ final class AudioConfigBridge {
   JSONObject current;
   try {current=audioSettings();current.getLong("revision");current.getJSONObject("profiles");}
   catch(Exception unreadable){throw new AudioConfigFailure("SETTINGS_UNREADABLE","Saved voice settings cannot be read; no configuration was changed");}
-  Object previous=current.has("liveProfileId")?current.opt("liveProfileId"):DEFAULT_LIVE_PROFILE;
-  if(profileId.equals(previous))return;
+  if(profileId.equals(current.opt("liveProfileId")))return;
   current.put("liveProfileId",profileId).put("revision",current.getLong("revision")+1);
   SystemAi.save(new File(SystemAi.ROOT,"audio-settings.json"),current);changed();
  }
@@ -141,6 +185,8 @@ final class AudioConfigBridge {
     case "read":break;
     case "saveFalKey","removeFalKey","selectFalModel":fal=NativeBridge.byok.falControl(request);break;
     case "saveLiveKey","removeLiveKey":NativeBridge.byok.liveControl(request);break;
+    case "saveMossKey","removeMossKey":NativeBridge.byok.mossControl(request);break;
+    case "configureLiveStandby":configureStandby(request);break;
     case "selectLiveProvider":selectLiveProvider(request.getString("profileId"));break;
     case "setAudioEnabled":SystemAi.control(new JSONObject().put("action","configure").put("patch",new JSONObject().put("audioEnabled",request.getBoolean("enabled"))));break;
     case "configureReading","resetReading":{
@@ -160,10 +206,11 @@ final class AudioConfigBridge {
   if(!"settings".equals(request.opt("op"))||!(request.opt("action") instanceof String))throw new AudioConfigFailure("INVALID_ARGUMENT","Invalid voice settings parameters");
   String action=request.getString("action");
   Set<String> fields=switch(action){
-   case "read","removeFalKey","removeLiveKey"->Set.of("op","action");
-   case "saveFalKey","saveLiveKey"->Set.of("op","action","key");
+   case "read","removeFalKey","removeLiveKey","removeMossKey"->Set.of("op","action");
+   case "saveFalKey","saveLiveKey","saveMossKey"->Set.of("op","action","key");
    case "selectFalModel"->Set.of("op","action","model");
    case "selectLiveProvider"->Set.of("op","action","profileId");
+   case "configureLiveStandby"->Set.of("op","action","enabled","hotTimeoutSec","coldTimeoutSec","lockScreenWakeEnabled");
    case "setAudioEnabled"->Set.of("op","action","enabled");
    case "configureReading"->Set.of("op","action","language","voiceId","speed");
    case "resetReading"->Set.of("op","action","language");
@@ -175,7 +222,8 @@ final class AudioConfigBridge {
   for(Iterator<String> keys=request.keys();keys.hasNext();)if(!fields.contains(keys.next()))throw new AudioConfigFailure("INVALID_ARGUMENT","Invalid voice settings parameters");
   for(String field:fields){
    Object value=request.opt(field);
-   boolean valid=field.equals("enabled")?value instanceof Boolean
+   boolean valid=field.equals("enabled")||field.equals("lockScreenWakeEnabled")?value instanceof Boolean
+    :field.equals("hotTimeoutSec")||field.equals("coldTimeoutSec")?value instanceof Integer
     :field.equals("speed")?value instanceof Number&&Double.isFinite(((Number)value).doubleValue())
     :field.equals("fallbackProfileId")?value instanceof String||JSONObject.NULL.equals(value)
     :value instanceof String;
@@ -213,7 +261,7 @@ final class AudioConfigBridge {
    case "settings"->"CONFIG_UNAVAILABLE";
    case "configureReading","resetReading"->"SETTINGS_NOT_SAVED";
    case "configureDictation","resetDictation"->"SETTINGS_NOT_SAVED";
-   case "falCredential","liveCredential"->"PROVIDER_NOT_CONFIGURED";
+   case "falCredential","liveCredential","mossCredential"->"PROVIDER_NOT_CONFIGURED";
    case "prepareTranslation","translate"->"TEXT_TRANSLATION_FAILED";
    default->"UNSUPPORTED_OPERATION";
   };
@@ -221,7 +269,8 @@ final class AudioConfigBridge {
  private static String failureMessage(String operation,String code){
   return switch(code){
    case "POLICY_REVOKED"->"Voice AI is paused";
-   case "PROVIDER_NOT_CONFIGURED"->operation.equals("liveCredential")?"Add or save your Gemini API key again in Taku Audio":"Add or save your fal Key again in Taku Audio";
+   case "PROVIDER_NOT_CONFIGURED"->operation.equals("liveCredential")?"Add or save your Gemini API key again in Taku Audio"
+    :operation.equals("mossCredential")?"Add or save your MOSS API key again in Taku Audio":"Add or save your fal Key again in Taku Audio";
    case "SETTINGS_UNREADABLE"->"Saved voice settings cannot be read. Select them again in Taku Audio";
    case "SETTINGS_NOT_SAVED"->"Voice settings could not be saved";
    case "TEXT_TRANSLATION_FAILED"->"Text translation did not complete";
@@ -245,6 +294,7 @@ final class AudioConfigBridge {
       case "read"->snapshot();
       case "falCredential"->NativeBridge.byok.falCredential();
       case "liveCredential"->NativeBridge.byok.liveCredential();
+      case "mossCredential"->NativeBridge.byok.mossCredential();
       case "prepareTranslation"->AudioTextTranslation.prepare();
       case "translate"->AudioTextTranslation.translate(message);
       case "configureReading","resetReading"->configureReading(message);

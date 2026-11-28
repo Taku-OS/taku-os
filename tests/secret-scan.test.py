@@ -29,6 +29,11 @@ class SecretScanAllowlist(unittest.TestCase):
             with self.subTest(digest=digest):
                 self.assert_path_bound_allowlist('image/runtime-assets.lock.json', digest)
 
+    def test_audio_rom_source_digest_exception_is_exact_and_path_bound(self):
+        self.assert_path_bound_allowlist(
+            'system/audio-engine/rom-input-lock.json',
+            'cde133cd826da00c41432e9fae3d082de21dbd58c0c4a2899a06854fad9061a5')
+
     def assert_path_bound_allowlist(self, reviewed_path, known):
         config = SCRIPT.parents[1] / '.gitleaks.toml'
         with tempfile.TemporaryDirectory() as directory:

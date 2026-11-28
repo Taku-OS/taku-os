@@ -68,6 +68,54 @@ class IslandPublisherService : Service() {
         publish(state, voice)
       }
     }
+    scope.launch {
+      combine(session.liveState, session.liveIsland) { live, shown -> live.takeIf { shown } }.sample(250).collect(::publishLive)
+    }
+  }
+
+  private var liveFingerprint: String? = null
+
+  /** The Live capsule: its own notification, posted only while Live Talk runs without its chat. */
+  private fun publishLive(live: org.agentos.agent.home.assistant.LiveTalkSnapshot?) {
+    if (live == null || !live.open) {
+      if (liveFingerprint != null) runCatching { manager.cancel(LiveIslandCard.TAG, ID) }
+      liveFingerprint = null
+      return
+    }
+    val view = LiveIslandCard.View(live.lifecycle, live.muted, live.speech, live.playback,
+      live.input?.text, live.output?.text, live.task?.state, live.standby, live.video.source, live.video.active, live.video.masked)
+    val payload = LiveIslandCard.payload(view)
+    val actionIds = LiveIslandCard.actions(view)
+    val value = payload.toString() + LiveIslandCard.muteLabel(view) + live.threadId
+    if (value == liveFingerprint) return
+    val open = PendingIntent.getActivity(this, ID + 10, Intent().setClassName(packageName, "org.agentos.agent.MainActivity")
+      .putExtra("threadId", live.threadId).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    fun broadcast(kind: String, code: Int) = PendingIntent.getBroadcast(this, ID + code,
+      Intent(this, IslandActionReceiver::class.java).setAction(kind).setData(Uri.parse("taku-island://$kind/live")),
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    val intents = mapOf(LiveIslandCard.OPEN to ("Open conversation" to open),
+      LiveIslandCard.MUTE to (LiveIslandCard.muteLabel(view) to broadcast(LiveIslandCard.MUTE, 11)),
+      LiveIslandCard.STOP to ("End Live Talk" to broadcast(LiveIslandCard.STOP, 12)))
+    val actions = Bundle()
+    val icon = Icon.createWithResource(this, applicationInfo.icon.takeIf { it != 0 } ?: android.R.drawable.ic_dialog_info)
+    val notification = Notification.Builder(this, CHANNEL).setSmallIcon(icon)
+      .setContentTitle(LiveIslandCard.title(view)).setContentText(LiveIslandCard.body(view).take(200))
+      .setContentIntent(open).setOnlyAlertOnce(true).setCategory(Notification.CATEGORY_SERVICE).setOngoing(true)
+      .setShortCriticalText(LiveIslandCard.status(view)).setRequestPromotedOngoing(true)
+    for (id in actionIds) intents[id]?.let { (label, intent) ->
+      val action = Notification.Action.Builder(null as Icon?, label, intent).build()
+      actions.putParcelable(id, action)
+      notification.addAction(action)
+    }
+    notification.addExtras(Bundle().apply {
+      putString("taku.island.v2", payload.toString())
+      putBundle("taku.island.pics", Bundle().apply { putParcelable("taku", icon) })
+      putBundle("taku.island.actions", actions)
+    })
+    runCatching { manager.notify(LiveIslandCard.TAG, ID, notification.build()) }
+      .onSuccess { liveFingerprint = value }
+      .onFailure { android.util.Log.w("TakuIsland", "Live capsule unavailable", it) }
   }
 
   private fun publish(state: AssistantState, voice: VoiceState) {
@@ -76,7 +124,7 @@ class IslandPublisherService : Service() {
       // handoff itself changed (its awaited turn, or it ended).
       if (hiddenApplied && hiddenHandoff == state.handoff) return
       hiddenApplied = true; hiddenHandoff = state.handoff
-      manager.activeNotifications.filter { it.id == ID && it.tag?.startsWith(TAG) == true }.forEach { manager.cancel(it.tag, ID) }
+      manager.activeNotifications.filter { it.id == ID && it.tag?.startsWith(TAG) == true && it.tag != LiveIslandCard.TAG }.forEach { manager.cancel(it.tag, ID) }
       val created = prefs.getLong("handoffCreated", 0).takeIf { it > 0 && prefs.getString("handoffThread", null) == state.handoff?.threadId }
       prefs.edit().clear().apply()
       // A handed-off turn draws nothing yet, but must still open its card if this process restarts.
@@ -90,7 +138,7 @@ class IslandPublisherService : Service() {
     val thread = state.threadId ?: "entry"
     val tag = "$TAG:${state.activityId ?: thread}"
     if (postedTag != null && postedTag != tag) manager.cancel(postedTag, ID)
-    if (postedTag == null) manager.activeNotifications.filter { it.id == ID && it.tag?.startsWith(TAG) == true && it.tag != tag }.forEach { manager.cancel(it.tag, ID) }
+    if (postedTag == null) manager.activeNotifications.filter { it.id == ID && it.tag?.startsWith(TAG) == true && it.tag != tag && it.tag != LiveIslandCard.TAG }.forEach { manager.cancel(it.tag, ID) }
     postedTag = tag
     val token = IslandIdentity.token(state.threadId, state.activityId)
     if (prefs.getString("activity", null) != state.activityId) prefs.edit().putLong("created", System.currentTimeMillis()).apply()

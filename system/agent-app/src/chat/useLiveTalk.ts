@@ -17,6 +17,14 @@ export type LiveTalkState = {
   output: (Caption & {responseId: string; source: 'generated'}) | null;
   levels: number[];
   task: {requestId: string | null; taskId: string | null; turnId: string | null; state: string; version: number; error: string | null} | null;
+  /** All tasks this session tracks (older ones keep running beside the newest, at most 8). */
+  tasks?: {requestId: string | null; taskId: string | null; turnId: string | null; state: string; version: number; error: string | null}[];
+  /** Shared screen or camera; `masked` means frames are withheld while the device is locked. */
+  video?: {source: 'none' | 'screen' | 'camera'; active: boolean; masked: boolean; reason: string | null};
+  /** Two-level standby reported by the Audio Engine. */
+  standbyState?: 'active' | 'hot_standby' | 'cold_standby';
+  /** The phone is locked: phone actions and private details wait until it is unlocked. */
+  lockScreenMode?: boolean;
   error: string | null;
   /** The setup page that fixes `error`: `fal` when Live Talk needs a fal key. */
   setup?: 'fal' | null;
@@ -32,7 +40,6 @@ const native = requireOptionalNativeModule<Bridge>('TakuVoice');
 export function useLiveTalk(threadId: string, loading: boolean, selectThread: (id: string) => void) {
   const [state, setState] = useState<LiveTalkState | null>(null);
   const latest = useRef<LiveTalkState | null>(null);
-  const previousThread = useRef(threadId);
   const accept = useCallback((snapshot: Snapshot) => {
     const next = snapshot?.liveTalk;
     if (!next || (latest.current && next.sequence <= latest.current.sequence)) return;
@@ -59,16 +66,14 @@ export function useLiveTalk(threadId: string, loading: boolean, selectThread: (i
   useEffect(() => {
     if (!loading && !threadId && open && state?.threadId) selectThread(state.threadId);
   }, [loading, open, state?.threadId, threadId, selectThread]);
-  useEffect(() => {
-    const previous = previousThread.current;
-    previousThread.current = threadId;
-    if (open && previous !== threadId && state && (state.threadId ?? '') === previous) stopSession(state.sessionId);
-  }, [threadId, open, state, stopSession]);
+  // Switching conversations keeps Live Talk running for its own thread; only an explicit stop ends it.
   const active = open && (!threadId || state?.threadId === threadId);
   return {
     state, active,
     start: () => action('assistant/live-start', {threadId}),
     stop: () => { if (active && state) stopSession(state.sessionId); },
+    setVideo: (source: 'none' | 'screen' | 'camera') => state && active
+      ? action('assistant/live-set-video', {sessionId: state.sessionId, source}) : Promise.resolve(),
     toggleMic: () => state && active
       ? action('assistant/live-set-mic', {sessionId: state.sessionId, muted: !state.muted}) : Promise.resolve(),
   };

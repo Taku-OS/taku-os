@@ -288,7 +288,7 @@ Verification: audio JVM runtime and concurrency tests pass; the full engine (wit
 
 ## Selectable Live Talk providers
 
-- Taku Audio selects Grok Voice via fal or Google Gemini Live. Grok is the default and uses the shared fal key. Gemini uses a separate key. The selection applies on the next Live Talk open, including reconnect. Live Talk has no automatic provider fallback.
+- Taku Audio selects MOSS-Live, Grok Voice via fal, or Google Gemini Live. MOSS-Live is the default for new devices (devices with existing fal or Gemini keys keep their provider); MOSS-Live uses its own key. Grok uses the shared fal key. Gemini uses a separate key. The selection applies on the next Live Talk open, including reconnect. Live Talk has no automatic provider fallback.
 - The chat waveform button starts Live Talk in one tap. The Live Talk panel displays the data-sharing disclosure and names the effective provider once the Audio Engine reports it. The Keep talking handoff displays the disclosure for both possible providers.
 - `VoiceReplyProbe` uses the configured provider and checks the effective profile and disclosure after the Keep talking handoff becomes active. Run the probe with each provider selected and its key configured to cover both routes. The earlier Gemini device results above apply to that candidate.
 - Both providers recognized the same replayed microphone question and played the answer on the isolated Android 17 emulator. Grok also answered a second question during a real Agent query and played the final Android version after completion. The device kept the Grok lease when the Agent selected Gemini and used Gemini on the next open. The Taku Audio picker and the Android content settings returned the same selection.

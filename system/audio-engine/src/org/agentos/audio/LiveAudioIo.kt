@@ -31,6 +31,10 @@ internal open class LiveOutputTurn(val id: String, val inputId: String?) {
     var complete = false
     var pendingBytes = 0
     var endFrame = 0L
+    /** [LiveAudioIo] written-frame position of this turn's first PCM byte, or -1 before any audio. */
+    var startFrame = -1L
+    /** End frame of this turn's last acknowledged chunk, or -1 when none has been acknowledged. */
+    var ackedFrame = -1L
 }
 
 /**
@@ -43,6 +47,8 @@ internal class LiveAudioIo(
     private val stopped: AtomicBoolean,
     private val allowed: () -> Boolean,
     private val listener: Listener,
+    /** Provider output PCM rate. Grok and Gemini stream 24 kHz; MOSS-Live negotiates 48 kHz or 24 kHz. */
+    private val outputSampleRate: Int = 24000,
 ) {
     interface Listener {
         fun emit(event: LiveAudioEvent)
@@ -54,6 +60,10 @@ internal class LiveAudioIo(
         fun speechChanged(active: Boolean) {}
         /** A final reply finished playing (or completed without audio). */
         fun remember(turn: LiveOutputTurn) {}
+        /** Every frame of a chunk enqueued with an [PlaybackChunkAck] has left the speaker. */
+        fun chunkPlayed(ack: PlaybackChunkAck) {}
+        /** A complete, uninterrupted turn that produced audio has finished playing. */
+        fun turnPlayed(turn: LiveOutputTurn) {}
     }
 
     private val lock = ReentrantLock()
@@ -99,7 +109,10 @@ internal class LiveAudioIo(
     private var meterFrames = 0
     private var meterSquares = 0.0
 
-    private class PcmChunk(val turn: LiveOutputTurn, val bytes: ByteArray, var offset: Int = 0)
+    private class PcmChunk(val turn: LiveOutputTurn, val bytes: ByteArray, val ack: PlaybackChunkAck?, var offset: Int = 0)
+    private class InFlightChunk(val turn: LiveOutputTurn, val ack: PlaybackChunkAck, val endFrame: Long)
+    /** Fully written chunks awaiting playback, in write order; only these may be acknowledged. */
+    private val inFlightChunks = ArrayDeque<InFlightChunk>()
 
     val active get() = recorder != null
 
@@ -138,12 +151,12 @@ internal class LiveAudioIo(
         echo = AcousticEchoCanceler.create(capture.audioSessionId)
         if(echo?.setEnabled(true) != AudioEffect.SUCCESS || echo?.enabled != true)
             throw AudioFailure("AEC_UNAVAILABLE", "Microphone echo cancellation could not be enabled")
-        val trackMinimum = AudioTrack.getMinBufferSize(24000, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT)
+        val trackMinimum = AudioTrack.getMinBufferSize(outputSampleRate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT)
         if(trackMinimum <= 0) throw AudioFailure("PLAYBACK_FAILED", "Live output PCM format is unavailable")
         val track = AudioTrack.Builder().setAudioAttributes(attributes)
-            .setAudioFormat(AudioFormat.Builder().setSampleRate(24000).setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+            .setAudioFormat(AudioFormat.Builder().setSampleRate(outputSampleRate).setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
                 .setEncoding(AudioFormat.ENCODING_PCM_16BIT).build())
-            .setBufferSizeInBytes(maxOf(4800, trackMinimum)).build()
+            .setBufferSizeInBytes(maxOf(outputSampleRate / 5, trackMinimum)).build()
         player = track
         if(track.state != AudioTrack.STATE_INITIALIZED) throw AudioFailure("PLAYBACK_FAILED", "Live output could not initialize")
         lock.withLock {
@@ -154,7 +167,7 @@ internal class LiveAudioIo(
         if(!allowed()) { stopNow(); return }
         voicedFrames = 0; quietFrames = 0; noiseRms = 100.0
         resumeClock()
-        Log.i("AudioLive", "captureReady monotonicMs=$lastCapture source=VOICE_COMMUNICATION rate=16000 aec=${echo?.enabled} captureBufferFrames=${capture.bufferSizeInFrames} outputBufferFrames=${track.bufferSizeInFrames} playbackBoundMs=8000 uploadBoundBytes=48000")
+        Log.i("AudioLive", "captureReady monotonicMs=$lastCapture source=VOICE_COMMUNICATION rate=16000 aec=${echo?.enabled} captureBufferFrames=${capture.bufferSizeInFrames} outputBufferFrames=${track.bufferSizeInFrames} outputRate=$outputSampleRate playbackBoundMs=8000 uploadBoundBytes=48000")
     }
 
     /** Restarts the capture stall clock after the worker intentionally paused capture (reconnect). */
@@ -224,14 +237,17 @@ internal class LiveAudioIo(
         listener.speechChanged(active)
     }
 
-    fun enqueue(turn: LiveOutputTurn, bytes: ByteArray) {
+    fun enqueue(turn: LiveOutputTurn, bytes: ByteArray, ack: PlaybackChunkAck? = null) {
         if(bytes.size % 2 != 0) throw AudioFailure("PROVIDER_PROTOCOL_ERROR", "Live PCM is not aligned")
         val track = player ?: throw AudioFailure("PLAYBACK_FAILED", "Live output is unavailable")
         val pending = queuedBytes + (writtenFrames - playedFrames(track)).coerceAtLeast(0) * 2
-        if(pending + bytes.size > 24000 * 2 * 8) throw AudioFailure("QUEUE_BACKLOG", "Live playback exceeds eight seconds")
+        if(pending + bytes.size > outputSampleRate * 2 * 8) throw AudioFailure("QUEUE_BACKLOG", "Live playback exceeds eight seconds")
         if(bytes.isNotEmpty()) {
             queuedBytes += bytes.size; turn.pendingBytes += bytes.size
-            pcm.addLast(PcmChunk(turn, bytes))
+            pcm.addLast(PcmChunk(turn, bytes, ack))
+        } else if(ack != null) {
+            // An empty chunk has nothing left to play once everything before it has played.
+            inFlightChunks.addLast(InFlightChunk(turn, ack, writtenFrames + pcm.sumOf { (it.bytes.size - it.offset) / 2L }))
         }
     }
 
@@ -250,6 +266,7 @@ internal class LiveAudioIo(
             if(!allowed()) { stopNow(); return }
             if(count < 0) throw AudioFailure("PLAYBACK_FAILED", "Live playback write failed")
             if(count > 0) {
+                if(chunk.turn.startFrame < 0) chunk.turn.startFrame = writtenFrames
                 writtenFrames += count / 2
                 playbackFrames += count / 2
                 queuedBytes -= count; chunk.turn.pendingBytes -= count
@@ -259,34 +276,57 @@ internal class LiveAudioIo(
                     listener.emit(LiveAudioEvent.Playback(chunk.turn.id, "speaking"))
                     Log.i("AudioLive", "firstTrack monotonicMs=${SystemClock.elapsedRealtime()} responseId=${chunk.turn.id} writtenFrames=$writtenFrames")
                 }
-                if(chunk.offset == chunk.bytes.size) pcm.removeFirst()
+                if(chunk.offset == chunk.bytes.size) {
+                    pcm.removeFirst()
+                    chunk.ack?.let { inFlightChunks.addLast(InFlightChunk(chunk.turn, it, writtenFrames)) }
+                }
             }
         }
         val played = playedFrames(track)
+        acknowledge(played)
         while(outputs.isNotEmpty()) {
             val turn = outputs.peekFirst()
             if(!turn.complete || turn.pendingBytes != 0 || played < turn.endFrame) break
             outputs.removeFirst()
             if(!turn.interrupted) {
-                if(turn.speaking) listener.emit(LiveAudioEvent.Playback(turn.id, "stopped"))
-                else listener.emit(LiveAudioEvent.ResponseDone(turn.id, turn.inputId ?: ""))
+                if(turn.speaking) {
+                    listener.emit(LiveAudioEvent.Playback(turn.id, "stopped"))
+                    listener.turnPlayed(turn)
+                } else listener.emit(LiveAudioEvent.ResponseDone(turn.id, turn.inputId ?: ""))
                 if(turn.final) listener.remember(turn)
             }
         }
         val pending = queuedBytes + (writtenFrames - played).coerceAtLeast(0) * 2
         val now = SystemClock.elapsedRealtime()
-        if(pending > 24000 * 2 * 4) {
+        if(pending > outputSampleRate * 2 * 4) {
             if(backlogSince == 0L) backlogSince = now
             if(now - backlogSince > 5000) throw AudioFailure("QUEUE_BACKLOG", "Live playback backlog persists")
         } else backlogSince = 0
     }
 
-    /** Drops queued audio; only turns that were audibly speaking report the [state]. */
-    fun stopPlayback(state: String, current: LiveOutputTurn?) {
+    /** Reports chunks whose last frame has played, oldest first. */
+    private fun acknowledge(played: Long) {
+        while(inFlightChunks.isNotEmpty() && played >= inFlightChunks.peekFirst().endFrame) {
+            val chunk = inFlightChunks.removeFirst()
+            chunk.turn.ackedFrame = chunk.endFrame
+            listener.chunkPlayed(chunk.ack)
+        }
+    }
+
+    /**
+     * Drops queued audio; only turns that were audibly speaking report the [state]. Chunks that had
+     * fully played are acknowledged first; the return value is how many milliseconds of the audible
+     * turn's unfinished head chunk were heard (0 if it had not started).
+     */
+    fun stopPlayback(state: String, current: LiveOutputTurn?): Long {
         val track = player
-        if(outputs.isNotEmpty()) Log.i("AudioLive", "playbackStop monotonicMs=${SystemClock.elapsedRealtime()} state=$state playedFrames=${track?.let { playedFrames(it) } ?: 0} queuedBytes=$queuedBytes")
+        val played = track?.let { lock.withLock { runCatching { it.pause() }; playedFrames(it) } } ?: 0L
+        acknowledge(played)
+        if(outputs.isNotEmpty()) Log.i("AudioLive", "playbackStop monotonicMs=${SystemClock.elapsedRealtime()} state=$state playedFrames=$played queuedBytes=$queuedBytes")
+        val audible = outputs.firstOrNull { it.speaking && !it.interrupted } ?: current
+        val playedMs = playedMs(audible, played)
         if(track != null) lock.withLock { track.pause(); track.flush() }
-        pcm.clear(); queuedBytes = 0; writtenFrames = 0; backlogSince = 0
+        pcm.clear(); inFlightChunks.clear(); queuedBytes = 0; writtenFrames = 0; backlogSince = 0
         for(turn in outputs) {
             turn.pendingBytes = 0; turn.endFrame = 0
             if(!turn.interrupted) {
@@ -296,9 +336,17 @@ internal class LiveAudioIo(
         }
         current?.interrupted = true
         outputs.clear()
+        return playedMs
     }
 
-    fun clear() { pcm.clear(); outputs.clear(); queuedBytes = 0 }
+    private fun playedMs(turn: LiveOutputTurn?, played: Long): Long {
+        if(turn == null || turn.startFrame < 0) return 0L
+        val head = maxOf(turn.startFrame, turn.ackedFrame)
+        val heard = (played - head).coerceIn(0L, (turn.endFrame - head).coerceAtLeast(0L))
+        return heard * 1000L / outputSampleRate
+    }
+
+    fun clear() { pcm.clear(); inFlightChunks.clear(); outputs.clear(); queuedBytes = 0 }
 
     fun release(): Boolean = lock.withLock {
         var restored = true

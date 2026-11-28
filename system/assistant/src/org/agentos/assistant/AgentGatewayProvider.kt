@@ -153,6 +153,7 @@ class AgentGatewayProvider : ContentProvider() {
             } else request = AgentGatewayProtocol.request(method, arg)
             val result = when {
                 method == AgentGatewayProtocol.COMPOSER_ATTACH -> ComposerAttachments.attach(context!!, request, extras, callerUid, callerPid)
+                method == AgentGatewayProtocol.LIVE_SEND_MESSAGE -> liveSend(request, extras)
                 method.startsWith("accounts/") -> AssistantAccounts.command(context!!, method, request, extras, challenge = true)
                 method == "manageAssistant" -> AssistantManagement.execute(context!!, request, extras)
                 method.startsWith("requests/") -> AssistantRequests.execute(method, request, extras, trusted = true)
@@ -463,6 +464,30 @@ class AgentGatewayProvider : ContentProvider() {
 
     @Throws(Exception::class)
     private fun submit(input: JSONObject): JSONObject = matters.services.submit(input)
+
+    /**
+     * Live Talk's `sendMessage` with the screen the user is sharing. The descriptor must be read-only
+     * and decode as a bounded image; the screenshot policy and an unlocked device are checked here
+     * again, whatever the caller claims. The image becomes this request's screenshot (the task's
+     * context image) and the message then follows the ordinary durable `sendMessage` receipt, so
+     * replays, ownership and live task actions are unchanged.
+     */
+    private fun liveSend(input: JSONObject, extras: Bundle?): JSONObject {
+        val descriptor = extras?.getParcelable("screenshot", android.os.ParcelFileDescriptor::class.java)
+            ?: throw IOException("SCREENSHOT_UNAVAILABLE")
+        descriptor.use {
+            if (!AssistantInvocationCapture.liveScreenshotAllowed(context!!)) throw IOException("SCREENSHOT_UNAVAILABLE")
+            val image = AssistantCaptureBackend.decode(it, false)
+            try { AssistantInvocationCapture.storeLive(context!!, input.getString("requestId"), image) } finally { image.recycle() }
+        }
+        val request = JSONObject(input.toString()).put("liveScreenshot", true)
+        // A failed submission leaves no screenshot behind (a replay stores it again).
+        val receipt = try { submit(request) } catch (failure: Exception) {
+            AssistantInvocationCapture.discard(context!!, input.getString("requestId")); throw failure
+        }
+        AssistantInvocationCapture.settle(context!!, matters.services.liveScreenshotRequest(request), receipt)
+        return receipt
+    }
 
     private fun checkSubmit(thread: String) { matters.services.checkSubmit(thread) }
 

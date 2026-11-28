@@ -42,7 +42,7 @@ def verify(read, names, lock, aapt2=None):
         raise ValueError('Assistant audio routing permission policy differs')
     policy = read(POLICY)
     if policy != (HERE / 'permissions/org.agentos.audio.xml').read_bytes():
-        raise ValueError('Audio privileges differ from the approved five permissions')
+        raise ValueError('Audio privileges differ from the approved six permissions')
     for name in names:
         if name != POLICY and name.startswith('SYSTEM_EXT/etc/permissions/') and name.endswith('.xml'):
             if any(n.get('package') == 'org.agentos.audio' for n in ET.fromstring(read(name)).iter('privapp-permissions')):

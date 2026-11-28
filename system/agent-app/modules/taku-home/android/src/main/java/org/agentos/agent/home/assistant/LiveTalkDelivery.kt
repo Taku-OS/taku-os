@@ -45,16 +45,22 @@ internal class LiveTalkDelivery(context: Context, private val gateway: AgentGate
     }
   }
 
-  suspend fun submit(request: LiveRequest, allowed: () -> Boolean): LiveReceipt = withContext(worker) {
-    if (!allowed()) return@withContext LiveReceipt("notSent", code = "INPUT_REVOKED")
+  /** [screenshot], when present, is a read-only PNG of the shared screen sent through `live/sendMessage`; it is closed here. */
+  suspend fun submit(request: LiveRequest, allowed: () -> Boolean, screenshot: android.os.ParcelFileDescriptor? = null): LiveReceipt = withContext(worker) {
+    screenshot.use { submitNow(request, allowed, it) }
+  }
+
+  private fun submitNow(request: LiveRequest, allowed: () -> Boolean, screenshot: android.os.ParcelFileDescriptor?): LiveReceipt = run {
+    if (!allowed()) return@run LiveReceipt("notSent", code = "INPUT_REVOKED")
     if (unresolved(request.threadId).any { pending ->
         pending.text == request.text && lookup(pending).also { if (!it.pending) persist(pending, it) }.pending
-      }) return@withContext LiveReceipt("notSent", code = "UNKNOWN_DELIVERY")
-    if (!allowed()) return@withContext LiveReceipt("notSent", code = "INPUT_REVOKED")
+      }) return@run LiveReceipt("notSent", code = "UNKNOWN_DELIVERY")
+    if (!allowed()) return@run LiveReceipt("notSent", code = "INPUT_REVOKED")
     persist(request, LiveReceipt("deliveryUnknown"))
-    if (!allowed()) return@withContext LiveReceipt("notSent", code = "INPUT_REVOKED").also { persist(request, it) }
+    if (!allowed()) return@run LiveReceipt("notSent", code = "INPUT_REVOKED").also { persist(request, it) }
     val receipt = try {
-      gateway.call("sendMessage", request.arguments()).receipt(request)
+      if (screenshot == null) gateway.call("sendMessage", request.arguments()).receipt(request)
+      else gateway.call("live/sendMessage", request.arguments(), android.os.Bundle().apply { putParcelable("screenshot", screenshot) }).receipt(request)
     } catch (failure: Exception) {
       if (HomeComposer.deliveryCouldBeUnknown(failure)) LiveReceipt("deliveryUnknown")
       else LiveReceipt("notSent", code = (failure as? GatewayException)?.code)
@@ -73,6 +79,32 @@ internal class LiveTalkDelivery(context: Context, private val gateway: AgentGate
     gateway.call(method, request.taskArguments(taskId)).also {
       if (it.opt("taskId") != taskId) throw GatewayException("LIVE_TASK_MISMATCH", "The task ownership changed")
     }
+  }
+
+  /**
+   * Steers the exact running turn with the user's spoken change. The gateway persists the receipt
+   * first; a changed turn becomes the thread's next task, and an unknown delivery is never resent.
+   */
+  suspend fun steer(threadId: String, turnId: String, text: String, allowed: () -> Boolean): JSONObject = withContext(worker) {
+    if (!allowed()) throw GatewayException("INPUT_REVOKED", "The voice request is no longer current")
+    gateway.call("steer", JSONObject().put("threadId", threadId).put("text", text).put("expectedTurnId", turnId)
+      .put("requestId", UUID.randomUUID().toString()))
+  }
+
+  /** The pending native request (question, confirmation, approval) of [threadId]'s [turnId], if any. */
+  suspend fun pendingRequest(threadId: String, turnId: String?): JSONObject? = withContext(worker) {
+    val requests = gateway.call("readSession", JSONObject().put("threadId", threadId).put("statusOnly", true))
+      .optJSONObject("native")?.optJSONArray("requests") ?: return@withContext null
+    (0 until requests.length()).mapNotNull { requests.optJSONObject(it) }.firstOrNull { request ->
+      val params = request.optJSONObject("params")
+      params?.optString("threadId") == threadId && (turnId == null || params.optString("turnId").let { it.isEmpty() || it == turnId }) &&
+        request.optString("key").isNotBlank()
+    }
+  }
+
+  suspend fun answer(threadId: String, key: String, response: JSONObject, allowed: () -> Boolean): JSONObject = withContext(worker) {
+    if (!allowed()) throw GatewayException("INPUT_REVOKED", "The voice request is no longer current")
+    gateway.call("answer", JSONObject().put("threadId", threadId).put("key", key).put("response", response))
   }
 
   private fun lookup(request: LiveRequest): LiveReceipt = try {

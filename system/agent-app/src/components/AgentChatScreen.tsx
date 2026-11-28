@@ -11,6 +11,7 @@ import {VoiceIcon} from '../chat/VoiceIcon';
 import {AssistantBubble, ComposerGlassRim, GlassRim, QuickStarts} from '../chat/ChatSurfaces';
 import {useLiveTalk} from '../chat/useLiveTalk';
 import {liveLightStyle, shouldShowLiveLight} from '../chat/liveGlow';
+import {liveVideoLabel, liveVideoSupported, nextVideoSource} from '../chat/liveVideo';
 import * as Haptics from 'expo-haptics';
 import {colors as baseColors, containsChinese, layout, typography, type TypeRole} from '../theme';
 import {languageFor, textFor, type Language, type TextKey} from '../i18n';
@@ -635,9 +636,8 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     positions.current[viewKey] = {y: 0, follow: true};
     dispatchScroll({type: 'tappedToBottom'});
   };
-  const collapseChat = () => { cancelDictation(); stopReading(); live.stop(); (props.onCollapse ?? props.onClose)(); };
+  const collapseChat = () => { cancelDictation(); stopReading(); (props.onCollapse ?? props.onClose)(); };
   const openSidebar = () => {
-    live.stop();
     cancelDictation();
     stopReading();
     props.onOpenHistory?.();
@@ -646,16 +646,13 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     setLayer({kind: 'sidebar', opens: externalOpens});
   };
   const selectMainChat = () => {
-    live.stop();
     if (props.onSelectMainChat) props.onSelectMainChat();
     else if (mainThread) props.onSelectThread(mainThread.id);
   };
   const selectTaskThread = (id: string) => {
-    live.stop();
     props.onSelectThread(id);
   };
   const createIndependentTask = () => {
-    live.stop();
     (props.onCreateTaskThread ?? props.onCreateThread)();
   };
   const running = props.session?.running;
@@ -718,6 +715,7 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     : voice?.muted ? 'liveMicPaused' : voice?.playback.state === 'speaking' ? 'liveSpeaking'
     : voice?.capturing ? 'listening' : 'liveReady';
   const liveDisconnected = voice?.lifecycle === 'disconnected' || voice?.lifecycle === 'failed';
+  const videoSupported = liveVideoSupported(voice?.provider, voice?.lifecycle, voice?.muted);
   const beginLiveTalk = () => { void live.start().catch(error => onVoiceFailure(failureOf(error?.code))); };
   // Live Talk learns of a missing fal key only after it tried to connect: prompt once per failed attempt.
   const falPrompted = useRef<string | null>(null);
@@ -1001,13 +999,20 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
         {liveFalKeyMissing && <Label role="meta" style={[styles.center, styles.secondary]}>{ct('liveFalKeyMissing')}</Label>}
         {liveFalKeyMissing &&
           <Pressable testID="live-talk-add-fal-key" accessibilityRole="button" onPress={() => { openAiSetup('fal'); }}><Label role="label">{ct('addFalKey')}</Label></Pressable>}
+        {!!voice.standbyState && voice.standbyState !== 'active' &&
+          <Label role="meta" style={[styles.center, styles.secondary]}>{ct(voice.standbyState === 'cold_standby' ? 'liveStandbyCold' : 'liveStandbyHot')}</Label>}
+        {!!voice.video && voice.video.source !== 'none' &&
+          <Label role="meta" style={[styles.center, styles.secondary]}>{ct(voice.video.masked ? 'liveVideoMasked' : voice.video.source === 'screen' ? 'liveVideoSharingScreen' : 'liveVideoSharingCamera')}</Label>}
         {liveDisconnected &&
           <Pressable testID="live-talk-reconnect" accessibilityRole="button" onPress={beginLiveTalk}><Label role="label">{ct('liveReconnect')}</Label></Pressable>}
       </View>
       <View style={styles.liveControls}>
         <View style={styles.liveControlGroup}>
           <Pressable accessibilityRole="button" accessibilityLabel="More tools" onPress={openSidebar} style={styles.liveControl}><VoiceIcon name="plusLive"/></Pressable>
-          <View accessibilityRole="button" accessibilityLabel="Video input unavailable" accessibilityState={{disabled: true}} style={[styles.liveControl, {opacity: 0.45}]}><VoiceIcon name="video"/></View>
+          <Pressable testID="live-talk-video" accessibilityRole="button" accessibilityLabel={ct(liveVideoLabel(voice.video?.source ?? 'none', videoSupported))}
+            accessibilityState={{disabled: !videoSupported, selected: !!voice.video?.active}} disabled={!videoSupported}
+            onPress={() => { void live.setVideo(nextVideoSource(voice.video?.source ?? 'none')).catch(error => onVoiceFailure(failureOf(error?.code))); }}
+            style={[styles.liveControl, !videoSupported && {opacity: 0.45}, !!voice.video?.active && {backgroundColor: 'rgba(255,255,255,0.92)'}]}><VoiceIcon name="video"/></Pressable>
         </View>
         <View style={styles.liveControlGroup}>
           <Pressable testID="live-talk-mic" accessibilityRole="button" accessibilityLabel={ct(voice.muted ? 'liveMicResume' : 'liveMicPause')}
@@ -1076,9 +1081,9 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
         taskStates={tasks.board.states} historyError={props.historyError} insets={insets}
         imeBottom={keyboardVisible ? space.bottom : insets.bottom}
         actions={{
-          openThread: id => { live.stop(); setLayer(null); selectTaskThread(id); },
-          openMainChat: () => { live.stop(); setLayer(null); if (!isMainChat) selectMainChat(); },
-          newChat: () => { live.stop(); setLayer(null); createIndependentTask(); },
+          openThread: id => { setLayer(null); selectTaskThread(id); },
+          openMainChat: () => { setLayer(null); if (!isMainChat) selectMainChat(); },
+          newChat: () => { setLayer(null); createIndependentTask(); },
           openSettings: () => { setLayer(null); router.push('/system-ai'); },
           openPanels: () => { setLayer(null); router.push('/panels'); },
           openPlugins: () => { setLayer(null); router.push('/plugin-market'); },

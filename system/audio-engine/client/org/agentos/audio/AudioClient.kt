@@ -11,6 +11,8 @@ class AudioClient(context: Context, private val listener: Listener) : AutoClosea
         fun connected()
         fun event(event: String)
         fun failed(message: String)
+        /** A response that carries a file (a Live Talk screen snapshot); the receiver owns and closes it. */
+        fun file(id: String, descriptor: android.os.ParcelFileDescriptor) { runCatching { descriptor.close() } }
     }
     private val context = context.applicationContext
     private var service: Messenger? = null
@@ -22,6 +24,7 @@ class AudioClient(context: Context, private val listener: Listener) : AutoClosea
         if(!bound)return@Handler true
         val raw=message.data.getString("json", "{}")
         val value=JSONObject(raw)
+        message.data.getParcelable("file", android.os.ParcelFileDescriptor::class.java)?.let { listener.file(value.optString("id"), it) }
         if(value.optString("type")=="response" && value.optString("id")==handshakeId) {
             if(value.optBoolean("ok") && value.getJSONObject("result").optBoolean("configured")) listener.connected()
             else if(++readinessChecks<30) main.postDelayed({ if(bound) handshake() },100)

@@ -9,7 +9,8 @@ import org.json.JSONObject
 import java.util.UUID
 
 /** Bound audio host. Messenger provides Binder caller UID and client-death tracking. */
-class AudioEngineService : Service() {
+class AudioEngineService : Service(), LiveVideoHost {
+    private companion object { const val LIVE_LISTENING="Listening · speak to continue, or end here" }
     private val main = Handler(Looper.getMainLooper())
     private val clients = mutableMapOf<IBinder, Pair<String,IBinder.DeathRecipient>>()
     private val runtime = AudioRuntime(clock={SystemClock.elapsedRealtime()}) { request ->
@@ -17,6 +18,7 @@ class AudioEngineService : Service() {
             "LIVE_TALK" -> when (request.profileId) {
                 AudioProfiles.LIVE_GEMINI -> GeminiLiveDriver(this, request)
                 AudioProfiles.LIVE_GROK -> GrokLiveDriver(this, request)
+                AudioProfiles.LIVE_MOSS -> MossLiveDriver(this, request)
                 else -> throw AudioFailure("UNSUPPORTED_PROFILE", "Choose a Live Talk provider")
             }
             "SPEAK" -> KokoroDriver(this, request)
@@ -28,7 +30,7 @@ class AudioEngineService : Service() {
     private val dictationResolver by lazy { DictationResolver(this) }
     private class PendingRead(val operation: EngineConfig.Control,var failure: AudioFailure?=null)
     private val pendingReads=mutableMapOf<IBinder,MutableSet<PendingRead>>()
-    private var speechSession: String?=null
+    @Volatile private var speechSession: String?=null
     private var config: JSONObject? = null
     private val hostClosed = object : android.content.BroadcastReceiver() { override fun onReceive(context: android.content.Context, intent: Intent) { if(intent.action=="org.agentos.audio.STOP_PLAYBACK")runtime.revoke("canceled")else closeHostSessions() } }
     private lateinit var cli: AudioSocket
@@ -58,6 +60,8 @@ class AudioEngineService : Service() {
         if(!next.optBoolean("enabled") || !next.optBoolean("audioEnabled"))runtime.revoke("POLICY_REVOKED")
         if(next.optJSONObject("fal")?.optBoolean("configured")!=true)runtime.revokeProfiles(AudioProfiles.fal,"PROVIDER_REMOVED")
         if(!geminiConfigured(next))runtime.revokeProfiles(setOf(AudioProfiles.LIVE_GEMINI),"PROVIDER_REMOVED")
+        if(!mossConfigured(next))runtime.revokeProfiles(setOf(AudioProfiles.LIVE_MOSS),"PROVIDER_REMOVED")
+        LiveStandbyPolicy.current=AudioLiveStandby.from(next.optJSONObject("live")?.optJSONObject("standby"))
         for((binder,value) in clients.toMap()) {
             val uid=value.first.substringBefore(':').toInt()
             if(!allowedConfig(uid)) {
@@ -72,6 +76,14 @@ class AudioEngineService : Service() {
 
     private fun geminiConfigured(snapshot: JSONObject?): Boolean =
         snapshot?.optJSONObject("live")?.optJSONObject("gemini")?.optBoolean("configured") == true
+    private fun mossConfigured(snapshot: JSONObject?): Boolean =
+        snapshot?.optJSONObject("live")?.optJSONObject("moss")?.optBoolean("configured") == true
+
+    private fun liveConfigured(snapshot: JSONObject?): Boolean = when(liveProfile(snapshot)) {
+        AudioProfiles.LIVE_GEMINI -> geminiConfigured(snapshot)
+        AudioProfiles.LIVE_MOSS -> mossConfigured(snapshot)
+        else -> snapshot?.optJSONObject("fal")?.optBoolean("configured") == true
+    }
     private fun cancelPendingReads(binder: IBinder,code: String) {
         pendingReads[binder]?.forEach { pending ->
             if(pending.failure==null)pending.failure=AudioFailure(code,"Audio configuration is no longer valid")
@@ -157,6 +169,7 @@ class AudioEngineService : Service() {
                     val needsFal = liveProfile == AudioProfiles.LIVE_GROK || media && (selectedProfile in AudioProfiles.fal || call && outgoingProfile in AudioProfiles.fal)
                     if(needsFal && snapshot?.optJSONObject("fal")?.optBoolean("configured")!=true)throw AudioFailure("PROVIDER_NOT_CONFIGURED","Add a fal Key in Taku Audio first")
                     if(liveProfile == AudioProfiles.LIVE_GEMINI && !geminiConfigured(snapshot))throw AudioFailure("PROVIDER_NOT_CONFIGURED","Add a Gemini Live key in Taku Audio first")
+                    if(liveProfile == AudioProfiles.LIVE_MOSS && !mossConfigured(snapshot))throw AudioFailure("PROVIDER_NOT_CONFIGURED","Add a MOSS API key in Taku Audio first")
                     val voice=if(purpose=="SPEAK" || media)params.optString("voiceId",if(purpose=="SPEAK" || hybrid)defaults?.optString("voiceId") ?: "" else "")else ""
                     val speed=if(purpose=="SPEAK" || hybrid)params.optDouble("speed",defaults?.optDouble("speed",1.0) ?: 1.0).toFloat()else 1f
                     if(purpose=="DICTATION" || purpose=="LIVE_TALK") {
@@ -178,8 +191,9 @@ class AudioEngineService : Service() {
                     if(purpose=="SPEAK" || media || purpose=="LIVE_TALK")showPlaybackNotification(if(purpose=="LIVE_TALK")"Taku Live Talk" else if(call)"Taku is translating this call in both directions" else if(media)"Taku is translating video audio" else if(request.interruptible)"Taku is reading and listening for interruptions"else "Taku is reading",call || request.interruptible || purpose=="LIVE_TALK")
                     val id=try {runtime.open(owner,request,{ event -> main.post {
                         send(reply,event.json())
-                        if(event.type=="Closed" && speechSession==event.sessionId){speechSession=null;stopForeground(STOP_FOREGROUND_REMOVE)}
-                    } },params.optString("requestKey"),resolved?.metadata)}catch(e: Exception){if(speechSession==null)stopForeground(STOP_FOREGROUND_REMOVE);throw e}
+                        if(event.type=="Closed" && speechSession==event.sessionId){speechSession=null;endForeground()}
+                        else if(speechSession==event.sessionId)event.live?.let(::liveNotification)
+                    } },params.optString("requestKey"),resolved?.metadata)}catch(e: Exception){if(speechSession==null)endForeground();throw e}
                     if((purpose=="SPEAK" || media || purpose=="LIVE_TALK") && runtime.status(owner,id).phase!=AudioPhase.Closed)speechSession=id
                     sessionInfo(owner,id).put("generation",id).put("phase",runtime.status(owner,id).phase.name)
                 }
@@ -195,6 +209,11 @@ class AudioEngineService : Service() {
                 "audio.live.text" -> {runtime.live(owner,params.getString("sessionId"),LiveAudioCommand.Text(params.getString("text")));JSONObject()}
                 "audio.live.result" -> {runtime.live(owner,params.getString("sessionId"),LiveAudioCommand.Result(params.getString("offerId"),params.getString("afterInput"),params.getString("text")));JSONObject()}
                 "audio.live.tool" -> {runtime.live(owner,params.getString("sessionId"),LiveAudioCommand.ToolResult(params.getString("callId"),params.getString("result")));JSONObject()}
+                "audio.live.video" -> {runtime.live(owner,params.getString("sessionId"),LiveAudioCommand.SetVideo(params.getString("source")));JSONObject()}
+                "audio.live.keyframe" -> {runtime.live(owner,params.getString("sessionId"),LiveAudioCommand.RequestKeyframe(params.getString("reason")));JSONObject()}
+                "audio.live.context" -> {runtime.live(owner,params.getString("sessionId"),LiveAudioCommand.ContextNote(params.getString("text")));JSONObject()}
+                "audio.live.standby" -> {runtime.live(owner,params.getString("sessionId"),LiveAudioCommand.SetStandby(params.getString("mode")));JSONObject()}
+                "audio.live.snapshot" -> { snapshot(reply,requestId,owner,params.getString("sessionId"));return }
                 "audio.session.status" -> { val id=params.getString("sessionId");val data=runtime.status(owner,id).json().getJSONObject("data");val info=sessionInfo(owner,id);info.keys().forEach{key->data.put(key,info.get(key))};data }
                 else -> throw AudioFailure("METHOD_NOT_FOUND","Audio method is not implemented")
             }
@@ -228,6 +247,35 @@ class AudioEngineService : Service() {
             }
         },"audio-settings-read").start()
     }
+    /**
+     * One PNG of the screen the caller's MOSS-Live session is sharing, for a delegated task. The reply
+     * carries a read-only pipe in `file`; pixels never travel as JSON. Refused unless that session is
+     * sharing an unmasked screen, the device is unlocked and assistant screenshots are allowed.
+     */
+    private fun snapshot(reply: Messenger,requestId: String,owner: String,id: String) {
+        val request=runtime.request(owner,id)
+        if(request.purpose!="LIVE_TALK" || request.profileId!=AudioProfiles.LIVE_MOSS || runtime.status(owner,id).phase!=AudioPhase.Running)
+            throw AudioFailure("SESSION_CHANGED","Live Talk is not running")
+        if(!MossLiveDriver.screenShared)throw AudioFailure("SCREENSHOT_UNAVAILABLE","Share the screen in Live Talk first")
+        if(getSystemService(android.app.KeyguardManager::class.java).isKeyguardLocked || !getSystemService(PowerManager::class.java).isInteractive)
+            throw AudioFailure("DEVICE_LOCKED","Unlock the device first")
+        if(android.provider.Settings.Secure.getInt(contentResolver,"assist_screenshot_enabled",1)==0)
+            throw AudioFailure("SCREENSHOT_UNAVAILABLE","Assistant screenshots are turned off")
+        Thread({
+            try {
+                val file=LiveVideoIo.snapshot(this)
+                main.post {
+                    try {
+                        reply.send(Message.obtain(null,1).apply { data=Bundle().apply {
+                            putString("json",JSONObject().put("protocol","taku/0.1").put("type","response").put("id",requestId).put("ok",true)
+                                .put("result",JSONObject().put("format","png")).toString())
+                            putParcelable("file",file)
+                        } })
+                    } catch(_: RemoteException) { } finally { runCatching { file.close() } }
+                }
+            } catch(e: Exception) { main.post { respondFailure(reply,requestId,e) } }
+        },"audio-live-snapshot").start()
+    }
     private fun respond(reply: Messenger,id: String,result: JSONObject) {
         send(reply,JSONObject().put("protocol","taku/0.1").put("type","response").put("id",id).put("ok",true).put("result",result))
     }
@@ -247,11 +295,81 @@ class AudioEngineService : Service() {
     private fun showPlaybackNotification(title: String,microphone: Boolean=false) {
         val notifications=getSystemService(android.app.NotificationManager::class.java)
         notifications.createNotificationChannel(android.app.NotificationChannel("audio-reading","Read aloud",android.app.NotificationManager.IMPORTANCE_LOW))
+        val live=title=="Taku Live Talk"
+        val notification=foregroundNotification(title,if(live)LIVE_LISTENING else "Tap to stop",live)
+        synchronized(foregroundLock) {
+            foreground=notification;foregroundTitle=title;foregroundMicrophone=microphone;foregroundCamera=false;foregroundProjection=false
+            liveStandbyText=LIVE_LISTENING;liveVideoText=null
+            startForeground(100,notification,foregroundTypes())
+        }
+    }
+    private fun foregroundNotification(title: String,text: String,live: Boolean): android.app.Notification {
         val stop=android.app.PendingIntent.getBroadcast(this,1,Intent("org.agentos.audio.STOP_PLAYBACK").setPackage(packageName),android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT)
-        val notification=android.app.Notification.Builder(this,"audio-reading").setSmallIcon(android.R.drawable.ic_lock_silent_mode_off)
-            .setContentTitle(title).setContentText("Tap to stop").setOngoing(true)
+        // Live Talk keeps running on the lock screen; its notification shows only non-private status there.
+        return android.app.Notification.Builder(this,"audio-reading").setSmallIcon(android.R.drawable.ic_lock_silent_mode_off)
+            .setContentTitle(title).setContentText(text).setOngoing(true).setOnlyAlertOnce(true)
+            .setVisibility(if(live)android.app.Notification.VISIBILITY_PUBLIC else android.app.Notification.VISIBILITY_PRIVATE)
             .addAction(android.app.Notification.Action.Builder(null,"Stop",stop).build()).build()
-        startForeground(100,notification,android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK or if(microphone)android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0)
+    }
+    /** Guards the foreground notification and its types; the video thread and the main thread both change them. */
+    private val foregroundLock=Any()
+    private var foreground: android.app.Notification?=null
+    private var foregroundTitle=""
+    private var foregroundMicrophone=false
+    private var foregroundCamera=false
+    private var foregroundProjection=false
+    private var liveStandbyText=LIVE_LISTENING
+    private var liveVideoText: String?=null
+    private fun foregroundTypes()=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK or
+        (if(foregroundMicrophone)android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0) or
+        (if(foregroundCamera)android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA else 0) or
+        (if(foregroundProjection)android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION else 0)
+    /** Leaves the foreground; afterwards no late video callback can bring the notification back. */
+    private fun endForeground() {
+        synchronized(foregroundLock) {
+            foreground=null;foregroundCamera=false;foregroundProjection=false;liveVideoText=null
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        }
+    }
+    /**
+     * Adds the camera or media-projection foreground type only while that capture runs and drops it
+     * as soon as it stops. Once the session's foreground has ended this never starts it again: a
+     * request to add a type fails, and a request to drop one is a no-op.
+     */
+    override fun videoForeground(camera: Boolean,projection: Boolean) {
+        synchronized(foregroundLock) {
+            if(foreground==null || speechSession==null) {
+                if(camera || projection)throw AudioFailure("SESSION_CHANGED","Live Talk has ended")
+                return
+            }
+            foregroundCamera=camera;foregroundProjection=projection
+            try { startForeground(100,foreground!!,foregroundTypes()) }
+            catch(e: Exception) {
+                foregroundCamera=false;foregroundProjection=false
+                runCatching { startForeground(100,foreground!!,foregroundTypes()) }
+                if(camera || projection)throw AudioFailure("PERMISSION_DENIED","Video capture is not allowed right now")
+            }
+        }
+    }
+    /** Keeps the lock-screen notification true to what Live Talk is doing, without private content. */
+    private fun liveNotification(event: LiveAudioEvent) {
+        synchronized(foregroundLock) {
+            if(foreground==null || foregroundTitle!="Taku Live Talk")return
+            when(event) {
+                is LiveAudioEvent.Standby -> liveStandbyText=when {
+                    event.state==LiveStandbyPolicy.HOT -> "Standing by · speak to continue"
+                    event.state==LiveStandbyPolicy.COLD && event.reason=="call" -> "Paused for a call"
+                    event.state==LiveStandbyPolicy.COLD && event.reason=="media" -> "Paused while media plays"
+                    event.state==LiveStandbyPolicy.COLD -> "Standing by on this phone · speak to reconnect"
+                    else -> LIVE_LISTENING
+                }
+                is LiveAudioEvent.Video -> liveVideoText=if(!event.active)null else if(event.source=="camera")"Camera on" else "Sharing your screen"
+                else -> return
+            }
+            val notification=foregroundNotification(foregroundTitle,listOfNotNull(liveVideoText,liveStandbyText).joinToString(" · "),true)
+            foreground=notification
+            runCatching { getSystemService(android.app.NotificationManager::class.java).notify(100,notification) }
+        }
     }
     private fun capabilities(uid: Int,owner: String,filter: JSONObject,snapshot: JSONObject?=config): JSONObject {
         val dictationView=dictationResolver.inspect(snapshot ?: JSONObject())
@@ -329,6 +447,7 @@ class AudioEngineService : Service() {
                     val configured=when {
                         profile in AudioProfiles.fal -> fal
                         profile==AudioProfiles.LIVE_GEMINI -> geminiConfigured(snapshot)
+                        profile==AudioProfiles.LIVE_MOSS -> mossConfigured(snapshot)
                         profile=="local-hybrid" -> textConfigured
                         else -> true
                     }
@@ -347,7 +466,10 @@ class AudioEngineService : Service() {
             .put("requiresMicrophone",true).put("readyRecognitionLanguages",languages).put("qualityVerified",false)
         return JSONObject().put("speechInterruption",interruption).put("availability",availability).put("permissions",permissions).put("consumerAuthorized",authorizedConsumer(uid,snapshot))
             .put("dictation",JSONObject().put("assistant-entry",dictationView.toJson()))
-            .put("live",JSONObject().put("configured",if(liveProfile(snapshot)==AudioProfiles.LIVE_GEMINI)geminiConfigured(snapshot) else fal).put("profileId",liveProfile(snapshot)).put("echoCancelerAvailable",android.media.audiofx.AcousticEchoCanceler.isAvailable()).put("qualityVerified",false))
+            .put("live",JSONObject().put("configured",liveConfigured(snapshot)).put("profileId",liveProfile(snapshot)).put("echoCancelerAvailable",android.media.audiofx.AcousticEchoCanceler.isAvailable()).put("qualityVerified",false)
+                .put("video",JSONObject().put("providers",org.json.JSONArray().put(AudioProfiles.LIVE_MOSS))
+                    .put("screen",if(checkSelfPermission(LiveVideoIo.CAPTURE_VIDEO_OUTPUT)==PackageManager.PERMISSION_GRANTED)"system" else "consent")
+                    .put("cameraPermission",checkSelfPermission("android.permission.CAMERA")==PackageManager.PERMISSION_GRANTED)))
             .put("resourceState",JSONObject().put("busy",resource.busy).put("purpose",resource.purpose).put("profileId",resource.profileId).put("phase",resource.phase?.name ?: "Idle")
                 .put("ownedByCaller",resource.ownedByCaller).put("previousRestoreConfirmed",resource.previousRestoreConfirmed ?: JSONObject.NULL))
             .put("availabilityScope","Local prerequisites only; source, remote authorization and connectivity are checked at open")
@@ -367,5 +489,5 @@ class AudioEngineService : Service() {
         pendingReads.remove(binder)?.forEach{it.operation.close()}
         clients.remove(binder)?.let { (owner,death) -> runtime.disconnect(owner); binder.unlinkToDeath(death,0) }
     }
-    override fun onDestroy() { unregisterReceiver(hostClosed);cli.close();configuration.close(); runtime.revoke("SERVICE_STOPPED"); clients.keys.toList().forEach(::disconnect); super.onDestroy() }
+    override fun onDestroy() { endForeground();unregisterReceiver(hostClosed);cli.close();configuration.close(); runtime.revoke("SERVICE_STOPPED"); clients.keys.toList().forEach(::disconnect); super.onDestroy() }
 }

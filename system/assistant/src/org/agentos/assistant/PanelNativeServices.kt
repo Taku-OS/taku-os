@@ -41,7 +41,12 @@ internal class PanelNativeServices(private val context: Context) {
     fun checkScreenshot(input: JSONObject) = AssistantInvocationCapture.check(context, input)
     fun appendScreenshot(input: JSONObject, content: JSONArray) = AssistantInvocationCapture.append(context, input, content)
     fun submit(input: JSONObject): JSONObject = submissions.submit(input.getString("requestId"), input.getString("threadId"), input.getString("text"),
-        { checkSubmit(input.getString("threadId")); checkScreenshot(input) }, { before -> publish(input, before) })
+        { checkSubmit(input.getString("threadId")); checkScreenshot(liveScreenshotRequest(input)) }, { before -> publish(input, before) })
+    /** A Live Talk request with a stored screenshot reads it through the same screenshot options as an invocation. */
+    fun liveScreenshotRequest(input: JSONObject): JSONObject = if (!input.optBoolean("liveScreenshot")) input
+        else JSONObject(input.toString()).put("options", liveOptions(input.getString("requestId")))
+    private fun liveOptions(requestId: String) = JSONObject().put("includeScreenshot", true)
+        .put("invocationScreenshot", requestId).put("invocationForeground", "Shared screen")
     fun publish(input: JSONObject, before: TaskRequests.BeforePublish): String {
         val thread = input.getString("threadId")
         val prefs = preferences()
@@ -53,7 +58,8 @@ internal class PanelNativeServices(private val context: Context) {
         if (input.optBoolean("requireConfirmation")) options.put("permissionMode", "ask")
         if (input.has("panelUpdate")) options.put("panelUpdate", input.getJSONObject("panelUpdate"))
         if (input.has("panelContext")) options.put("panelContext", input.getString("panelContext"))
-        val image = AssistantInvocationCapture.image(context, input)
+        if (input.optBoolean("liveScreenshot")) liveOptions(input.getString("requestId")).let { live -> live.keys().forEach { options.put(it, live.get(it)) } }
+        val image = AssistantInvocationCapture.image(context, liveScreenshotRequest(input))
         try {
             return TaskRequests.submit(input.getString("text"), options.optString("invocationForeground", "Taku Agent"), image, thread, options) { task ->
                 before.persist(task)

@@ -23,7 +23,7 @@ class RomModelsProbe : Instrumentation() {
             val models = ModelResources.root(context)
             check(models.path == "/system_ext/etc/taku-audio/models")
             val permissions = listOf("CAPTURE_AUDIO_OUTPUT", "MODIFY_AUDIO_ROUTING", "CALL_AUDIO_INTERCEPTION",
-                "BYPASS_CONCURRENT_RECORD_AUDIO_RESTRICTION", "START_FOREGROUND_SERVICES_FROM_BACKGROUND")
+                "BYPASS_CONCURRENT_RECORD_AUDIO_RESTRICTION", "START_FOREGROUND_SERVICES_FROM_BACKGROUND", "CAPTURE_VIDEO_OUTPUT")
             val unsupported = mutableListOf<String>()
             val granted = mutableListOf<String>()
             for (permission in permissions) {
@@ -70,7 +70,7 @@ class RomModelsProbe : Instrumentation() {
                 }
             }
             report.put("passed", true).put("apk", context.applicationInfo.sourceDir).put("modelRoot", models.path)
-                .put("modelFilesVerified", entries.length()).put("privilegedPermissions", JSONArray(granted)).put("platformUnsupportedPermissions", JSONArray(unsupported)).put("allFivePermissionsVerified", unsupported.isEmpty())
+                .put("modelFilesVerified", entries.length()).put("privilegedPermissions", JSONArray(granted)).put("platformUnsupportedPermissions", JSONArray(unsupported)).put("allPrivilegedPermissionsVerified", unsupported.isEmpty())
                 .put("results", results).put("privateModelsAbsent", true)
         } catch (error: Throwable) {
             report.put("error", error.javaClass.simpleName).put("message", error.message?.take(250))

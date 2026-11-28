@@ -40,6 +40,8 @@ internal class AgentGatewayProtocol private constructor() {
         const val LIVE_TASK_READ = "live/task-read"
         const val LIVE_TASK_REPLACE = "live/task-replace"
         const val LIVE_TASK_CANCEL = "live/task-cancel"
+        /** `sendMessage` from Live Talk with the shared screen as a read-only PNG descriptor in extras `screenshot`. */
+        const val LIVE_SEND_MESSAGE = "live/sendMessage"
         private val DRAFT_ACTIONS: Set<String> = java.util.Set.of(COMPOSER_READ, COMPOSER_WRITE, COMPOSER_IMPORT, COMPOSER_MOVE)
         private val UUID_PATTERN = Pattern.compile("[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}")
         @JvmField val ACTIONS: Set<String> = java.util.Set.of("listThreads", "readSession", "createThread",
@@ -57,7 +59,7 @@ internal class AgentGatewayProtocol private constructor() {
             COMPOSER_READ, COMPOSER_WRITE, COMPOSER_IMPORT, COMPOSER_MOVE, COMPOSER_RECEIPT, COMPOSER_ATTACH,
             COMPOSER_REMOVE, COMPOSER_PLUGIN_ADD, COMPOSER_PLUGIN_REMOVE, COMPOSER_OPTIONS_READ, COMPOSER_OPTIONS_WRITE, COMPOSER_SUBMIT, COMPOSER_SETTLE, COMPOSER_RELEASE,
             COMPOSER_HANDOFF, COMPOSER_RESTORE, COMPOSER_RESTORE_TASK, COMPOSER_CREATE_THREAD, COMPOSER_PRESERVE_DRAFT,
-            LIVE_TASK_READ, LIVE_TASK_REPLACE, LIVE_TASK_CANCEL,
+            LIVE_TASK_READ, LIVE_TASK_REPLACE, LIVE_TASK_CANCEL, LIVE_SEND_MESSAGE,
             "connectChatGpt", "cancelChatGpt", "readJev", "connectJev", "enableJev")
         @JvmField val QUESTIONS: Set<String> = java.util.Set.of("phone/askUser", "phone/confirmAction",
             "phone/action/requestApproval", "item/tool/requestUserInput")
@@ -229,7 +231,7 @@ internal class AgentGatewayProtocol private constructor() {
                 "audioCommand" -> java.util.Set.of("matterId", "requestId", "operation", "sessionId", "purpose", "language", "profileId", "targetLanguage", "targetPackage", "recordAudio")
                 "getWorkspaces" -> if (input.has("scope")) java.util.Set.of("scope") else java.util.Set.of("threadId")
                 "resumeThread" -> java.util.Set.of("threadId")
-                "sendMessage" -> java.util.Set.of("threadId", "text", "requestId")
+                "sendMessage", LIVE_SEND_MESSAGE -> java.util.Set.of("threadId", "text", "requestId")
                 "steer" -> java.util.Set.of("threadId", "text", "expectedTurnId", "requestId")
                 "interrupt" -> java.util.Set.of("threadId", "turnId")
                 "cancelQueued" -> java.util.Set.of("threadId", "taskId")

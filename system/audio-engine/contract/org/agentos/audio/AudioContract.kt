@@ -21,16 +21,32 @@ sealed interface LiveAudioEvent {
     data class Output(val responseId: String, val text: String, val final: Boolean) : LiveAudioEvent
     data class Playback(val responseId: String, val state: String) : LiveAudioEvent
     data class ResponseDone(val responseId: String, val itemId: String) : LiveAudioEvent
-    data class Tool(val callId: String, val itemId: String, val action: String, val text: String) : LiveAudioEvent
+    /** [args] is the provider's complete argument object as JSON (e.g. `taskId`, `optionIndex`). */
+    data class Tool(val callId: String, val itemId: String, val action: String, val text: String, val args: String = "{}") : LiveAudioEvent
     data class Mic(val muted: Boolean) : LiveAudioEvent
     data class Speech(val active: Boolean) : LiveAudioEvent
     data class TaskResult(val offerId: String, val sent: Boolean) : LiveAudioEvent
+    /**
+     * Video sharing state. [source] is `none`, `screen` or `camera`; [masked] means frames are
+     * withheld for privacy (locked device); [reason] explains a stop (`DEVICE_LOCKED`,
+     * `NETWORK_THROTTLED`, `VIDEO_UNSUPPORTED`, `PERMISSION_DENIED`, `CAPTURE_FAILED`, ...).
+     */
+    data class Video(val source: String, val active: Boolean, val masked: Boolean = false, val reason: String = "") : LiveAudioEvent
+    /** [state] is `active`, `hot_standby` or `cold_standby`; [reason] says why it changed (`quiet`, `speech_wake`, `task_event`, `manual`, `locked`, ...). */
+    data class Standby(val state: String, val reason: String) : LiveAudioEvent
 }
 sealed interface LiveAudioCommand {
     data class Mute(val muted: Boolean) : LiveAudioCommand
     data class Text(val text: String) : LiveAudioCommand
     data class ToolResult(val callId: String, val result: String) : LiveAudioCommand
     data class Result(val offerId: String, val afterInput: String, val text: String) : LiveAudioCommand
+    /** Share `screen` or `camera` frames with the provider, or `none` to stop. */
+    data class SetVideo(val source: String) : LiveAudioCommand
+    data class RequestKeyframe(val reason: String) : LiveAudioCommand
+    /** Context for the model that must not prompt a reply (background task progress). */
+    data class ContextNote(val text: String) : LiveAudioCommand
+    /** `hot` or `cold` enters that standby now; `wake` returns to active. */
+    data class SetStandby(val mode: String) : LiveAudioCommand
 }
 data class LiveHistoryTurn(val role: String, val text: String)
 data class DictationBackend(
@@ -85,7 +101,8 @@ interface AudioDriver {
 object AudioProfiles {
     const val LIVE_GROK = "fal-grok"
     const val LIVE_GEMINI = "gemini-live"
-    val live = setOf(LIVE_GROK, LIVE_GEMINI)
+    const val LIVE_MOSS = "moss-live"
+    val live = setOf(LIVE_GROK, LIVE_GEMINI, LIVE_MOSS)
     val dictation: Map<String,DictationBackend> = linkedMapOf(
         "zipformer" to DictationBackend("zipformer",listOf("zh-CN","en-US"),"LOCAL",true,false,null,5000),
         "fal-whisper" to DictationBackend("fal-whisper",listOf("zh-CN","en-US"),"CLOUD_AUDIO",false,true,60000,100000),
