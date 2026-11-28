@@ -73,7 +73,7 @@ class FixedPatch(unittest.TestCase):
         signer='Verifies\nNumber of signers: 1\nSigner #1 certificate SHA-256 digest: '+certificate+'\n'
         def badging(version):return "package: name='org.lineageos.updater' versionCode='"+str(version)+"'\nminSdkVersion:'37'\ntargetSdkVersion:'37'\n"
         with mock.patch.object(PATCH.ssl,'PEM_cert_to_DER_cert',return_value=b'fixture DER, not crypto acceptance'):
-            for version in (2,3,4,5,6,7,8,9,10):
+            for version in (2,3,4,5,6,7,8,9,10,11):
                 with self.subTest(version=version),mock.patch.object(PATCH.subprocess,'check_output',side_effect=[badging(version),signer]):
                     record=PATCH.verify_apk_bytes(self.root,apk,self.results/str(version),'org.lineageos.updater',version,'a'*64)
                     self.assertEqual(record['versionCode'],version)
@@ -83,7 +83,7 @@ class FixedPatch(unittest.TestCase):
                 PATCH.verify_apk_bytes(self.root,apk,self.results/'wrong-version','org.lineageos.updater',4,'a'*64)
             with mock.patch.object(PATCH.subprocess,'check_output',side_effect=[badging(4),signer.replace(certificate,'b'*64)]),self.assertRaises(ValueError):
                 PATCH.verify_apk_bytes(self.root,apk,self.results/'wrong-signer','org.lineageos.updater',4,'a'*64)
-        for version in (0,1,11,True,4.0,'4'):
+        for version in (0,1,12,True,4.0,'4'):
             with self.subTest(invalid=version),mock.patch.object(PATCH.subprocess,'check_output') as tool,self.assertRaisesRegex(ValueError,'Invalid APK verification contract'):
                 PATCH.verify_apk_bytes(self.root,apk,self.results/'invalid','org.lineageos.updater',version,'a'*64)
             tool.assert_not_called()

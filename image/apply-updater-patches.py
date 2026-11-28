@@ -162,7 +162,7 @@ def verify_apk(source_root, apk, results, manifest_path=None):
 def verify_apk_bytes(source_root, apk, results, package_name, version_code, manifest_sha256):
     """Byte/signature inspection only; callers must first verify their strict source contract."""
     source_root, apk, results = map(pathlib.Path, (source_root, apk, results))
-    require(package_name == "org.lineageos.updater" and type(version_code) is int and version_code in (2, 3, 4, 5, 6, 7, 8, 9, 10)
+    require(package_name == "org.lineageos.updater" and type(version_code) is int and version_code in (2, 3, 4, 5, 6, 7, 8, 9, 10, 11)
             and re.fullmatch(r"[0-9a-f]{64}", manifest_sha256) is not None
             and apk.is_file() and not apk.is_symlink(), "Invalid APK verification contract")
     host = source_root / "out/host/linux-x86/bin"

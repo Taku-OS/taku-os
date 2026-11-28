@@ -24,6 +24,7 @@ PREVIOUS_V6_MANIFEST_SHA256 = "ef99e40ea93a8447dea3be30f452b145b50710b558eb45ecd
 PREVIOUS_V7_MANIFEST_SHA256 = "3a7e54055e746b9aa73344c63bc51e70926e99a5a246546bde3326b3a84950a1"
 PREVIOUS_V8_MANIFEST_SHA256 = "8683488928f554adca15c0f23b08928158948a543da11c9aa44844a29b11be77"
 PREVIOUS_V9_MANIFEST_SHA256 = "1afa7939afb7bd819906b9933f946c79f7696cc08aa78c9ee44f50e62a218b40"
+PREVIOUS_V10_MANIFEST_SHA256 = "89eb70b046b22c92f390f50e900260dd737e4dfc59fb5448f02848c7b26f0a36"
 TARGETS = {
     "packages/apps/Updater": (BASE["UPSTREAM"], {
         "app/src/main/AndroidManifest.xml", "app/src/main/java/org/lineageos/updater/TakuBrand.kt",
@@ -217,8 +218,20 @@ def previous_v9_contract():
     return manifest, updater, patch
 
 
+def previous_v10_contract():
+    path = ROOT / "branding/previous-v10-manifest.json"
+    require(path.is_file() and not path.is_symlink() and digest(path) == PREVIOUS_V10_MANIFEST_SHA256,
+            "Previous v10 branding manifest differs")
+    manifest = json.loads(path.read_text())
+    updater = next(r for r in manifest["repositories"] if r["repository"] == BASE["REPOSITORY"])
+    patch = ROOT / "branding" / updater["patch"]
+    require(patch.is_file() and not patch.is_symlink() and digest(patch) == updater["patchSha256"],
+            "Previous v10 branding patch differs")
+    return manifest, updater, patch
+
+
 def migrate_legacy_source(source, results, manifest):
-    for prior in (previous_v9_contract(), previous_v8_contract(), previous_v7_contract(), previous_v6_contract(), previous_v5_contract(), previous_contract(), legacy_contract()):
+    for prior in (previous_v10_contract(), previous_v9_contract(), previous_v8_contract(), previous_v7_contract(), previous_v6_contract(), previous_v5_contract(), previous_contract(), legacy_contract()):
         if migrate_source(source, results, manifest, prior):
             return
 
@@ -261,7 +274,7 @@ def migrate_source(source, results, manifest, prior):
     evidence = {"schema": "taku.product-branding-source-migration/1",
                 "previousManifestSha256": {3: LEGACY_MANIFEST_SHA256, 4: PREVIOUS_MANIFEST_SHA256,
                                            5: PREVIOUS_V5_MANIFEST_SHA256, 6: PREVIOUS_V6_MANIFEST_SHA256, 7: PREVIOUS_V7_MANIFEST_SHA256, 8: PREVIOUS_V8_MANIFEST_SHA256,
-                                           9: PREVIOUS_V9_MANIFEST_SHA256}[legacy["updaterVersionCode"]],
+                                           9: PREVIOUS_V9_MANIFEST_SHA256, 10: PREVIOUS_V10_MANIFEST_SHA256}[legacy["updaterVersionCode"]],
                 "previousPatchSha256": old["patchSha256"], "targetPatchSha256": current["patchSha256"],
                 "sourceOnly": True, "physicalDeviceVerified": False}
     results.mkdir(parents=True, exist_ok=True)

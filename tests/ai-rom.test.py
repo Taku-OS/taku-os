@@ -84,6 +84,48 @@ class MergedBuildGate(unittest.TestCase):
                 self.assertEqual(sum('/image/verify-artifacts.py' in line for line in commands), 1)
 
 
+class BackendEntries(unittest.TestCase):
+    def manifest(self, name, tag='activity', action='android.intent.action.MAIN',
+                 category='android.intent.category.LAUNCHER'):
+        return rom.manifest_tree(f"""
+  E: manifest
+    A: package="org.agentos.assistant"
+    E: application
+      E: {tag}
+        A: android:name="{name}"
+        E: intent-filter
+          E: action
+            A: android:name="{action}"
+          E: category
+            A: android:name="{category}"
+""")
+
+    def test_bscreen_launcher_allowed(self):
+        for name in ('.BScreenActivity', 'BScreenActivity', 'org.agentos.assistant.BScreenActivity'):
+            with self.subTest(name=name):
+                manifest = self.manifest(name)
+                self.assertIs(rom.verify_backend_entries(manifest), manifest.find('application'))
+
+    def test_other_launcher_filters_rejected(self):
+        for manifest in (self.manifest('.OtherActivity'),
+                         self.manifest('.BScreenActivity', tag='activity-alias'),
+                         self.manifest('.BScreenActivity', action='android.intent.action.VIEW')):
+            with self.assertRaisesRegex(ValueError, 'assistant UI entry'):
+                rom.verify_backend_entries(manifest)
+
+    def test_existing_rejections_preserved(self):
+        for manifest in (
+            self.manifest('.BScreenActivity', category='android.intent.category.HOME'),
+            self.manifest('.Voice', tag='service', action='android.service.voice.VoiceInteractionService',
+                          category='android.intent.category.DEFAULT'),
+            self.manifest('.Settings', action='com.android.settings.action.IA_SETTINGS',
+                          category='android.intent.category.DEFAULT'),
+            rom.manifest_tree('  E: manifest'),
+        ):
+            with self.assertRaisesRegex(ValueError, 'assistant UI entry'):
+                rom.verify_backend_entries(manifest)
+
+
 class RomContract(unittest.TestCase):
     def fixture(self, change=None, workspace=False):
         folder = tempfile.TemporaryDirectory()
