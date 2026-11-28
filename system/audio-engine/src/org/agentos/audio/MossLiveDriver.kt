@@ -112,6 +112,10 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
     private var preroll: ByteArray? = null
     /** Video paused by hot standby (not by privacy masking); resumes when the conversation does. */
     private var videoStandby = false
+    /** The passive listener failed once in this lease; cold standby is not tried again. */
+    private var coldUnavailable = false
+    /** The last confirmed user input; a tool call after its reply ended still belongs to it. */
+    private var lastFinalInput: InputTurn? = null
     private val keyguard by lazy { context.getSystemService(android.app.KeyguardManager::class.java) }
     private val power by lazy { context.getSystemService(android.os.PowerManager::class.java) }
 
@@ -156,7 +160,9 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
         if(muted.get()) throw AudioFailure("MIC_MUTED", "Resume Live Talk before sending input")
         if(command is LiveAudioCommand.SetStandby) { offer(Work.Command(generation.get(), command)); return }
         if(standbyState == LiveStandbyPolicy.COLD) {
-            // Anything for the provider (a task result, typed text) wakes cold standby; the caller retries once connected.
+            // Silent context must never wake cold standby; it is dropped and the next connection gets fresh state.
+            if(command is LiveAudioCommand.ContextNote) return
+            // A task result or typed text wakes it; the caller retries once connected.
             offer(Work.Wake("task_event"))
             throw AudioFailure("LIVE_CONNECTING", "Live Talk is waking up")
         }
@@ -245,6 +251,7 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
 
     private fun openConnection() {
         if(stopped.get() || muted.get()) return
+        backpressure.resetVideo()
         connected = false
         handshake = Handshake.Attaching
         connectionGeneration = generation.incrementAndGet()
@@ -306,16 +313,22 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
             is Work.Wake -> wake(item.reason, item.preroll)
             is Work.StandbyPaused -> if(standbyState == LiveStandbyPolicy.COLD) {
                 // A real call or other media keeps the microphone free; a listener failure returns to a live connection.
-                if(item.reason == null || item.reason == "CALL" || item.reason == "MEDIA")
-                    emit(LiveAudioEvent.Standby(LiveStandbyPolicy.COLD, item.reason?.lowercase() ?: "listening"))
-                else wake("standby_unavailable", null)
+                // Cold standby bumped the generation, so emit() would drop this; it is still this lease's state.
+                if(item.reason == null || item.reason == "CALL" || item.reason == "MEDIA") {
+                    if(!stopped.get()) sink.live(LiveAudioEvent.Standby(LiveStandbyPolicy.COLD, item.reason?.lowercase() ?: "listening"))
+                } else {
+                    // The listener cannot run: stay connected in hot standby for the rest of this lease
+                    // instead of reconnecting, failing and reconnecting again.
+                    coldUnavailable = true
+                    wake("standby_unavailable", null)
+                }
             }
             is Work.Video -> if(item.generation == generation.get()) sendVideo(item)
             is Work.VideoStopped -> if(item.generation == generation.get() && item.source == videoWanted) {
                 stopVideo(item.reason)
             }
             Work.MuteChanged -> {
-                standbyVad?.stop(); standbyVad = null; preroll = null; videoStandby = false
+                standbyVad?.stop(); standbyVad = null; preroll = null; videoStandby = false; lastFinalInput = null; backpressure.resetVideo()
                 if(standbyState != LiveStandbyPolicy.ACTIVE) { standbyState = LiveStandbyPolicy.ACTIVE; sink.live(LiveAudioEvent.Standby(LiveStandbyPolicy.ACTIVE, "mute")) }
                 stopVideo("MIC_MUTED")
                 connected = false; connectDeadline = 0
@@ -395,6 +408,11 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
             Log.i("AudioLive", "provider=moss-live standby preroll bytes=${pcm.size}")
         }
         preroll = null
+        // Video paused by standby resumes once the conversation is connected again.
+        if(videoStandby) {
+            videoStandby = false
+            if(!deviceLocked()) videoCodec?.let { startVideo(videoWanted, it) }
+        }
         audio.resumeClock()
         if(!announced) { announced = true; sink.ready() }
         sink.live(LiveAudioEvent.Mic(false))
@@ -511,7 +529,15 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
             args.has("taskId") && args.optString("taskId").length > 128)
             throw AudioFailure("PROVIDER_PROTOCOL_ERROR", "Live provider returned invalid tool arguments")
         if(calls.size >= 64) throw AudioFailure("QUEUE_BACKLOG", "Live tool history exceeds capacity")
-        val turn = input ?: newInput()
+        // An input still being transcribed owns the call (delivered once final); otherwise the last
+        // confirmed input does, even after its reply ended. Without one the call is answered at once.
+        val ownerId = MossWireProtocol.toolOwner(input?.id, input?.final == true, lastFinalInput?.id)
+        val turn = listOfNotNull(input, lastFinalInput).firstOrNull { it.id == ownerId }
+        if(turn == null) {
+            calls[event.callId] = ToolCall(event.callId, "", action, text, "{}", delivered = true, sent = true)
+            send(MossWireProtocol.toolOutput(event.callId, JSONObject().put("state", "notSent").put("message", "No confirmed user input belongs to this call.")))
+            return
+        }
         val forwarded = JSONObject()
         args.opt("taskId")?.let { if(it is String && it.isNotBlank()) forwarded.put("taskId", it) }
         if(args.opt("attachScreen") == true && action == "submit") forwarded.put("attachScreen", true)
@@ -584,7 +610,7 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
         }
     }
 
-    private fun coldAvailable(): Boolean = ModelResources.vadReady(ModelResources.root(context))
+    private fun coldAvailable(): Boolean = !coldUnavailable && ModelResources.vadReady(ModelResources.root(context))
 
     private fun setStandby(mode: String) {
         when(mode) {
@@ -636,7 +662,8 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
             audio.clear()
         }
         io = null
-        input = null; output = null; audioContext = null; turns.clear(); calls.clear(); seenCalls.clear()
+        input = null; output = null; audioContext = null; turns.clear(); calls.clear(); seenCalls.clear(); lastFinalInput = null
+        backpressure.resetVideo()
         val engine = StandbyVadEngine(context, ModelResources.vadModel(ModelResources.root(context)),
             onWake = { pcm -> offer(Work.Wake("speech_wake", pcm)) }, onPaused = { why -> offer(Work.StandbyPaused(why)) })
         standbyVad = engine
@@ -682,6 +709,7 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
 
     /** Stops capture and tells the provider; [reason] empty means a plain user switch. */
     private fun stopVideo(reason: String, masked: Boolean = false) {
+        backpressure.resetVideo()
         val source = videoWanted
         if(source == "none" && !videoSending) return
         video.stop()
@@ -722,7 +750,7 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
             MossBackpressure.Video.SEND -> Unit
         }
         awaitingKey = false
-        val samples = (clockSamples + (frame.monotonicUs - clockUs) * MossWireProtocol.INPUT_SAMPLE_RATE / 1_000_000).coerceAtLeast(0)
+        val samples = MossWireProtocol.captureSamples(clockSamples, clockUs, frame.monotonicUs)
         ws.send(MossWireProtocol.encodeVideo(frame.source, samples, frame.keyFrame, frame.data).toByteString())
     }
 
@@ -752,9 +780,10 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
     }
 
     private fun deliverTools() {
-        val turn = input ?: return
-        if(!turn.final || io?.speaking == true || muted.get()) return
-        for(call in calls.values) if(!call.delivered && call.itemId == turn.id) {
+        if(io?.speaking == true || muted.get()) return
+        val confirmed = MossWireProtocol.deliverable(input?.id, input?.final == true, lastFinalInput?.id)
+        if(confirmed.isEmpty()) return
+        for(call in calls.values) if(!call.delivered && call.itemId in confirmed) {
             call.delivered = true
             emit(LiveAudioEvent.Tool(call.id, call.itemId, call.action, call.text, call.args))
         }
@@ -775,6 +804,7 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
         val turn = input ?: return
         if(turn.final || turn.text.isBlank()) return
         turn.final = true
+        lastFinalInput = turn
         remember("user", turn.text.toString())
         emit(LiveAudioEvent.Input(turn.id, turn.text.toString(), true))
         io?.setSpeech(false)

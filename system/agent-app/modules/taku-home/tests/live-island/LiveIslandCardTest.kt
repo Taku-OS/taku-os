@@ -21,6 +21,9 @@ fun main() {
     base.copy(input = "台北今天天氣如何？🌤".repeat(100)),
     base.copy(standby = "hot_standby"),
     base.copy(standby = "cold_standby"),
+    base.copy(videoSource = "screen", videoActive = true),
+    base.copy(videoSource = "camera", videoActive = true, muted = true),
+    base.copy(videoSource = "screen", videoActive = false, videoMasked = true),
   )
   for (view in states) {
     val payload = LiveIslandCard.payload(view)
@@ -37,6 +40,11 @@ fun main() {
   check(LiveIslandCard.actions(base).contains(LiveIslandCard.MUTE), "an active session can pause the mic")
   check(!LiveIslandCard.actions(base.copy(lifecycle = "disconnected")).contains(LiveIslandCard.MUTE), "no mic toggle without a connection")
   check(LiveIslandCard.status(base.copy(standby = "cold_standby")) == "Standby", "standby capsule text")
+  // R1-M1: sharing is always visible, even when muted or in standby; masked frames are not "sharing".
+  check(LiveIslandCard.status(base.copy(videoSource = "screen", videoActive = true)) == "Sharing", "screen sharing shown")
+  check(LiveIslandCard.status(base.copy(videoSource = "camera", videoActive = true, muted = true, standby = "hot_standby")) == "Camera", "camera shown before mute and standby")
+  check(LiveIslandCard.title(base.copy(videoSource = "screen", videoActive = true)).contains("sharing screen"), "card title names sharing")
+  check(LiveIslandCard.status(base.copy(videoSource = "screen", videoActive = false, videoMasked = true)) != "Sharing", "masked is not sharing")
   check(LiveIslandCard.status(base.copy(muted = true)) == "Muted" && LiveIslandCard.muteLabel(base.copy(muted = true)) == "Resume mic", "muted state")
   val listening = LiveIslandCard.payload(base).getJSONObject("compact").getJSONObject("a")
   check(listening.getString("type") == "animation" && listening.getString("name") == "ai-listening", "listening animation")

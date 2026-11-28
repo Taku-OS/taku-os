@@ -132,6 +132,31 @@ internal object MossWireProtocol {
         return out
     }
 
+    /**
+     * A video frame's capture time on the 16 kHz microphone clock. [clockSamples] microphone samples
+     * had been sent at monotonic [clockUs]; a frame before any audio, or one whose timestamp is more
+     * than [MAX_CLOCK_SKEW_US] away from the audio clock (an encoder on another time base), is stamped
+     * with the audio clock itself rather than a runaway value.
+     */
+    fun captureSamples(clockSamples: Long, clockUs: Long, frameUs: Long): Long {
+        if(clockUs <= 0L) return clockSamples.coerceAtLeast(0)
+        val delta = frameUs - clockUs
+        if(delta !in -MAX_CLOCK_SKEW_US..MAX_CLOCK_SKEW_US) return clockSamples.coerceAtLeast(0)
+        return (clockSamples + delta * INPUT_SAMPLE_RATE / 1_000_000).coerceAtLeast(0)
+    }
+    const val MAX_CLOCK_SKEW_US = 10_000_000L
+
+    /**
+     * The input a tool call belongs to: one still being transcribed (delivered once final), else the
+     * current confirmed one, else the last confirmed one (its reply may already have ended). Null
+     * means no user input supports the call, which is then answered at once.
+     */
+    fun toolOwner(currentId: String?, currentFinal: Boolean, lastFinalId: String?): String? = currentId ?: lastFinalId
+
+    /** Inputs whose calls may be delivered now (only confirmed ones). */
+    fun deliverable(currentId: String?, currentFinal: Boolean, lastFinalId: String?): Set<String> =
+        setOfNotNull(currentId?.takeIf { currentFinal }, lastFinalId)
+
     /** Downstream binary frame: raw PCM16 LE described by the preceding `response.audio.context`. */
     fun decodeAudio(frame: ByteArray): ByteArray {
         if(frame.size % 2 != 0) throw AudioFailure("PROVIDER_PROTOCOL_ERROR", "Live PCM is not aligned")
@@ -230,6 +255,9 @@ internal class MossBackpressure {
         private set
 
     fun audioAllowed(queued: Long): Boolean = queued <= AUDIO_FATAL_BYTES
+
+    /** Forgets congestion history; a new connection, source or standby starts unthrottled. */
+    fun resetVideo() { videoPaused = false; highSince = 0L; lowSince = 0L }
 
     fun video(queued: Long, keyFrame: Boolean, now: Long): Video {
         if(queued > VIDEO_PAUSE_BYTES) { if(highSince == 0L) highSince = now } else highSince = 0L

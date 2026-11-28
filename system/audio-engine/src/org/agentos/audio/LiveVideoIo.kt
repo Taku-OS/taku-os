@@ -62,6 +62,8 @@ internal class LiveVideoIo(private val context: Context, private val listener: L
     private var config: ByteArray? = null
     private var mime = MediaFormat.MIMETYPE_VIDEO_AVC
     private var generation = 0L
+    /** Foreground types this instance asked for; released even when capture failed before it had a handle. */
+    private var declared = false
     @Volatile var source = "none"
         private set
 
@@ -87,8 +89,11 @@ internal class LiveVideoIo(private val context: Context, private val listener: L
         handler.post { runCatching { codec?.setParameters(Bundle().apply { putInt(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, 0) }) } }
     }
 
+    /** Stops capture and waits (at most 1 s) until its resources and foreground types are released. */
     fun release() {
-        handler.post { stopNow() }
+        val done = java.util.concurrent.CountDownLatch(1)
+        if(!handler.post { try { stopNow() } finally { done.countDown() } }) done.countDown()
+        runCatching { done.await(1, java.util.concurrent.TimeUnit.SECONDS) }
         thread.quitSafely()
     }
 
@@ -119,7 +124,7 @@ internal class LiveVideoIo(private val context: Context, private val listener: L
                 if(current != generation) return@post
                 if(grant == null) { fail(current, "PERMISSION_DENIED"); return@post }
                 try {
-                    (context as? LiveVideoHost)?.videoForeground(camera = false, projection = true)
+                    declare(camera = false, projection = true)
                     val manager = context.getSystemService(MediaProjectionManager::class.java)
                     val granted = manager.getMediaProjection(grant.first, grant.second)
                         ?: throw AudioFailure("PERMISSION_DENIED", "Screen sharing was not allowed")
@@ -150,7 +155,7 @@ internal class LiveVideoIo(private val context: Context, private val listener: L
             ?: sizes.minByOrNull { it.width * it.height } ?: throw AudioFailure("CAPTURE_FAILED", "No camera size is available")
         // The encoder surface must match a size the camera supports exactly.
         val surface = encoder(current, size.width, size.height)
-        (context as? LiveVideoHost)?.videoForeground(camera = true, projection = false)
+        declare(camera = true, projection = false)
         manager.openCamera(id, executor, object : CameraDevice.StateCallback() {
             override fun onOpened(device: CameraDevice) {
                 if(current != generation) { device.close(); return }
@@ -217,10 +222,13 @@ internal class LiveVideoIo(private val context: Context, private val listener: L
         return surface
     }
 
+    private fun declare(camera: Boolean, projection: Boolean) {
+        declared = true
+        (context as? LiveVideoHost)?.videoForeground(camera, projection)
+    }
+
     private fun stopNow() {
         generation++
-        val wasCamera = camera != null
-        val wasProjection = projection != null
         runCatching { session?.close() }; session = null
         runCatching { camera?.close() }; camera = null
         runCatching { display?.release() }; display = null
@@ -229,7 +237,7 @@ internal class LiveVideoIo(private val context: Context, private val listener: L
         runCatching { input?.release() }; input = null
         config = null
         source = "none"
-        if(wasCamera || wasProjection) (context as? LiveVideoHost)?.videoForeground(camera = false, projection = false)
+        if(declared) { declared = false; runCatching { (context as? LiveVideoHost)?.videoForeground(camera = false, projection = false) } }
     }
 
     companion object {
@@ -277,8 +285,10 @@ internal class LiveVideoIo(private val context: Context, private val listener: L
             }
             val (read, write) = android.os.ParcelFileDescriptor.createPipe()
             Thread({
-                android.os.ParcelFileDescriptor.AutoCloseOutputStream(write).use { output -> bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, output) }
-                bitmap.recycle()
+                // A reader that gave up closes its end; that EPIPE must not take the audio host down.
+                try { android.os.ParcelFileDescriptor.AutoCloseOutputStream(write).use { output -> bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, output) } }
+                catch(_: Exception) { runCatching { write.close() } }
+                finally { bitmap.recycle() }
             }, "audio-live-snapshot-png").start()
             return read
         }

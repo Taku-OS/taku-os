@@ -481,7 +481,10 @@ class AgentGatewayProvider : ContentProvider() {
             try { AssistantInvocationCapture.storeLive(context!!, input.getString("requestId"), image) } finally { image.recycle() }
         }
         val request = JSONObject(input.toString()).put("liveScreenshot", true)
-        val receipt = submit(request)
+        // A failed submission leaves no screenshot behind (a replay stores it again).
+        val receipt = try { submit(request) } catch (failure: Exception) {
+            AssistantInvocationCapture.discard(context!!, input.getString("requestId")); throw failure
+        }
         AssistantInvocationCapture.settle(context!!, matters.services.liveScreenshotRequest(request), receipt)
         return receipt
     }

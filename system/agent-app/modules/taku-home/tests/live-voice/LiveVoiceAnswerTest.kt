@@ -26,5 +26,13 @@ fun main() {
 
   check(refused(LiveVoiceAnswer.decide("phone/action/requestApproval", JSONObject(), 0, "allow")), "approvals stay on screen")
   check(refused(LiveVoiceAnswer.decide("item/tool/requestUserInput", JSONObject(), 0, "x")), "other requests stay on screen")
+  // Keyguard Action Gate decisions and locked status (R1-B2).
+  check(LiveVoiceAnswer.lockedGate(false, "submit") == null, "unlocked proceeds")
+  for (action in listOf("submit", "steer", "correct", "cancel", "confirm"))
+    check(LiveVoiceAnswer.lockedGate(true, action) == "UNLOCK_REQUIRED", "locked $action needs unlock")
+  check(LiveVoiceAnswer.lockedGate(true, "status") == "status", "locked status answers without details")
+  val lockedStatus = LiveVoiceAnswer.lockedStatus(2, 1)
+  check(lockedStatus.contains("2 task(s) running") && lockedStatus.contains("1 finished") && !Regex("[0-9]{3,}").containsMatchIn(lockedStatus), "counts only, no task ids")
+  check(LiveVoiceAnswer.lockedStatus(0, 0).startsWith("No task"), "no tasks")
   println("PASS LiveVoiceAnswerTest: askUser option answers, confirmAction cancel-only, approvals and secrets stay on screen")
 }

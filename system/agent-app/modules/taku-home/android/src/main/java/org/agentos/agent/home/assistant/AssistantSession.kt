@@ -159,6 +159,7 @@ class AssistantSession private constructor(private val context: Context, private
   private var handoffActivityLaunched = false
   private var handoffEditor: Editor? = null
   private val startedChats = mutableSetOf<android.app.Activity>()
+  private var screenOffHandled = false
   private val liveFlow = MutableStateFlow<LiveTalkSnapshot?>(null)
   internal val liveState = liveFlow.asStateFlow()
   private val liveIslandFlow = MutableStateFlow(false)
@@ -234,7 +235,13 @@ class AssistantSession private constructor(private val context: Context, private
         delay(500)
         // Screen-off can precede Activity.onStop; also cover a missed broadcast or a
         // keyguard transition before attempting any automatic microphone restart.
-        if (voiceDeviceUnavailable()) { interruptVoiceForScreenOff(); continue }
+        live.refreshLock()
+        if (voiceDeviceUnavailable()) {
+          // Once per screen-off: a kept Live Talk session must not reset Home's voice state every tick.
+          if (!screenOffHandled) { screenOffHandled = true; interruptVoiceForScreenOff() }
+          continue
+        }
+        screenOffHandled = false
         if ((gesture.source == "system" && gesture.expired(android.os.SystemClock.uptimeMillis())) ||
             (gesture.held && android.os.SystemClock.uptimeMillis() - gesture.startedAt > 120_000)) cancelVoice()
         val s = flow.value
@@ -335,9 +342,11 @@ class AssistantSession private constructor(private val context: Context, private
     ChatVoiceSession.interrupt()
     // A connected Live Talk session keeps listening with the screen off or locked; the Audio Engine
     // masks video, goes to standby and ends it when "Keep listening when locked" is off.
-    if (!liveDetached()) endLiveTalk()
+    val keepLive = liveDetached()
+    if (!keepLive) endLiveTalk()
+    // voiceContinuous mirrors Live Talk; it only means a hold to cancel when Live Talk is not kept.
     if (gesture.held || gesture.phase == VoiceGesture.Phase.Listening ||
-        flow.value.voiceContinuous || voice.state.value.listening) cancelVoice()
+        !keepLive && flow.value.voiceContinuous || voice.state.value.listening) cancelVoice()
   }
 
   /** A hidden voice page releases capture; rotation and the Continuous handoff retain it. */

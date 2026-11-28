@@ -134,6 +134,8 @@ internal class LiveTalk(
     /** Older tasks that keep running while a newer one is the session's [task]; bounded by [MAX_TASKS]. */
     val background = ArrayList<Task>()
     val seenInputs = HashSet<String>()
+    /** (input, action, task, option) already handled; a provider repeating a call for the same input is refused. */
+    val inputActions = HashSet<String>()
     val calls = HashSet<String>()
     val history = ArrayDeque<Pair<String, String>>()
   }
@@ -261,6 +263,8 @@ internal class LiveTalk(
   }
 
   private fun release(s: Session) {
+    s.snapshots.values.forEach { it.complete(null) }
+    s.snapshots.clear()
     revokeInput(s)
     s.connected = false
     s.connecting?.cancel()
@@ -343,6 +347,8 @@ internal class LiveTalk(
         }
         s.muteId -> if (!ok) disconnect(s, code)
         s.handoffTextId -> {
+          // A waking engine answers LIVE_CONNECTING; the text is sent again once it reconnects.
+          if (!ok && code == "LIVE_CONNECTING") { s.handoffTextId = null; return }
           if (!ok) return disconnect(s, code)
           s.handoffText = null
           s.handoffTextId = null
@@ -414,6 +420,7 @@ internal class LiveTalk(
           s.handoffText?.takeIf { s.handoffTextId == null }?.let { text ->
             s.handoffTextId = send(s, "audio.live.text", JSONObject().put("sessionId", s.engineId).put("text", text))
           }
+          if (s.view.lockScreenMode) noteLock(s)
           maybeAnnounce(s)
           ensureWork(s)
         }
@@ -455,7 +462,6 @@ internal class LiveTalk(
         if (state == "stopped") {
           s.view.output?.takeIf { it.id == id && it.final }?.let { remember(s, "model", it.text) }
           if (!s.view.speech && s.view.output?.id == id) {
-            s.input = null
             s.awaitingResponse = false
             maybeAnnounce(s)
           }
@@ -463,7 +469,6 @@ internal class LiveTalk(
       }
       "ResponseDone" -> {
         if (!s.view.speech && value.getString("itemId") == s.view.input?.id) {
-          s.input = null
           s.awaitingResponse = false
         }
         maybeAnnounce(s)
@@ -504,8 +509,8 @@ internal class LiveTalk(
     val call = value.getString("callId")
     if (call.isBlank() || !s.calls.add("${s.view.generation}:$call")) return
     val item = value.getString("itemId")
+    // The confirmed input stays usable for every call of its turn; repeats are refused below.
     val input = s.input?.takeIf { it.itemId == "${s.view.generation}:$item" }
-    if (input != null) s.input = null
     val action = value.getString("action")
     val args = runCatching { JSONObject(value.optString("args", "{}")) }.getOrDefault(JSONObject())
     val requested = (args.opt("taskId") as? String)?.takeIf(String::isNotBlank)
@@ -513,12 +518,13 @@ internal class LiveTalk(
     val prior = s.command
     when {
       input == null || s.view.speech || input.text.length > AssistantSession.MAX_TEXT -> toolReply(s, call, "notSent", "No confirmed user input belongs to this call.")
-      action == "status" -> toolReply(s, call, "status", statusSummary(s))
       // Keyguard Action Gate: nothing that acts on the phone or reads private data while it is locked.
-      locked() -> {
-        update(s) { it.copy(lockScreenMode = true) }
-        toolReply(s, call, "blocked", "This action requires unlocking the phone. Ask the user to unlock it; then repeat the request.", "UNLOCK_REQUIRED")
+      LiveVoiceAnswer.lockedGate(locked(), action) != null -> {
+        if (!s.view.lockScreenMode) update(s) { it.copy(lockScreenMode = true) }
+        if (action == "status") toolReply(s, call, "status", lockedStatus(s))
+        else toolReply(s, call, "blocked", UNLOCK_MESSAGE, "UNLOCK_REQUIRED")
       }
+      action == "status" -> toolReply(s, call, "status", statusSummary(s))
       requested != null && owned == null -> toolReply(s, call, "notSent", "No task of this Live Talk session has that taskId.")
       action == "submit" && prior != null -> toolReply(s, call, "notSent", "Another voice request is still being sent. Try again after its receipt.")
       action == "submit" && s.task?.terminal == false && s.background.count { !it.terminal } >= MAX_TASKS - 1 ->
@@ -526,6 +532,9 @@ internal class LiveTalk(
       action in setOf("correct", "steer", "confirm") && owned == null -> toolReply(s, call, "notSent", "There is no owned task to change or answer.")
       action == "cancel" && (owned == null || !explicitCancel(input.text)) -> toolReply(s, call, "notSent", "Use Stop in chat to cancel the task.")
       action !in COMMANDS -> toolReply(s, call, "notSent", "Unsupported voice action.")
+      // One utterance is one request per action and task: a provider repeating the same call is refused.
+      !s.inputActions.add("${input.itemId}\u0000$action\u0000${requested.orEmpty()}\u0000${args.optInt("optionIndex", -1)}") ->
+        toolReply(s, call, "notSent", "This exact request was already handled for this input.")
       else -> {
         if (prior != null) {
           prior.permit.valid = false
@@ -560,7 +569,8 @@ internal class LiveTalk(
           throw cancel
         } catch (failure: Exception) {
           val code = (failure as? GatewayException)?.code ?: "GATEWAY_UNAVAILABLE"
-          if (command != null && s.command === command && code !in RETRYABLE_REPLACEMENT) {
+          if (command != null && s.command === command && locked()) refuseLocked(s, command)
+          else if (command != null && s.command === command && code !in RETRYABLE_REPLACEMENT) {
             s.command = null
             showTask(s, s.task, if (code == "LIVE_TASK_NEEDS_USER") "needs_user" else "blocked", code)
             if (current(s, command)) toolReply(s, command.callId, "notSent", "Continue in the original chat. ($code)")
@@ -579,6 +589,8 @@ internal class LiveTalk(
 
   private suspend fun process(s: Session, command: Command) {
     if (!current(s, command)) return
+    // Keyguard Action Gate again after every wait: a request accepted while unlocked never runs locked.
+    if (locked()) return refuseLocked(s, command)
     if (s.view.speech || s.awaitingResponse || !s.connected) return
     val old = command.target ?: s.task
     when (command.action) {
@@ -594,7 +606,7 @@ internal class LiveTalk(
         if (command.action == "steer" && steer(s, command, old, id)) return
         if (command.action == "cancel") {
           val permit = s.permit
-          val status = delivery.task("live/task-cancel", old.request, id) { permit.valid && command.permit.valid }
+          val status = delivery.task("live/task-cancel", old.request, id) { permit.valid && command.permit.valid && !locked() }
           old.cancellationVersion = command.version
           if (current(s, command)) {
             s.command = null
@@ -616,7 +628,7 @@ internal class LiveTalk(
           throw GatewayException("INVALID_TEXT", "The corrected query exceeds the message limit")
         val replacement = if (old.replacementRequested) status else {
           val permit = s.permit
-          delivery.task("live/task-replace", old.request, id) { permit.valid && command.permit.valid }.also {
+          delivery.task("live/task-replace", old.request, id) { permit.valid && command.permit.valid && !locked() }.also {
             old.replacementRequested = it.optBoolean("cancellationRequested") || it.optBoolean("terminal")
           }
         }
@@ -646,7 +658,7 @@ internal class LiveTalk(
     val permit = s.permit
     val screenshot = if (command.args.optBoolean("attachScreen")) snapshot(s) else null
     val receipt = try {
-      delivery.submit(next.request, { permit.valid && command.permit.valid }, screenshot)
+      delivery.submit(next.request, { permit.valid && command.permit.valid && !locked() }, screenshot)
     } catch (failure: GatewayException) {
       if (failure.code != "RECEIPT_SAVE_FAILED") throw failure
       LiveReceipt("deliveryUnknown", code = failure.code)
@@ -656,6 +668,11 @@ internal class LiveTalk(
     next.terminal = receipt.state == "notSent"
     if (session === s && s.view.open && next.request.version == s.version) {
       showTask(s, next, receipt.state, receipt.code)
+    }
+    if (receipt.state == "notSent" && locked()) {
+      if (session === s && s.view.open && next.request.version == s.version) showTask(s, next, "blocked", "UNLOCK_REQUIRED")
+      toolReply(s, command.callId, "blocked", UNLOCK_MESSAGE, "UNLOCK_REQUIRED")
+      return
     }
     if (session === s && s.view.open && permit.valid && s.connected && !s.view.muted) {
       toolReply(s, command.callId, receipt.state, when {
@@ -739,6 +756,8 @@ internal class LiveTalk(
   private fun noteProgress(s: Session, task: Task) {
     val engine = s.engineId ?: return
     if (!s.connected || s.view.muted || s.view.provider !in VIDEO_PROVIDERS || task.notedState == task.state) return
+    // Cold standby is disconnected on purpose; progress is shared again after it wakes.
+    if (s.view.standby == "cold_standby") return
     task.notedState = task.state
     val label = when (task.state) {
       "queued", "submitting" -> "is queued"
@@ -771,6 +790,41 @@ internal class LiveTalk(
   private fun target(s: Session, taskId: String?): Task? = when (taskId) {
     null -> s.task
     else -> (listOfNotNull(s.task) + s.background).firstOrNull { it.receipt?.taskId == taskId }
+  }
+
+  private fun refuseLocked(s: Session, command: Command) {
+    if (s.command === command) s.command = null
+    if (!s.view.lockScreenMode) update(s) { it.copy(lockScreenMode = true) }
+    if (command.target === s.task || command.action == "submit") showTask(s, s.task, s.task?.state ?: "blocked", "UNLOCK_REQUIRED")
+    toolReply(s, command.callId, "blocked", UNLOCK_MESSAGE, "UNLOCK_REQUIRED")
+  }
+
+  /** While locked, progress without task ids or details. */
+  private fun lockedStatus(s: Session): String {
+    val tasks = s.background + listOfNotNull(s.task)
+    val running = tasks.count { !it.terminal }
+    return LiveVoiceAnswer.lockedStatus(running, tasks.size - running)
+  }
+
+  /**
+   * Follows the lock state (polled by Home). On a change the snapshot updates and the model learns
+   * the restricted mode as silent context; after unlocking, results held back are announced.
+   */
+  fun refreshLock() {
+    val s = session?.takeIf { it.view.open } ?: return
+    val locked = locked()
+    if (s.view.lockScreenMode == locked) return
+    update(s) { it.copy(lockScreenMode = locked) }
+    noteLock(s)
+    if (!locked) maybeAnnounce(s)
+  }
+
+  private fun noteLock(s: Session) {
+    val engine = s.engineId ?: return
+    if (!s.connected || s.view.muted || s.view.provider !in VIDEO_PROVIDERS || s.view.standby == "cold_standby") return
+    send(s, "audio.live.context", JSONObject().put("sessionId", engine).put("text", if (s.view.lockScreenMode)
+      "The phone is now locked. Only talk and public information: do not delegate phone actions or private data, and do not read out task details; ask the user to unlock first."
+      else "The phone is unlocked again. Normal delegation is available."))
   }
 
   /** Read-only progress for the model, from the latest observations; it never calls the Agent. */
@@ -828,7 +882,7 @@ internal class LiveTalk(
     val turn = (status.opt("turnId") as? String)?.takeIf(String::isNotBlank) ?: return false
     val text = command.inputs.joinToString("\n", transform = LiveInput::text)
     val permit = s.permit
-    val receipt = delivery.steer(task.request.threadId, turn, text) { permit.valid && command.permit.valid }
+    val receipt = delivery.steer(task.request.threadId, turn, text) { permit.valid && command.permit.valid && !locked() }
     if (!current(s, command)) return true
     s.command = null
     val state = receipt.optString("state").ifBlank { "deliveryUnknown" }
@@ -859,7 +913,7 @@ internal class LiveTalk(
       is LiveVoiceAnswer.Answer -> decision.response
     }
     val permit = s.permit
-    delivery.answer(task.request.threadId, pending.getString("key"), response) { permit.valid && command.permit.valid }
+    delivery.answer(task.request.threadId, pending.getString("key"), response) { permit.valid && command.permit.valid && !locked() }
     if (current(s, command)) toolReply(s, command.callId, "answered", "Taku received the answer. Wait for the task to continue.")
   }
 
@@ -870,6 +924,8 @@ internal class LiveTalk(
     // The session's own task first; then a background task's outcome, each announced once.
     val locked = locked()
     if (s.view.lockScreenMode != locked) update(s) { it.copy(lockScreenMode = locked) }
+    // Do Not Disturb or silent mode: a session in standby announces nothing until the user talks again.
+    if (s.view.standby != "active" && quietMode()) return
     val task = s.task?.takeIf { it.result != null && it.announcedState != it.state && (!locked || it.lockedNoticeState != it.state) &&
       (it.request.version == s.version || it.cancellationVersion == s.version) }
       ?: s.background.firstOrNull { it.terminal && it.result != null && it.announcedState != it.state && (!locked || it.lockedNoticeState != it.state) } ?: return
@@ -879,6 +935,13 @@ internal class LiveTalk(
     val ipcId = send(s, "audio.live.result", JSONObject().put("sessionId", engine).put("offerId", offerId)
       .put("afterInput", s.afterInput).put("text", result)) ?: return
     s.announcement = Announcement(offerId, ipcId, task, task.state, private = !locked)
+  }
+
+  private fun quietMode(): Boolean {
+    val notifications = context.getSystemService(android.app.NotificationManager::class.java)
+    val audio = context.getSystemService(android.media.AudioManager::class.java)
+    return notifications?.currentInterruptionFilter.let { it != null && it != android.app.NotificationManager.INTERRUPTION_FILTER_ALL } ||
+      audio?.ringerMode.let { it != null && it != android.media.AudioManager.RINGER_MODE_NORMAL }
   }
 
   /** Locked or screen off, as the system reports it; the delegation gate and announcements follow it. */
@@ -912,6 +975,7 @@ internal class LiveTalk(
     /** Tasks one Live Talk session tracks at once, including the newest. */
     const val MAX_TASKS = 8
     /** All Live Talk may say about a finished task while the phone is locked. */
+    const val UNLOCK_MESSAGE = "This action requires unlocking the phone. Ask the user to unlock it; then repeat the request."
     const val LOCKED_NOTICE = "A background task has finished. Unlock your phone to see the details."
     private const val SNAPSHOT_TIMEOUT_MS = 2_500L
     private val CONNECTION_ERRORS = setOf("NETWORK_FAILED", "ENGINE_UNAVAILABLE", "QUEUE_BACKLOG", "CONNECT_TIMEOUT", "PROVIDER_DISCONNECTED", "SESSION_EXPIRED")

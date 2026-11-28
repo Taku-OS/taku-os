@@ -204,7 +204,8 @@ internal object AssistantInvocationCapture {
 
     /** Live Talk may attach the shared screen only while screenshots are allowed and the device is unlocked. */
     fun liveScreenshotAllowed(context: Context): Boolean = screenshotsAllowed(context) &&
-        context.getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked == false
+        context.getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked == false &&
+        context.getSystemService(android.os.PowerManager::class.java)?.isInteractive == true
 
     /** Stores Live Talk's screenshot for [requestId]; it is swept like any request screenshot. */
     fun storeLive(context: Context, requestId: String, image: Bitmap) {

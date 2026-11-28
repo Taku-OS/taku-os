@@ -123,6 +123,25 @@ fun main() {
     check(policy.video(40 * 1024L, true, 4100) == MossBackpressure.Video.RESUME && !policy.videoPaused, "resume after 2 s below 48 KB")
     check(policy.audioAllowed(500 * 1024L) && !policy.audioAllowed(513 * 1024L), "audio fails only above 512 KB")
     check(policy.audioAllowed(128 * 1024L), "a video key frame burst never ends audio")
+    // R1-M4: a reset forgets congestion, so a new connection or source is not throttled.
+    val paused = MossBackpressure()
+    paused.video(130 * 1024L, false, 100); paused.video(130 * 1024L, false, 1700)
+    check(paused.videoPaused, "paused by congestion")
+    paused.resetVideo()
+    check(!paused.videoPaused && paused.video(1000, true, 1800) == MossBackpressure.Video.SEND, "reset sends the next key frame")
+    // R1-M4: video clock never runs away.
+    check(MossWireProtocol.captureSamples(0, 0, 123_456_789) == 0L, "before any audio the frame is stamped at 0, not its raw timestamp")
+    check(MossWireProtocol.captureSamples(16000, 1_000_000, 1_500_000) == 24000L, "frame 0.5 s after the audio clock")
+    check(MossWireProtocol.captureSamples(16000, 1_000_000, 900_000) == 14400L, "frame slightly before the audio clock")
+    check(MossWireProtocol.captureSamples(16000, 1_000_000, 60_000_000) == 16000L, "a frame on another time base uses the audio clock")
+    check(MossWireProtocol.captureSamples(100, 1_000_000, 0) == 0L, "never negative")
+    // R1-B4: which input owns a tool call.
+    check(MossWireProtocol.toolOwner("in-2", false, "in-1") == "in-2", "an input being transcribed owns the call")
+    check(MossWireProtocol.toolOwner("in-2", true, "in-2") == "in-2", "the current confirmed input")
+    check(MossWireProtocol.toolOwner(null, false, "in-1") == "in-1", "after its reply ended, the last confirmed input still owns the call")
+    check(MossWireProtocol.toolOwner(null, false, null) == null, "no input: answered at once, never left pending")
+    check(MossWireProtocol.deliverable("in-2", false, "in-1") == setOf("in-1"), "only confirmed inputs deliver")
+    check(MossWireProtocol.deliverable("in-2", true, "in-2") == setOf("in-2"), "several calls of one confirmed input all deliver")
 
     println("PASS MossWireProtocolTest: documented handshake, tool output/response.create, playback receipts, tagged-v1 audio/video frames, event parsing and layered backpressure")
 }

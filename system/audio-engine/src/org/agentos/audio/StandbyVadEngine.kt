@@ -31,6 +31,8 @@ internal class StandbyVadEngine(
 ) {
     private val running = AtomicBoolean()
     private var thread: Thread? = null
+    /** The passive recorder, so [stop] can unblock a `read()` the HAL is holding. */
+    @Volatile private var activeRecorder: AudioRecord? = null
     private val manager = context.getSystemService(AudioManager::class.java)
     private val lock = context.getSystemService(PowerManager::class.java)
         .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "taku:live-standby").apply { setReferenceCounted(false) }
@@ -44,6 +46,8 @@ internal class StandbyVadEngine(
     /** Stops listening and releases the microphone, the model and the wake lock before returning. */
     fun stop() {
         if(!running.compareAndSet(true, false)) return
+        // AudioRecord.read() ignores interrupts; stopping the recorder returns it at once.
+        runCatching { activeRecorder?.stop() }
         thread?.let { it.interrupt(); runCatching { it.join(1000) } }
         thread = null
         runCatching { if(lock.isHeld) lock.release() }
@@ -76,18 +80,19 @@ internal class StandbyVadEngine(
                 if(System.currentTimeMillis() - renewed >= RENEW_MS) { renewed = System.currentTimeMillis(); lock.acquire(MAX_WAKE_LOCK_MS) }
                 val reason = yieldReason()
                 if(reason != null) {
-                    if(paused != reason) { recorder?.let { runCatching { it.stop() }; it.release() }; recorder = null; paused = reason; onPaused(reason) }
+                    if(paused != reason) { recorder?.let { runCatching { it.stop() }; it.release() }; recorder = null; activeRecorder = null; paused = reason; onPaused(reason) }
                     Thread.sleep(POLL_MS); continue
                 }
                 if(paused != null) { paused = null; onPaused(null) }
                 val capture = recorder ?: AudioRecord(MediaRecorder.AudioSource.VOICE_RECOGNITION, 16000, AudioFormat.CHANNEL_IN_MONO,
                     AudioFormat.ENCODING_PCM_16BIT, maxOf(WINDOW * 8, AudioRecord.getMinBufferSize(16000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT))).also {
                     if(it.state != AudioRecord.STATE_INITIALIZED) { it.release(); throw AudioFailure("CAPTURE_FAILED", "Standby microphone could not start") }
-                    it.startRecording(); recorder = it; ring.clear(); detector.reset(); vad.reset()
+                    it.startRecording(); recorder = it; activeRecorder = it; ring.clear(); detector.reset(); vad.reset()
                 }
                 var read = 0
                 while(read < bytes.size && running.get()) {
                     val count = capture.read(bytes, read, bytes.size - read)
+                    if(!running.get()) break
                     if(count < 0) throw AudioFailure("CAPTURE_FAILED", "Standby microphone failed")
                     read += count
                 }
@@ -100,7 +105,7 @@ internal class StandbyVadEngine(
                 }
                 if(detector.accept(vad.compute(samples), sqrt(sum / WINDOW))) {
                     // Release the passive microphone first; the live route and AEC start only after.
-                    runCatching { capture.stop() }; capture.release(); recorder = null
+                    runCatching { capture.stop() }; capture.release(); recorder = null; activeRecorder = null
                     running.set(false)
                     onWake(ring.snapshot())
                     break
@@ -112,6 +117,7 @@ internal class StandbyVadEngine(
             running.set(false); onPaused((error as? AudioFailure)?.code ?: "CAPTURE_FAILED")
         } finally {
             recorder?.let { runCatching { it.stop() }; it.release() }
+            activeRecorder = null
             runCatching { vad.release() }
             runCatching { if(lock.isHeld) lock.release() }
         }

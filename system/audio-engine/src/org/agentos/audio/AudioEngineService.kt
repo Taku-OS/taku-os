@@ -10,6 +10,7 @@ import java.util.UUID
 
 /** Bound audio host. Messenger provides Binder caller UID and client-death tracking. */
 class AudioEngineService : Service(), LiveVideoHost {
+    private companion object { const val LIVE_LISTENING="Listening · speak to continue, or end here" }
     private val main = Handler(Looper.getMainLooper())
     private val clients = mutableMapOf<IBinder, Pair<String,IBinder.DeathRecipient>>()
     private val runtime = AudioRuntime(clock={SystemClock.elapsedRealtime()}) { request ->
@@ -29,7 +30,7 @@ class AudioEngineService : Service(), LiveVideoHost {
     private val dictationResolver by lazy { DictationResolver(this) }
     private class PendingRead(val operation: EngineConfig.Control,var failure: AudioFailure?=null)
     private val pendingReads=mutableMapOf<IBinder,MutableSet<PendingRead>>()
-    private var speechSession: String?=null
+    @Volatile private var speechSession: String?=null
     private var config: JSONObject? = null
     private val hostClosed = object : android.content.BroadcastReceiver() { override fun onReceive(context: android.content.Context, intent: Intent) { if(intent.action=="org.agentos.audio.STOP_PLAYBACK")runtime.revoke("canceled")else closeHostSessions() } }
     private lateinit var cli: AudioSocket
@@ -190,8 +191,9 @@ class AudioEngineService : Service(), LiveVideoHost {
                     if(purpose=="SPEAK" || media || purpose=="LIVE_TALK")showPlaybackNotification(if(purpose=="LIVE_TALK")"Taku Live Talk" else if(call)"Taku is translating this call in both directions" else if(media)"Taku is translating video audio" else if(request.interruptible)"Taku is reading and listening for interruptions"else "Taku is reading",call || request.interruptible || purpose=="LIVE_TALK")
                     val id=try {runtime.open(owner,request,{ event -> main.post {
                         send(reply,event.json())
-                        if(event.type=="Closed" && speechSession==event.sessionId){speechSession=null;stopForeground(STOP_FOREGROUND_REMOVE)}
-                    } },params.optString("requestKey"),resolved?.metadata)}catch(e: Exception){if(speechSession==null)stopForeground(STOP_FOREGROUND_REMOVE);throw e}
+                        if(event.type=="Closed" && speechSession==event.sessionId){speechSession=null;endForeground()}
+                        else if(speechSession==event.sessionId)event.live?.let(::liveNotification)
+                    } },params.optString("requestKey"),resolved?.metadata)}catch(e: Exception){if(speechSession==null)endForeground();throw e}
                     if((purpose=="SPEAK" || media || purpose=="LIVE_TALK") && runtime.status(owner,id).phase!=AudioPhase.Closed)speechSession=id
                     sessionInfo(owner,id).put("generation",id).put("phase",runtime.status(owner,id).phase.name)
                 }
@@ -293,29 +295,81 @@ class AudioEngineService : Service(), LiveVideoHost {
     private fun showPlaybackNotification(title: String,microphone: Boolean=false) {
         val notifications=getSystemService(android.app.NotificationManager::class.java)
         notifications.createNotificationChannel(android.app.NotificationChannel("audio-reading","Read aloud",android.app.NotificationManager.IMPORTANCE_LOW))
+        val live=title=="Taku Live Talk"
+        val notification=foregroundNotification(title,if(live)LIVE_LISTENING else "Tap to stop",live)
+        synchronized(foregroundLock) {
+            foreground=notification;foregroundTitle=title;foregroundMicrophone=microphone;foregroundCamera=false;foregroundProjection=false
+            liveStandbyText=LIVE_LISTENING;liveVideoText=null
+            startForeground(100,notification,foregroundTypes())
+        }
+    }
+    private fun foregroundNotification(title: String,text: String,live: Boolean): android.app.Notification {
         val stop=android.app.PendingIntent.getBroadcast(this,1,Intent("org.agentos.audio.STOP_PLAYBACK").setPackage(packageName),android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT)
         // Live Talk keeps running on the lock screen; its notification shows only non-private status there.
-        val notification=android.app.Notification.Builder(this,"audio-reading").setSmallIcon(android.R.drawable.ic_lock_silent_mode_off)
-            .setContentTitle(title).setContentText(if(title=="Taku Live Talk")"Listening · speak to continue, or end here" else "Tap to stop").setOngoing(true)
-            .setVisibility(if(title=="Taku Live Talk")android.app.Notification.VISIBILITY_PUBLIC else android.app.Notification.VISIBILITY_PRIVATE)
+        return android.app.Notification.Builder(this,"audio-reading").setSmallIcon(android.R.drawable.ic_lock_silent_mode_off)
+            .setContentTitle(title).setContentText(text).setOngoing(true).setOnlyAlertOnce(true)
+            .setVisibility(if(live)android.app.Notification.VISIBILITY_PUBLIC else android.app.Notification.VISIBILITY_PRIVATE)
             .addAction(android.app.Notification.Action.Builder(null,"Stop",stop).build()).build()
-        foreground=notification;foregroundMicrophone=microphone
-        startForeground(100,notification,android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK or if(microphone)android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0)
     }
-    @Volatile private var foreground: android.app.Notification?=null
-    @Volatile private var foregroundMicrophone=false
+    /** Guards the foreground notification and its types; the video thread and the main thread both change them. */
+    private val foregroundLock=Any()
+    private var foreground: android.app.Notification?=null
+    private var foregroundTitle=""
+    private var foregroundMicrophone=false
+    private var foregroundCamera=false
+    private var foregroundProjection=false
+    private var liveStandbyText=LIVE_LISTENING
+    private var liveVideoText: String?=null
+    private fun foregroundTypes()=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK or
+        (if(foregroundMicrophone)android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0) or
+        (if(foregroundCamera)android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA else 0) or
+        (if(foregroundProjection)android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION else 0)
+    /** Leaves the foreground; afterwards no late video callback can bring the notification back. */
+    private fun endForeground() {
+        synchronized(foregroundLock) {
+            foreground=null;foregroundCamera=false;foregroundProjection=false;liveVideoText=null
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        }
+    }
     /**
      * Adds the camera or media-projection foreground type only while that capture runs and drops it
-     * as soon as it stops, so the service never claims a capture it is not doing.
+     * as soon as it stops. Once the session's foreground has ended this never starts it again: a
+     * request to add a type fails, and a request to drop one is a no-op.
      */
     override fun videoForeground(camera: Boolean,projection: Boolean) {
-        val notification=foreground ?: return
-        val types=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK or
-            (if(foregroundMicrophone)android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0) or
-            (if(camera)android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA else 0) or
-            (if(projection)android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION else 0)
-        try { startForeground(100,notification,types) }
-        catch(e: Exception) { if(camera || projection)throw AudioFailure("PERMISSION_DENIED","Video capture is not allowed right now") }
+        synchronized(foregroundLock) {
+            if(foreground==null || speechSession==null) {
+                if(camera || projection)throw AudioFailure("SESSION_CHANGED","Live Talk has ended")
+                return
+            }
+            foregroundCamera=camera;foregroundProjection=projection
+            try { startForeground(100,foreground!!,foregroundTypes()) }
+            catch(e: Exception) {
+                foregroundCamera=false;foregroundProjection=false
+                runCatching { startForeground(100,foreground!!,foregroundTypes()) }
+                if(camera || projection)throw AudioFailure("PERMISSION_DENIED","Video capture is not allowed right now")
+            }
+        }
+    }
+    /** Keeps the lock-screen notification true to what Live Talk is doing, without private content. */
+    private fun liveNotification(event: LiveAudioEvent) {
+        synchronized(foregroundLock) {
+            if(foreground==null || foregroundTitle!="Taku Live Talk")return
+            when(event) {
+                is LiveAudioEvent.Standby -> liveStandbyText=when {
+                    event.state==LiveStandbyPolicy.HOT -> "Standing by · speak to continue"
+                    event.state==LiveStandbyPolicy.COLD && event.reason=="call" -> "Paused for a call"
+                    event.state==LiveStandbyPolicy.COLD && event.reason=="media" -> "Paused while media plays"
+                    event.state==LiveStandbyPolicy.COLD -> "Standing by on this phone · speak to reconnect"
+                    else -> LIVE_LISTENING
+                }
+                is LiveAudioEvent.Video -> liveVideoText=if(!event.active)null else if(event.source=="camera")"Camera on" else "Sharing your screen"
+                else -> return
+            }
+            val notification=foregroundNotification(foregroundTitle,listOfNotNull(liveVideoText,liveStandbyText).joinToString(" · "),true)
+            foreground=notification
+            runCatching { getSystemService(android.app.NotificationManager::class.java).notify(100,notification) }
+        }
     }
     private fun capabilities(uid: Int,owner: String,filter: JSONObject,snapshot: JSONObject?=config): JSONObject {
         val dictationView=dictationResolver.inspect(snapshot ?: JSONObject())
@@ -435,5 +489,5 @@ class AudioEngineService : Service(), LiveVideoHost {
         pendingReads.remove(binder)?.forEach{it.operation.close()}
         clients.remove(binder)?.let { (owner,death) -> runtime.disconnect(owner); binder.unlinkToDeath(death,0) }
     }
-    override fun onDestroy() { unregisterReceiver(hostClosed);cli.close();configuration.close(); runtime.revoke("SERVICE_STOPPED"); clients.keys.toList().forEach(::disconnect); super.onDestroy() }
+    override fun onDestroy() { endForeground();unregisterReceiver(hostClosed);cli.close();configuration.close(); runtime.revoke("SERVICE_STOPPED"); clients.keys.toList().forEach(::disconnect); super.onDestroy() }
 }

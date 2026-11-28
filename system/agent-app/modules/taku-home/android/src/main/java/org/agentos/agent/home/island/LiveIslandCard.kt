@@ -23,12 +23,20 @@ internal object LiveIslandCard {
     val output: String?,
     val task: String?,
     val standby: String = "active",
-  )
+    /** Shared video: `none`, `screen` or `camera`; [videoMasked] means frames are withheld. */
+    val videoSource: String = "none",
+    val videoActive: Boolean = false,
+    val videoMasked: Boolean = false,
+  ) {
+    /** The screen or camera is being sent right now; the capsule must always say so (D1). */
+    val sharing get() = videoActive && !videoMasked && videoSource != "none"
+  }
 
   /** Short capsule text (SystemUI allows 1–16 characters). */
   fun status(view: View): String = when {
     view.lifecycle == "connecting" -> "Connecting"
     view.lifecycle == "disconnected" || view.lifecycle == "failed" -> "Disconnected"
+    view.sharing -> if (view.videoSource == "camera") "Camera" else "Sharing"
     view.muted -> "Muted"
     view.standby != "active" -> "Standby"
     view.playback == "speaking" -> "Speaking"
@@ -38,6 +46,7 @@ internal object LiveIslandCard {
 
   fun title(view: View): String = when {
     view.lifecycle == "disconnected" || view.lifecycle == "failed" -> "Taku Live disconnected"
+    view.sharing -> if (view.videoSource == "camera") "Taku Live · camera on" else "Taku Live · sharing screen"
     view.muted -> "Taku Live · microphone paused"
     else -> "Taku Live"
   }
@@ -45,6 +54,8 @@ internal object LiveIslandCard {
   /** The latest spoken caption, else the delegated task state, else a hint. */
   fun body(view: View): String = when {
     view.lifecycle == "disconnected" || view.lifecycle == "failed" -> "Open the conversation to reconnect."
+    view.sharing && view.input.isNullOrBlank() && view.output.isNullOrBlank() ->
+      if (view.videoSource == "camera") "Taku sees your camera. Open the conversation to stop." else "Taku sees your screen. Open the conversation to stop."
     !view.output.isNullOrBlank() && view.playback == "speaking" -> view.output
     !view.input.isNullOrBlank() -> view.input
     !view.output.isNullOrBlank() -> view.output
