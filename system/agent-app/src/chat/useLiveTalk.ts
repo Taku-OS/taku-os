@@ -32,7 +32,6 @@ const native = requireOptionalNativeModule<Bridge>('TakuVoice');
 export function useLiveTalk(threadId: string, loading: boolean, selectThread: (id: string) => void) {
   const [state, setState] = useState<LiveTalkState | null>(null);
   const latest = useRef<LiveTalkState | null>(null);
-  const previousThread = useRef(threadId);
   const accept = useCallback((snapshot: Snapshot) => {
     const next = snapshot?.liveTalk;
     if (!next || (latest.current && next.sequence <= latest.current.sequence)) return;
@@ -59,11 +58,7 @@ export function useLiveTalk(threadId: string, loading: boolean, selectThread: (i
   useEffect(() => {
     if (!loading && !threadId && open && state?.threadId) selectThread(state.threadId);
   }, [loading, open, state?.threadId, threadId, selectThread]);
-  useEffect(() => {
-    const previous = previousThread.current;
-    previousThread.current = threadId;
-    if (open && previous !== threadId && state && (state.threadId ?? '') === previous) stopSession(state.sessionId);
-  }, [threadId, open, state, stopSession]);
+  // Switching conversations keeps Live Talk running for its own thread; only an explicit stop ends it.
   const active = open && (!threadId || state?.threadId === threadId);
   return {
     state, active,

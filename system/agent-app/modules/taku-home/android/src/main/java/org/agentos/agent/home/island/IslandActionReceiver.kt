@@ -14,6 +14,12 @@ import kotlinx.coroutines.withTimeout
 class IslandActionReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
     val session = AssistantSession.get(context)
+    if (intent.action == LiveIslandCard.MUTE || intent.action == LiveIslandCard.STOP) {
+      // Live capsule actions act on whichever Live Talk session is open now.
+      runCatching { session.liveIslandAction(intent.action!!) }
+        .onFailure { android.util.Log.w("TakuIsland", "Live action rejected", it) }
+      return
+    }
     val thread = intent.getStringExtra("thread") ?: return
     val activity = intent.getStringExtra("activity") ?: return
     if (session.state.value.threadId == null && thread != "entry" &&

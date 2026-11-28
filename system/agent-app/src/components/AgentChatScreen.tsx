@@ -635,9 +635,8 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     positions.current[viewKey] = {y: 0, follow: true};
     dispatchScroll({type: 'tappedToBottom'});
   };
-  const collapseChat = () => { cancelDictation(); stopReading(); live.stop(); (props.onCollapse ?? props.onClose)(); };
+  const collapseChat = () => { cancelDictation(); stopReading(); (props.onCollapse ?? props.onClose)(); };
   const openSidebar = () => {
-    live.stop();
     cancelDictation();
     stopReading();
     props.onOpenHistory?.();
@@ -646,16 +645,13 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     setLayer({kind: 'sidebar', opens: externalOpens});
   };
   const selectMainChat = () => {
-    live.stop();
     if (props.onSelectMainChat) props.onSelectMainChat();
     else if (mainThread) props.onSelectThread(mainThread.id);
   };
   const selectTaskThread = (id: string) => {
-    live.stop();
     props.onSelectThread(id);
   };
   const createIndependentTask = () => {
-    live.stop();
     (props.onCreateTaskThread ?? props.onCreateThread)();
   };
   const running = props.session?.running;
@@ -1076,9 +1072,9 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
         taskStates={tasks.board.states} historyError={props.historyError} insets={insets}
         imeBottom={keyboardVisible ? space.bottom : insets.bottom}
         actions={{
-          openThread: id => { live.stop(); setLayer(null); selectTaskThread(id); },
-          openMainChat: () => { live.stop(); setLayer(null); if (!isMainChat) selectMainChat(); },
-          newChat: () => { live.stop(); setLayer(null); createIndependentTask(); },
+          openThread: id => { setLayer(null); selectTaskThread(id); },
+          openMainChat: () => { setLayer(null); if (!isMainChat) selectMainChat(); },
+          newChat: () => { setLayer(null); createIndependentTask(); },
           openSettings: () => { setLayer(null); router.push('/system-ai'); },
           openPanels: () => { setLayer(null); router.push('/panels'); },
           openPlugins: () => { setLayer(null); router.push('/plugin-market'); },

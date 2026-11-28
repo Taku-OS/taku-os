@@ -161,12 +161,16 @@ class AssistantSession private constructor(private val context: Context, private
   private val startedChats = mutableSetOf<android.app.Activity>()
   private val liveFlow = MutableStateFlow<LiveTalkSnapshot?>(null)
   internal val liveState = liveFlow.asStateFlow()
+  private val liveIslandFlow = MutableStateFlow(false)
+  /** Live Talk is open and its chat is not on screen: the island's Live capsule hosts it. */
+  internal val liveIsland = liveIslandFlow.asStateFlow()
   private val liveDelivery = LiveTalkDelivery(context, gateway, worker)
   private val live = LiveTalk(context, scope, liveDelivery, { snapshot ->
     val paused = snapshot.open && snapshot.muted
     if (flow.value.voiceContinuous != snapshot.open || flow.value.voicePaused != paused)
       flow.update { it.copy(voiceContinuous = snapshot.open, voicePaused = paused) }
     liveFlow.value = snapshot
+    refreshLiveIsland()
   }, { text -> handoffEditor?.let { recoverFailure(it, "VOICE_UNAVAILABLE", text) } })
   private var voiceStartSequence = 0L
   internal var voiceStartPending = false
@@ -203,12 +207,13 @@ class AssistantSession private constructor(private val context: Context, private
     // shared host onPause/AppState signal is too early for this cross-activity handoff.
     (context.applicationContext as? android.app.Application)?.registerActivityLifecycleCallbacks(object : android.app.Application.ActivityLifecycleCallbacks {
       override fun onActivityStarted(activity: android.app.Activity) {
-        if (activity.javaClass.name == CHAT_ACTIVITY) startedChats.add(activity)
+        if (activity.javaClass.name == CHAT_ACTIVITY) { startedChats.add(activity); refreshLiveIsland() }
       }
       override fun onActivityStopped(activity: android.app.Activity) {
         if (activity.javaClass.name != CHAT_ACTIVITY) return
         startedChats.remove(activity)
-        if (!activity.isChangingConfigurations && startedChats.isEmpty()) endLiveTalk()
+        if (!activity.isChangingConfigurations && startedChats.isEmpty()) releaseLiveHost()
+        refreshLiveIsland()
       }
       override fun onActivityCreated(activity: android.app.Activity, savedInstanceState: android.os.Bundle?) = Unit
       override fun onActivityResumed(activity: android.app.Activity) {
@@ -222,7 +227,7 @@ class AssistantSession private constructor(private val context: Context, private
       }
       override fun onActivityPaused(activity: android.app.Activity) = Unit
       override fun onActivitySaveInstanceState(activity: android.app.Activity, outState: android.os.Bundle) = Unit
-      override fun onActivityDestroyed(activity: android.app.Activity) { startedChats.remove(activity) }
+      override fun onActivityDestroyed(activity: android.app.Activity) { startedChats.remove(activity); refreshLiveIsland() }
     })
     scope.launch {
       while (isActive) {
@@ -484,7 +489,11 @@ class AssistantSession private constructor(private val context: Context, private
   fun setLiveMic(sessionId: String, muted: Boolean) {
     val current = requireLiveSession(null, sessionId) ?: return
     if (!current.open || current.muted == muted) return
-    if (!muted) requireLiveHost(current.threadId)
+    if (!muted) {
+      if (liveDetached()) {
+        if (voiceDeviceUnavailable()) throw AssistantException("DEVICE_LOCKED", "Wake and unlock the device before resuming Live Talk")
+      } else requireLiveHost(current.threadId)
+    }
     live.setMuted(muted)
     if (muted && live.handingOff) {
       cancelPendingVoiceStart()
@@ -515,19 +524,38 @@ class AssistantSession private constructor(private val context: Context, private
   }
 
   internal fun onChatVoiceFocus(threadId: String?, previousThreadId: String? = null) {
+    try { focusLive(threadId, previousThreadId) } finally { refreshLiveIsland() }
+  }
+
+  private fun refreshLiveIsland() {
+    val current = live.snapshot
+    liveIslandFlow.value = current != null && current.open && !live.handingOff && current.generation > 0L &&
+      !chatVisible(current.threadId)
+  }
+
+  /** The island's Live capsule actions; each acts on the session that is open now. */
+  fun liveIslandAction(action: String) {
+    val current = live.snapshot?.takeIf { it.open } ?: return
+    when (action) {
+      org.agentos.agent.home.island.LiveIslandCard.MUTE -> setLiveMic(current.sessionId, !current.muted)
+      org.agentos.agent.home.island.LiveIslandCard.STOP -> stopLiveTalk(sessionId = current.sessionId)
+    }
+  }
+
+  private fun focusLive(threadId: String?, previousThreadId: String?) {
     val current = live.snapshot?.takeIf { it.open } ?: return
     if (handoffEditor != null && current.generation == 0L && current.threadId.orEmpty() != threadId) return
     if (threadId == null) {
       if (previousThreadId == null) return
-      if (previousThreadId.isNotEmpty() || current.threadId == null) { endLiveTalk(); return }
+      if (previousThreadId.isNotEmpty() || current.threadId == null) { releaseLiveHost(); return }
       // React releases the empty chat owner immediately before adopting the new thread.
       scope.launch {
         delay(150)
         val latest = live.snapshot
-        if (latest?.sessionId == current.sessionId && !chatVisible(latest.threadId)) endLiveTalk()
+        if (latest?.sessionId == current.sessionId && !chatVisible(latest.threadId)) releaseLiveHost()
       }
     } else if (threadId != current.threadId.orEmpty()) {
-      endLiveTalk()
+      releaseLiveHost()
     } else {
       connectLiveTalk()
     }
@@ -544,6 +572,18 @@ class AssistantSession private constructor(private val context: Context, private
       if (released) live.connect(current.sessionId) else live.failHandoff("RESOURCE_BUSY")
     }
   }
+
+  /**
+   * A Live Talk session that has connected outside a handoff keeps running when its chat leaves
+   * the screen or another conversation opens; the island's Live capsule hosts it until it is
+   * stopped. A session still connecting or handing off needs its chat and ends instead.
+   */
+  private fun liveDetached(): Boolean {
+    val current = live.snapshot ?: return false
+    return current.open && current.generation > 0L && !live.handingOff && current.lifecycle in DETACHABLE
+  }
+
+  private fun releaseLiveHost() { if (!liveDetached()) endLiveTalk() }
 
   private fun endLiveTalk() {
     if (live.snapshot?.open != true) return
@@ -598,7 +638,7 @@ class AssistantSession private constructor(private val context: Context, private
    * something to show, including a handed-off result still waiting to be drawn.
    */
   fun closeEntry() {
-    endLiveTalk()
+    releaseLiveHost()
     revokeVoice()
     flow.update { s ->
       val keep = s.working || s.turn != null || s.error != null || s.revealPending
@@ -768,7 +808,7 @@ class AssistantSession private constructor(private val context: Context, private
 
   /** Explicit assistant dismissal; outside card taps are owned by SystemUI and never call this. */
   fun dismiss() {
-    endLiveTalk()
+    releaseLiveHost()
     org.agentos.agent.home.island.SystemIslandBridge.request(context, "collapse")
     val s = flow.value
     if (s.working || s.needsUser) { revokeVoice(); flow.update { it.copy(island = IslandMode.Collapsed, entry = EntryMode.None, handoff = null, revealPending = false) }; return }
@@ -777,7 +817,7 @@ class AssistantSession private constructor(private val context: Context, private
 
   /** Ends this home conversation; the thread stays in the full chat history. */
   fun reset() {
-    endLiveTalk()
+    releaseLiveHost()
     threadCreation.invalidate()
     editor = Editor("")
     openingConversation = false
@@ -1243,7 +1283,7 @@ class AssistantSession private constructor(private val context: Context, private
   /** Continues this conversation in the full chat (the island's expand button). */
   fun openConversation() {
     if (openingConversation) return
-    endLiveTalk()
+    releaseLiveHost()
     liveLaunchJob?.cancel(); liveLaunchJob = null
     revokeVoice()
     val generation = threadCreation.generation
@@ -1277,7 +1317,7 @@ class AssistantSession private constructor(private val context: Context, private
    * sent yet) opens the island's greeting on a fresh session.
    */
   fun resume(threadId: String) {
-    endLiveTalk()
+    releaseLiveHost()
     val id = threadId.trim()
     liveLaunchJob?.cancel(); liveLaunchJob = null
     revokeVoice()
@@ -1490,6 +1530,7 @@ class AssistantSession private constructor(private val context: Context, private
 
   companion object {
     private const val CHAT_ACTIVITY = "org.agentos.agent.MainActivity"
+    private val DETACHABLE = setOf("active", "disconnected")
     const val MAX_TEXT = 16_000
     /** Saved dictation settings the desktop entry and its field microphone share. */
     const val DESKTOP_SCOPE = "assistant-entry"
