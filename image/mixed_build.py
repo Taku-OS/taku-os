@@ -28,6 +28,7 @@ DERIVED = {
     "IMAGES/super_empty.img", "IMAGES/unsparse_super_empty.img", "IMAGES/userdata.img",
     "IMAGES/vbmeta.img", "IMAGES/vbmeta_system.img",
     "META/apex_info.pb", "META/care_map.pb", "META/vbmeta_digest.txt",
+    "META/combined_sepolicy", "META/shareduid_violation_modules.json",
 }
 SYSTEM_CHAIN = {"system", "system_ext", "product", "system_dlkm"}
 DYNAMIC = SYSTEM_CHAIN | {"vendor", "vendor_dlkm"}
@@ -260,8 +261,11 @@ def audit(archive):
 
 
 def digest(archive, name):
+    checksum = hashlib.sha256()
     with archive.open(name) as stream:
-        return hashlib.file_digest(stream, "sha256").digest()
+        for chunk in iter(lambda: stream.read(8 * 1024 * 1024), b""):
+            checksum.update(chunk)
+    return checksum.digest()
 
 
 def merge_command(args, output):
@@ -276,6 +280,41 @@ def merge_command(args, output):
     ]
 
 
+def audit_merged(merged, framework, vendor, framework_audit, vendor_audit):
+    _, _, _, framework_misc = framework_audit
+    vendor_report, vendor_owners, vendor_layout, vendor_misc = vendor_audit
+    frozen = [name for name, side in vendor_owners.items()
+              if side == "vendor" and name.endswith(".img")]
+    report, owners, layout, misc = audit(merged)
+    require(report["ab_partitions"] == vendor_report["ab_partitions"],
+            "merged A/B partitions differ from Vendor input")
+    require(all(layout.get(key) == value for key, value in vendor_layout.items()),
+            "merged dynamic layout differs from Vendor input")
+    require(all(owners.get(name) == "vendor" for name in frozen),
+            "merged package is missing frozen Vendor images")
+    for name in frozen:
+        require(digest(merged, name) == digest(vendor, name),
+                f"frozen Vendor SHA-256 mismatch: {name}")
+    keys = set(manifest(KEYS))
+    for key in set(misc) | set(framework_misc) | set(vendor_misc):
+        if key.startswith("avb_"):
+            source = framework_misc if key in keys and key in framework_misc else vendor_misc
+            require(misc.get(key) == source.get(key), f"merged AVB metadata changed: {key}")
+    for partition in ("vbmeta", "vbmeta_system"):
+        _, descriptors = avb_descriptors(merged, partition)
+        _, framework_descriptors = avb_descriptors(framework, partition)
+        _, vendor_descriptors = avb_descriptors(vendor, partition)
+        for (tag, part), descriptor in descriptors.items():
+            if tag == 4 and part == "vbmeta_system":
+                continue  # The framework chain is regenerated and checked by audit.
+            source = (vendor_descriptors if owners[image_path(part)] == "vendor"
+                      else framework_descriptors)
+            require(descriptor == source.get((tag, part)),
+                    f"merged AVB descriptor changed: {partition}/{part}")
+    report["verified_vendor_images"] = len(frozen)
+    return report
+
+
 def merge(args):
     output = args.output.resolve()
     if args.dry_run:
@@ -285,42 +324,14 @@ def merge(args):
     require(not output.exists(), f"output already exists: {output}")
     with (zipfile.ZipFile(args.framework) as framework, zipfile.ZipFile(args.vendor) as vendor,
           tempfile.TemporaryDirectory(prefix=".mixed-build-", dir=output.parent) as scratch):
-        framework_report, _, _, framework_misc = audit(framework)
-        vendor_report, vendor_owners, vendor_layout, vendor_misc = audit(vendor)
-        require(framework_report["ab_partitions"] == vendor_report["ab_partitions"],
+        framework_audit = audit(framework)
+        vendor_audit = audit(vendor)
+        require(framework_audit[0]["ab_partitions"] == vendor_audit[0]["ab_partitions"],
                 "inputs disagree on A/B partitions")
-        frozen = [name for name, side in vendor_owners.items()
-                  if side == "vendor" and name.endswith(".img")]
         staged = Path(scratch) / output.name
-        subprocess.run(merge_command(args, staged), cwd=args.otatools, check=True)
+        subprocess.run(merge_command(args, staged), cwd=args.source_root or args.otatools, check=True)
         with zipfile.ZipFile(staged) as merged:
-            report, owners, layout, misc = audit(merged)
-            require(report["ab_partitions"] == vendor_report["ab_partitions"],
-                    "merged A/B partitions differ from Vendor input")
-            require(all(layout.get(key) == value for key, value in vendor_layout.items()),
-                    "merged dynamic layout differs from Vendor input")
-            require(all(owners.get(name) == "vendor" for name in frozen),
-                    "merged package is missing frozen Vendor images")
-            for name in frozen:
-                require(digest(merged, name) == digest(vendor, name),
-                        f"frozen Vendor SHA-256 mismatch: {name}")
-            keys = set(manifest(KEYS))
-            for key in set(misc) | set(framework_misc) | set(vendor_misc):
-                if key.startswith("avb_"):
-                    source = framework_misc if key in keys and key in framework_misc else vendor_misc
-                    require(misc.get(key) == source.get(key), f"merged AVB metadata changed: {key}")
-            for partition in ("vbmeta", "vbmeta_system"):
-                _, descriptors = avb_descriptors(merged, partition)
-                _, framework_descriptors = avb_descriptors(framework, partition)
-                _, vendor_descriptors = avb_descriptors(vendor, partition)
-                for (tag, part), descriptor in descriptors.items():
-                    if tag == 4 and part == "vbmeta_system":
-                        continue  # The framework chain is regenerated and checked by audit.
-                    source = (vendor_descriptors if owners[image_path(part)] == "vendor"
-                              else framework_descriptors)
-                    require(descriptor == source.get((tag, part)),
-                            f"merged AVB descriptor changed: {partition}/{part}")
-            report["verified_vendor_images"] = len(frozen)
+            report = audit_merged(merged, framework, vendor, framework_audit, vendor_audit)
         # Publish only after validation and never replace a concurrent writer's output.
         output.hardlink_to(staged)
     print(json.dumps(report, indent=2, sort_keys=True))
@@ -334,6 +345,8 @@ def main():
     combine = commands.add_parser("merge")
     for name in ("framework", "vendor", "otatools", "output"):
         combine.add_argument("--" + name, type=Path, required=True)
+    combine.add_argument("--source-root", type=Path,
+                         help="Android source root for relative signing key paths")
     combine.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
     try:
