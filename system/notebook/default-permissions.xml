@@ -1,0 +1,6 @@
+<exceptions>
+    <exception package="org.agentos.notebook">
+        <permission name="android.permission.READ_MEDIA_IMAGES" fixed="false" />
+        <permission name="android.permission.POST_NOTIFICATIONS" fixed="false" />
+    </exception>
+</exceptions>

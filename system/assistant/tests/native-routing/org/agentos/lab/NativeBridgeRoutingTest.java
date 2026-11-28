@@ -248,6 +248,40 @@ public final class NativeBridgeRoutingTest {
         complete(child, turn);
     }
 
+    private static void notebookPhonePermissions(CodexAppServer server) throws Exception {
+        String thread = "notebook-thread", turn = "notebook-turn";
+        start(thread, turn);
+        NativeBridge.setPhonePermission(thread, "readOnly");
+        int request = 820;
+        int before = PhoneNativeTools.executions.get();
+        for (String tool : new String[]{"notebook_recall", "notebook_query", "notebook_lists"}) {
+            int id = request++;
+            NativeBridge.request(server, call(id, thread, turn, "taku_phone__" + tool, new JSONObject()));
+            awaitReply(server, id);
+            check(server.replies.get(id).getBoolean("success"), tool + " can read without approval");
+        }
+        for (String tool : new String[]{"notebook_open", "notebook_create_list", "notebook_edit_list", "notebook_edit", "notebook_batch"}) {
+            int id = request++;
+            NativeBridge.request(server, call(id, thread, turn, "taku_phone." + tool, new JSONObject()));
+            check(!server.replies.get(id).getBoolean("success"), tool + " is blocked in read-only conversations");
+        }
+        awaitCleanup();
+        check(PhoneNativeTools.executions.get() == before + 3, "Only Notebook reads reached the runtime");
+        NativeBridge.setPhonePermission(thread, "ask");
+        int open = request++;
+        JSONObject source = new JSONObject().put("id", "a".repeat(64)).put("destination", "source");
+        NativeBridge.request(server, call(open, thread, turn, "notebook_open", source));
+        JSONObject pending = NativeBridge.state(thread).getJSONArray("requests").getJSONObject(0);
+        check(!server.replies.containsKey(open) && pending.getString("method").equals("phone/action/requestApproval")
+                && pending.getJSONObject("params").getString("reason").contains("original post"),
+                "The approval describes the actual Notebook launch");
+        NativeBridge.respond(key(thread), new JSONObject().put("decision", "decline"));
+        check(!server.replies.get(open).getBoolean("success") && PhoneNativeTools.executions.get() == before + 3,
+                "Declining opening a Notebook source never launches it");
+        complete(thread, turn);
+        PhoneNativeTools.executions.set(before);
+    }
+
     public static void main(String[] unused) throws Exception {
         steerRejectionClassification();
         NativeBridge.closed();CodexAppServer server=new CodexAppServer();CodexAppServer.shared=server;
@@ -258,6 +292,7 @@ public final class NativeBridgeRoutingTest {
             archivedSessions();
             policyChangeNotices(server);
             pendingQuestionsAcrossSessions(server);
+            notebookPhonePermissions(server);
             start(THREAD,TURN);
             JSONObject original=args(),event=call(1,THREAD,TURN,"confirm_action",original);
             NativeBridge.request(server,event);String first=key(THREAD);
