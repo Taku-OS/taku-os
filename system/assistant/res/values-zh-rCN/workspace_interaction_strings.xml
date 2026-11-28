@@ -3,7 +3,9 @@
     <string name="workspace_interaction_title">虚拟屏幕</string>
     <string name="workspace_interaction_app">Taku · %1$s</string>
     <string name="workspace_interaction_minimize">缩小为悬浮预览</string>
-    <string name="workspace_interaction_close">隐藏预览</string>
+    <string name="workspace_interaction_close">关闭预览</string>
+    <string name="workspace_interaction_back_to_conversation">返回对话</string>
+    <string name="workspace_interaction_reconnecting">屏幕已断开，正在重新连接…</string>
     <string name="workspace_interaction_edit">补充要求</string>
     <string name="workspace_interaction_done_editing">完成编辑</string>
     <string name="workspace_interaction_take_over">接管</string>

@@ -15,7 +15,8 @@ import org.json.JSONObject;
  * black screenshots, concluded the page was empty and gave up. Covers both layers: the screen is
  * created in its own display group (root cause), and an off screen or a pure-black frame becomes a
  * clear retryable SCREEN_OFF / SCREEN_BLACK_FRAME error instead of an image (fallback) — without
- * ever flagging a dark-mode App.
+ * ever flagging a dark-mode App. BUG-0044: the screen's own power group is kept awake and woken
+ * again before a capture gives up.
  */
 public final class ScreenOffCaptureTest {
     private static int checks;
@@ -37,7 +38,7 @@ public final class ScreenOffCaptureTest {
         throw new AssertionError("expected " + code);
     }
 
-    static final int OWN_DISPLAY_GROUP = 1 << 11;
+    static final int OWN_DISPLAY_GROUP = 1 << 11, ALWAYS_UNLOCKED = 1 << 12;
 
     /** The leading {@code CODE:} that tool-error consumers (e.g. the phone MCP bridge) key on. */
     static String code(String message) {
@@ -53,6 +54,7 @@ public final class ScreenOffCaptureTest {
         flags.put("VIRTUAL_DISPLAY_FLAG_DESTROY_CONTENT_ON_REMOVAL", 1 << 8);
         flags.put("VIRTUAL_DISPLAY_FLAG_SUPPORTS_TOUCH", 1 << 6);
         flags.put("VIRTUAL_DISPLAY_FLAG_OWN_DISPLAY_GROUP", OWN_DISPLAY_GROUP);
+        flags.put("VIRTUAL_DISPLAY_FLAG_ALWAYS_UNLOCKED", ALWAYS_UNLOCKED);
         return flags;
     }
 
@@ -63,7 +65,9 @@ public final class ScreenOffCaptureTest {
         int flags = ScreenGuard.virtualDisplayFlags(base, name -> platform.getOrDefault(name, 0));
         check((flags & OWN_DISPLAY_GROUP) != 0, "the independent screen is created with VIRTUAL_DISPLAY_FLAG_OWN_DISPLAY_GROUP");
         check((flags & base) == base, "PUBLIC | OWN_CONTENT_ONLY are kept");
-        for (int value : platform.values()) check((flags & value) == value, "every available flag is composed");
+        for (Map.Entry<String, Integer> entry : platform.entrySet())
+            if (!entry.getKey().equals(ScreenGuard.ALWAYS_UNLOCKED_FLAG)) // composed by alwaysUnlockedFlags
+                check((flags & entry.getValue()) == entry.getValue(), "every available flag is composed: " + entry.getKey());
         // A platform lacking the optional group flag still creates the screen (reflection returns 0).
         platform.remove("VIRTUAL_DISPLAY_FLAG_OWN_DISPLAY_GROUP");
         int older = ScreenGuard.virtualDisplayFlags(base, name -> platform.getOrDefault(name, 0));
@@ -192,14 +196,99 @@ public final class ScreenOffCaptureTest {
         }
     }
 
+    /**
+     * BUG-0044: the screen's own power group timed out while the Agent thought and stayed STATE_OFF,
+     * even on a newly allocated screen. The host keeps that group awake with a display-scoped screen
+     * wake lock, and a capture finding it off wakes it and waits before reporting SCREEN_OFF.
+     */
+    static void keepAwake() {
+        check(ScreenGuard.SCREEN_BRIGHT_WAKE_LOCK == 0x0000000a, "SCREEN_BRIGHT_WAKE_LOCK value (PowerManager)");
+        check(ScreenGuard.ACQUIRE_CAUSES_WAKEUP == 0x10000000, "ACQUIRE_CAUSES_WAKEUP value (PowerManager)");
+        check((ScreenGuard.SCREEN_WAKE_FLAGS & 0xffff) == ScreenGuard.SCREEN_BRIGHT_WAKE_LOCK, "a screen-level lock keeps the group awake");
+        check((ScreenGuard.SCREEN_WAKE_FLAGS & ScreenGuard.ACQUIRE_CAUSES_WAKEUP) != 0, "acquiring it wakes the group");
+        check(ScreenGuard.awaitWake(0), "a new off-screen capture waits for the wake");
+        check(ScreenGuard.awaitWake(ScreenGuard.WAKE_GRACE_MS - 1), "still waiting just inside the grace");
+        check(!ScreenGuard.awaitWake(ScreenGuard.WAKE_GRACE_MS), "after the grace it is SCREEN_OFF");
+        check(!ScreenGuard.awaitWake(-1), "a clock going backwards does not wait forever");
+        check(ScreenGuard.WAKE_GRACE_MS < 5_000, "the grace fits inside the 5 s capture wait");
+        check(ScreenGuard.rewakeDue(10_000, 0), "the first off capture re-wakes at once");
+        check(!ScreenGuard.rewakeDue(10_500, 10_000), "no re-wake storm on every 200 ms tick");
+        check(ScreenGuard.rewakeDue(11_000, 10_000), "re-wakes again after the interval");
+        // Code review: held only while in use, so a screen kept overnight lets the phone sleep.
+        check(!ScreenGuard.idleWakeExpired(1_000 + ScreenGuard.AWAKE_IDLE_MS - 1, 1_000), "kept just inside the idle window");
+        check(ScreenGuard.idleWakeExpired(1_000 + ScreenGuard.AWAKE_IDLE_MS, 1_000), "released once the window passes unused");
+        check(ScreenGuard.AWAKE_IDLE_MS > 60_000, "longer than an ordinary screen-off timeout, so an Agent thinking keeps it");
+    }
+
+    /** The lock screen's Keyguard sleep token must not stop the screen's Apps: it is always unlocked. */
+    static void alwaysUnlocked() throws Exception {
+        Map<String, Integer> platform = platformFlags();
+        int base = ScreenGuard.virtualDisplayFlags(1 | 8, name -> platform.getOrDefault(name, 0));
+        check((base & ALWAYS_UNLOCKED) == 0, "the base flags leave the unlock decision to alwaysUnlockedFlags");
+        int flags = ScreenGuard.alwaysUnlockedFlags(base, name -> platform.getOrDefault(name, 0));
+        check((flags & ALWAYS_UNLOCKED) != 0, "a screen with its own display group is always unlocked");
+        check((flags & base) == base, "every other flag is kept");
+        // The platform ignores ALWAYS_UNLOCKED without its own group: do not request it then.
+        int noGroup = base & ~OWN_DISPLAY_GROUP;
+        check(ScreenGuard.alwaysUnlockedFlags(noGroup, name -> platform.getOrDefault(name, 0)) == noGroup, "no own group, no unlock flag");
+        platform.remove("VIRTUAL_DISPLAY_FLAG_ALWAYS_UNLOCKED");
+        check(ScreenGuard.alwaysUnlockedFlags(base, name -> platform.getOrDefault(name, 0)) == base, "a platform without the flag is unchanged");
+        String host = Files.readString(Path.of("system/display/src/org/agentos/lab/VirtualDisplayHost.java"));
+        check(host.contains("ScreenGuard.alwaysUnlockedFlags("), "the host requests an always-unlocked screen");
+        check(host.contains("catch(SecurityException refused)") && host.contains("flags=baseFlags;"),
+                "a refused unlock flag still creates the screen");
+        check(host.contains(".put(\"alwaysUnlocked\",alwaysUnlocked(display))"), "the screen reports whether it is always unlocked");
+    }
+
     /** The device host is wired to the guard (it needs Android and cannot run on the host). */
     static void hostWiring() throws Exception {
         String host = Files.readString(Path.of("system/display/src/org/agentos/lab/VirtualDisplayHost.java"));
         check(host.contains("ScreenGuard.virtualDisplayFlags("), "VirtualDisplayHost composes its flags through ScreenGuard");
         check(host.contains("ScreenGuard.requireScreenOn(") && host.contains("display.getState()"), "capture checks the display state");
         check(host.contains("ScreenGuard.isBlackRgba(") && host.contains("ScreenGuard.requireNotBlack("), "capture checks for a black frame");
+        check(host.contains("\"newWakeLock\",int.class,String.class,int.class") && host.contains("ScreenGuard.SCREEN_WAKE_FLAGS"),
+                "the host holds a screen wake lock tied to its display");
+        check(host.indexOf("keepScreenAwake(ctx,displayId)") > host.indexOf("createVirtualDisplay("), "the lock is taken once the display exists");
+        check(host.contains("ScreenGuard.awaitWake(") && host.contains("rewakeScreen()"), "an off-screen capture wakes the screen before failing");
+        check(host.contains("screenWake.release()"), "the lock is released when the screen stops");
+        check(host.contains("p[0].equals(\"frame\")){screenUsed();") && host.contains("requireGeneration(p[1]);\n            screenUsed();"),
+                "a viewer's frame and a capture renew the lock");
+        check(host.contains("wake();\n        input.submit("), "host input renews the lock and waits for the screen to be on");
+        check(host.contains("p[0].equals(\"wake\")") && host.contains("ScreenGuard.awaitOn("),
+                "the host has one wake command for every action");
+        check(!host.contains("p[0].equals(\"status\")){screenUsed"), "a status poll does not keep the screen awake");
+        check(host.contains("releaseIdleWake();") && host.contains("ScreenGuard.idleWakeExpired("), "an idle screen's lock is released");
         String tools = Files.readString(Path.of("system/assistant/broker/org/agentos/lab/PhoneNativeTools.java"));
         check(tools.contains("PhoneExecutionScreens.captureFailure("), "observe_background maps capture refusals");
+        int wake = tools.indexOf("PhoneGestures.wake(screen)");
+        check(wake > 0 && wake < tools.indexOf("PhoneAppLaunch.open(screen") && wake < tools.indexOf("case \"tap\":")
+                        && wake < tools.indexOf("case \"type_text\":") && wake < tools.indexOf("case \"swipe\":"),
+                "open_app, tap, swipe, touch and type_text renew and wake the screen before acting");
+    }
+
+    /**
+     * BUG-0044 review: after 10 idle minutes the wake lock is released and the screen's group goes
+     * OFF. The first Agent action afterwards (open, tap, swipe, typing) must wake it and wait for it
+     * to be on, never inject into a screen that is off.
+     */
+    static void firstActionAfterSleep() throws Exception {
+        check(ScreenGuard.idleWakeExpired(ScreenGuard.AWAKE_IDLE_MS, 0), "10 idle minutes release the wake lock");
+        long[] now = {0};
+        int[] reads = {0}, rewakes = {0};
+        int state = ScreenGuard.awaitOn(() -> ++reads[0] < 4 ? ScreenGuard.STATE_OFF : ScreenGuard.STATE_ON, true,
+                () -> rewakes[0]++, () -> now[0], ms -> now[0] += ms);
+        check(state == ScreenGuard.STATE_ON && rewakes[0] == 3, "the first action wakes an OFF screen and waits until it is ON");
+        check(ScreenGuard.awaitOn(() -> ScreenGuard.STATE_ON, true, () -> { throw new AssertionError("no rewake"); },
+                () -> 0, ms -> { throw new AssertionError("no wait"); }) == ScreenGuard.STATE_ON,
+                "an awake screen acts immediately");
+        long[] clock = {0};
+        IOException off = rejects(ScreenGuard.SCREEN_OFF, () -> ScreenGuard.awaitOn(() -> ScreenGuard.STATE_DOZE, true,
+                () -> {}, () -> clock[0], ms -> clock[0] += ms));
+        check(clock[0] >= ScreenGuard.WAKE_GRACE_MS && off.getMessage().contains("DOZE") && off.getMessage().contains("not performed"),
+                "a screen that stays off fails with SCREEN_OFF after the wake grace, without acting");
+        rejects(ScreenGuard.SCREEN_OFF, () -> ScreenGuard.awaitOn(() -> ScreenGuard.STATE_OFF, false,
+                () -> { throw new AssertionError("no wake lock to re-acquire"); }, () -> 0, ms -> {}));
+        check(code("SCREEN_OFF: x") .equals("SCREEN_OFF"), "the error keeps the code tool consumers key on");
     }
 
     public static void main(String[] args) throws Exception {
@@ -208,7 +297,10 @@ public final class ScreenOffCaptureTest {
         blackFrames();
         brokerErrors();
         validateCapture();
+        keepAwake();
+        alwaysUnlocked();
         hostWiring();
+        firstActionAfterSleep();
         System.out.println("ScreenOffCaptureTest: " + checks + " checks passed");
     }
 }

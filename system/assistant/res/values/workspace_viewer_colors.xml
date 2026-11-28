@@ -7,5 +7,6 @@
     <color name="workspace_viewer_foreground">@color/taku_text_inverse</color>
     <color name="workspace_viewer_secondary">#B3FFFFFF</color>
     <color name="workspace_viewer_control">#14FFFFFF</color>
+    <color name="workspace_viewer_expand_overlay">#70000000</color>
     <color name="workspace_viewer_border">#1FFFFFFF</color>
 </resources>

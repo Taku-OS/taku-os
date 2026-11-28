@@ -34,8 +34,11 @@ final class PhoneNativeTools {
     "Get the Apps a step needs before touching the phone: every App the step keeps open at once (e.g. X and the Y"
       + " you share into). You get all or none; if another thread holds one, the call queues until you hold them all."
       + " Between steps, release_apps what you are done with, then request the next. Your turn's end normally"
-      + " releases your screen and Apps. If the user has taken over or paused your screen, both remain reserved"
-      + " for your session even after the turn ends; resumed work or explicit screen/session cleanup releases them."
+      + " releases your screen and Apps. Opening an App without later screen actions or successfully"
+      + " returning control to the Agent keeps the workspace ready. A successful read-only follow-up keeps"
+      + " that same screen. If several Apps share it, tell the user the preview shows only the top App."
+      + " When the user enables Jev for closing, eligible automatic cleanup requires its close decision."
+      + " User takeover and pause retain the workspace. Explicit release, workspace close, and policy changes still apply."
       + " taskTitle: one short sentence in the user's language on what this screen is doing; shown to"
       + " the user.",
     new JSONObject().put("packages", packages).put("taskTitle", string(80))));
@@ -47,8 +50,16 @@ final class PhoneNativeTools {
       + " it when request_apps is refused or a sub-agent seems stuck. reclaimable: its thread holds no Apps; a"
       + " request takes such a screen when none is idle and the limit is reached.",
     new JSONObject()));
+  tools.put(tool("hand_over_screen",
+    "When the user must act in an App on your background screen themselves (log in, enter a phone number or"
+      + " verification code, pay, solve a captcha): call this last, once the screen shows the page they need, then"
+      + " end your turn. After a successful turn the screen stays open and the conversation shows it as a card the"
+      + " user opens to take over; tell them to open that card and to tell you when they are done. Do not only tell"
+      + " the user to go to the App: without this the screen closes when your turn ends. Any later screen action"
+      + " cancels it. Never ask for the codes or passwords yourself, and never use it for work you can do.",
+    new JSONObject()));
   tools.put(tool("observe_background","Observe this thread's assigned Android execution screen. Returns its real screenshot and screen/frame identity.",new JSONObject()));
-  tools.put(tool("open_app","Open an App you hold from request_apps.",new JSONObject().put("packageName",new JSONObject().put("type","string"))));
+  tools.put(tool("open_app","Open an App you hold from request_apps on this exact background screen. A successful turn that leaves the App open without later screen actions keeps it available for preview or takeover; observe_background does not change this. release_apps closes Apps you no longer need.",new JSONObject().put("packageName",new JSONObject().put("type","string"))));
   tools.put(tool("tap","Tap coordinates on the independent execution screen.",new JSONObject().put("x",new JSONObject().put("type","integer")).put("y",new JSONObject().put("type","integer"))));
   tools.put(tool("swipe","Perform one continuous drag or scroll on the independent screen, then release. Observe the actual result before another action.",new JSONObject()
     .put("fromX",coordinate(720)).put("fromY",coordinate(1280)).put("toX",coordinate(720)).put("toY",coordinate(1280))
@@ -126,8 +137,10 @@ final class PhoneNativeTools {
   if (name.equals("request_apps")) {
    java.util.Map<String, String> apps = new java.util.LinkedHashMap<>();
    for (String pkg : packages(args)) apps.put(pkg, PhoneAppCatalog.requireLaunchable(pkg).optString("label", pkg));
-   return text(DedicatedScreensOnDevice.shared().request(thread, apps, args.optString("taskTitle")).toString());
+   return text(DedicatedScreensOnDevice.shared().request(thread, apps, args.optString("taskTitle"), p.optString("turnId")).toString());
   }
+  if (name.equals("hand_over_screen"))
+   return text(DedicatedScreensOnDevice.shared().keepForUser(thread, p.optString("turnId")).toString());
   if (name.equals("screen_status"))
    return text(DedicatedScreensOnDevice.shared().status(thread).toString());
   if (name.equals("release_apps"))
@@ -137,7 +150,7 @@ final class PhoneNativeTools {
     name.equals("open_app") ? DedicatedScreens.Use.OPEN
     : name.equals("observe_background") || name.equals("device_info") ? DedicatedScreens.Use.LOOK
     : DedicatedScreens.Use.ACT;
-  return DedicatedScreensOnDevice.shared().withScreen(thread, use, args.optString("packageName"),
+  return DedicatedScreensOnDevice.shared().withScreen(thread, p.optString("turnId"), use, args.optString("packageName"),
     screen -> executeScreen(p, arguments, toolName, screen));
  }
  static java.util.List<String> packages(JSONObject args) throws Exception {
@@ -202,9 +215,12 @@ final class PhoneNativeTools {
   return text(result.toString());
  }
  static JSONObject executeScreen(JSONObject call,JSONObject args,String name,PhoneExecutionScreens.Screen screen)throws Exception {
+  // Every action renews the screen's wake lock and wakes a screen that slept, not only captures.
+  if(!name.equals("observe_background")&&!name.equals("device_info"))PhoneGestures.wake(screen);
+  if(name.equals("open_app"))return PhoneAppLaunch.open(screen,args.getString("packageName"),null);
   PhoneGestures.prepare(screen);
   String display=Integer.toString(screen.displayId);
-  if(name.equals("tap") || name.equals("open_app") || name.equals("type_text"))PhoneGestures.requireIdle(screen.displayId);
+  if(name.equals("tap") || name.equals("type_text"))PhoneGestures.requireIdle(screen.displayId);
   switch(name){
    case "swipe":return text(PhoneGestures.swipe(call,screen.displayId,args).toString());
    case "touch":return text(PhoneGestures.touch(call,screen.displayId,args).toString());
@@ -215,20 +231,6 @@ final class PhoneNativeTools {
      return text(screen.json().put("frame",frame).toString()).put("contentItems",new JSONArray()
        .put(new JSONObject().put("type","inputText").put("text",screen.json().put("frame",frame).toString()))
        .put(new JSONObject().put("type","inputImage").put("imageUrl","data:image/png;base64,"+Base64.encodeToString(out.toByteArray(),Base64.NO_WRAP))));}
-   case "open_app":String pkg=args.getString("packageName");
-    PhoneExecutionScreens.Action start = s -> {
-    JSONObject app=PhoneAppCatalog.requireLaunchable(pkg);String component=app.getString("launchComponent");
-    if(app.getInt("userId")!=screen.userId)throw new IOException("ANDROID_USER_CHANGED");
-    if(Thread.currentThread().isInterrupted())throw new InterruptedException();WorkspacePolicy.requireAppAllowed(pkg);
-    if(PhoneAppCatalog.currentUser()!=app.getInt("userId"))throw new IOException("ANDROID_USER_CHANGED");
-    // A task of its own on this screen even when the user has the App open on the main screen or in Recents;
-    // a single-instance App that reuses the user's task instead is moved over by DedicatedScreens.settleOpen.
-    // Already on this screen: brought to front as before, no second task piling up.
-    boolean here=false;for(PhoneTasks.Task t:PhoneTasks.DEVICE.list())if(t.displayId()==screen.displayId&&t.packageName().equals(pkg))here=true;
-    java.util.List<String> am=new java.util.ArrayList<>(java.util.List.of("/system/bin/am","start","--user",Integer.toString(app.getInt("userId")),"--display",display));
-    if(!here)am.add("--activity-multiple-task");am.add("-n");am.add(component);
-    return text(TaskBroker.command(am.toArray(new String[0])));};
-    return start.run(screen);
    case "tap":
     // On a dead screen Android drops the tap and input still reports success: ask the screen process first.
     PhoneGestures.requireLive(screen);

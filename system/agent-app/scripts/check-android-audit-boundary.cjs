@@ -3,7 +3,7 @@ const path = require('node:path');
 const os = require('node:os');
 const process = require('node:process');
 const {spawnSync} = require('node:child_process');
-const {appRoot, checkException, readException, sha256} = require('./audit-dependencies.cjs');
+const {appRoot, sha256} = require('./audit-dependencies.cjs');
 
 function collectSources(map) {
   if (!map || map.version !== 3) throw new Error('Missing or unsupported Android source map.');
@@ -24,7 +24,7 @@ function collectSources(map) {
 function checkSources(sources) {
   if (!sources.length) throw new Error('Android source map contains no modules.');
   const blocked = sources.filter((source) => /(?:^|\/)node_modules\/(?:picomatch|micromatch|tinyglobby)(?:\/|$)/.test(source));
-  if (blocked.length) throw new Error(`Tooling-only audit exception violated: ${blocked.join(', ')}`);
+  if (blocked.length) throw new Error(`Tooling-only packages entered Android bundle: ${blocked.join(', ')}`);
   return sources.length;
 }
 
@@ -74,7 +74,6 @@ function inspectExport(directory) {
 function runBoundaryCheck() {
   fs.rmSync(path.join(appRoot, 'out/security/android-audit-boundary.json'), {force: true});
   const lockBytes = fs.readFileSync(path.join(appRoot, 'package-lock.json'));
-  checkException(readException(), lockBytes);
   // A fresh, owned directory prevents stale or manually supplied maps passing CI.
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'taku-android-audit-'));
   try {
@@ -86,7 +85,7 @@ function runBoundaryCheck() {
     const output = path.join(appRoot, 'out/security');
     fs.mkdirSync(output, {recursive: true});
     fs.writeFileSync(path.join(output, 'android-audit-boundary.json'), JSON.stringify(evidence, null, 2) + '\n');
-    console.log(`Verified ${evidence.sourceCount} Android sources; waived tooling packages are absent.`);
+    console.log(`Verified ${evidence.sourceCount} Android sources; build-time glob packages are absent.`);
   } finally {
     fs.rmSync(directory, {recursive: true, force: true});
   }

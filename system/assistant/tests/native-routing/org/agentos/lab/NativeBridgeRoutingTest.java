@@ -248,6 +248,47 @@ public final class NativeBridgeRoutingTest {
         complete(child, turn);
     }
 
+    private static void completionTurnScope(CodexAppServer server) throws Exception {
+        String thread = "completion-scope";
+        DedicatedScreens registry = DedicatedScreensOnDevice.shared();
+        registry.nativeCompletions.clear();
+        start(thread, "old");
+        start(thread, "current");
+        NativeBridge.request(server, call(850, thread, "current", "confirm_action", args()));
+        complete(thread, "old");
+        check(NativeBridge.state(thread).getString("activeTurnId").equals("current")
+                        && NativeBridge.state(thread).getJSONArray("requests").length() == 1
+                        && registry.nativeCompletions.isEmpty(),
+                "A stale completion preserves the newer turn, its card, and its workspace");
+        NativeBridge.event(new JSONObject().put("method", "turn/completed").put("params", new JSONObject()
+                .put("threadId", thread).put("turn", new JSONObject().put("id", "current").put("status", "completed"))));
+        check(registry.nativeCompletions.equals(java.util.List.of(thread + " current true"))
+                        && !NativeBridge.state(thread).has("activeTurnId")
+                        && NativeBridge.state(thread).getJSONArray("requests").length() == 0,
+                "Successful completion passes the exact turn and success to the ledger");
+        complete(thread, "current");
+        check(registry.nativeCompletions.size() == 1, "Duplicate completion cannot release a retained workspace");
+        // Code review: a completion whose turn/started was never seen (state rebuilt after a
+        // reconnect) still reaches the ledger and records its result.
+        NativeBridge.event(new JSONObject().put("method", "turn/completed").put("params", new JSONObject()
+                .put("threadId", thread).put("turn", new JSONObject().put("id", "unseen").put("status", "failed")
+                        .put("error", new JSONObject().put("message", "lost start")))));
+        check(registry.nativeCompletions.size() == 2 && registry.nativeCompletions.get(1).equals(thread + " unseen false")
+                        && NativeBridge.state(thread).getJSONObject("completedTurn").getString("id").equals("unseen")
+                        && NativeBridge.state(thread).has("error"),
+                "A completion with no recorded turn still ends the screen's turn and records its result");
+        for (String status : new String[]{"failed", "interrupted", "completed"}) {
+            start(thread, status);
+            if (status.equals("completed")) NativeBridge.stopPhoneTurn(thread, status);
+            NativeBridge.event(new JSONObject().put("method", "turn/completed").put("params", new JSONObject()
+                    .put("threadId", thread).put("turn", new JSONObject().put("id", status).put("status", status))));
+            check(registry.nativeCompletions.get(registry.nativeCompletions.size() - 1)
+                            .equals(thread + " " + status + " false"),
+                    "Failed, interrupted, and explicitly stopped turns never request retention");
+        }
+        NativeBridge.closed(); server.replies.clear();
+    }
+
     private static void notebookPhonePermissions(CodexAppServer server) throws Exception {
         String thread = "notebook-thread", turn = "notebook-turn";
         start(thread, turn);
@@ -287,6 +328,7 @@ public final class NativeBridgeRoutingTest {
         NativeBridge.closed();CodexAppServer server=new CodexAppServer();CodexAppServer.shared=server;
         try {
             memoryEventRouting();
+            completionTurnScope(server);
             closedSubAgentWoken();
             workspaceAdmissionRouting(server);
             archivedSessions();

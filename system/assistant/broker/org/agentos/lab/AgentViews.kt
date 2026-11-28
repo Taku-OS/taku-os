@@ -132,6 +132,33 @@ internal class AgentViews {
             }
         }
 
+        fun workspaceUtterance(thread: String, completed: JSONObject): String? = synchronized(AgentViews::class.java) {
+            val turns = rawThreads[thread]?.optJSONArray("turns")
+            val turn = turns?.let { MainReplyStream.find(it, completed.getString("id")) }
+            latestText(turn?.optJSONArray("items") ?: completed.optJSONArray("items"))
+        }
+
+        private fun latestText(items: JSONArray?): String? {
+            if (items == null) return null
+            for (i in items.length() - 1 downTo 0) {
+                val item = items.optJSONObject(i) ?: continue
+                if (item.optString("type") != "userMessage") continue
+                val parts = item.optJSONArray("content") ?: return null
+                return buildString {
+                    for (j in 0 until parts.length()) {
+                        val part = parts.optJSONObject(j) ?: continue
+                        if (part.optString("type") != "text") continue
+                        val text = part.opt("text") as? String ?: continue
+                        if (text.isBlank()) continue
+                        if (length + text.length + (if (isEmpty()) 0 else 1) > 4_000) return null
+                        if (isNotEmpty()) append('\n')
+                        append(text)
+                    }
+                }.takeIf { it.isNotBlank() }
+            }
+            return null
+        }
+
         /**
          * Archived and permanently deleted threads leave the projection the same way. The last
          * native observation of each thread is kept beside it so a panel source can tell them apart,

@@ -352,7 +352,7 @@ taku_call "$D" reply/read '{"threadId":"THREAD_UUID","turnId":"TURN_ID","replyId
 
 ## Background workspace App access
 
-Expo `/workspaces` and the retained native viewer use the same broker. Access follows the app permission policy and requires the unlocked owner. Other users get `USER_UNAVAILABLE`; locked owner gets `USER_LOCKED`. Discover leases and accepted policy ranges before making changes.
+Taku BScreen, Taku AI → Background workspaces (`/workspaces`), and the live viewer use the same broker. Access requires the unlocked owner and follows the app permission policy. Other users get `USER_UNAVAILABLE`. A locked owner gets `USER_LOCKED`. Discover leases and accepted policy ranges before making changes.
 
 ### Read and configure
 
@@ -362,31 +362,52 @@ taku_call "$D" workspaces/apps '{}'
 taku_call "$D" workspaces/configure '{"patch":{"allowBackground":false}}'
 taku_call "$D" workspaces/configure '{"patch":{"maxActiveScreens":2}}'
 taku_call "$D" workspaces/configure '{"patch":{"blockedPackages":["com.android.deskclock"]}}'
+taku_call "$D" workspaces/configure '{"patch":{"jevCloseEnabled":true}}'
 ```
 
 `workspaces/list` optionally takes `threadId`; `apps` returns `{apps,policy}` with `packageName,label,installed,allowed` (including saved blocks for uninstalled apps). `configure.patch` updates only included settings: boolean `allowBackground` (default true; false blocks new ordinary/additional requests), integer `maxActiveScreens` (currently 1–10, default 10; reducing retires excess idle screens at acquisition), and `blockedPackages` (replaces full array, default empty). Errors: `UNKNOWN_WORKSPACE_SETTING`, `INVALID_BACKGROUND_SETTING`, `INVALID_WORKSPACE_LIMIT`, `INVALID_APP_PACKAGE`, `INVALID_SCREEN_PACKAGE`, `DUPLICATE_APP_PACKAGE`.
 
+The Taku BScreen limit control shows `policy.maxActiveScreens` and uses `limits.maxActiveScreens.min` and `.max` from `workspaces/list`. To set the same value, pass an integer in `workspaces/configure` as shown above. Lowering the limit applies when another workspace is requested and keeps existing workspaces open.
+
+Read `policy.jevCloseEnabled` from `workspaces/list`. This boolean defaults to `false`. `workspaces/configure` rejects any other type with `INVALID_JEV_CLOSE_SETTING`. When both the workspace switch and the Taku AI Jev switch are on, the configured Jev route can evaluate the latest user text from the current turn. The broker skips turns that carry generated handback or status messages. A keep decision, insufficient evidence, missing text, or unavailable Jev leaves the workspace open. An admitted newer turn or workspace policy change invalidates a pending close. Only a successful turn is kept for a Jev decision: a failed or stopped turn, a turn with no Jev decision to ask (generated handback or status text), or an unreadable workspace policy releases the screen as with the switch off. Decisions run one at a time, in order; none is dropped. Manual `workspaces/release` works in either setting. A successful read-only follow-up preserves a ready workspace when the workspace switch is off.
+
+To launch an app on a new BScreen, use a launcher component from `workspaces/apps` (`apps[].appIds[]`) or the selected row’s `key` from the Home apps provider (`$L`):
+
+```sh
+taku_call "$D" workspaces/launch '{"appId":"com.android.deskclock/.DeskClock"}'
+```
+
+The command accepts only `appId`. It uses the same operation as **Open With BScreen** in Taku Home. It returns `{launched,appId,threadId,screen}` after Android places the app on the background display. Use the returned lease fields to preview or release the screen. The broker creates an empty thread without starting a turn.
+
+`INVALID_ARGUMENT`, `INVALID_APP_ID`, and `INVALID_APP_PACKAGE` reject invalid input. `APP_NOT_INSTALLED`, `APP_DISABLED`, `APP_SUSPENDED`, and `APP_NOT_LAUNCHABLE` report unavailable targets. `BACKGROUND_WORK_DISABLED`, `APP_NOT_ALLOWED`, `APP_IN_USE`, and `SCREEN_LIMIT_REACHED` report policy or capacity refusals. `APP_LAUNCH_FAILED`, `APP_NOT_OPENED_ON_SCREEN`, `OPEN_LANDED_ON_MAIN`, and `ANDROID_USER_CHANGED` report placement failures. `WORKSPACE_RUNTIME_UNAVAILABLE`, `WORKSPACE_RUNTIME_BUSY`, `WORKSPACE_EXECUTION_BUSY`, `WORKSPACE_EXECUTION_RESERVED`, `WORKSPACE_LAUNCH_INTERRUPTED`, and `WORKSPACE_LAUNCH_FAILED` report runtime failures. `WORKSPACE_LAUNCH_CLEANUP_FAILED` means launch cleanup could not be confirmed.
+
+Each workspace row includes `allocationId`. It changes when the broker assigns the same display again, even to the same thread. `packageName` identifies the top app. `taskPackages` lists the distinct app packages with Android tasks on that display. Taku Home uses this list to mark app icons. An app requested by the Agent appears only after Android opens a task for it.
+
 Policy is saved before cleanup. Read `revocations` by generation: pending, released (blocked Apps cleaned up, other allowed Apps/turn/screen can remain), retained (user controls), failed (may be partial), superseded (target changed). Inspect `released,heldApps,screenRetained`. Revoked queued requests fail `APP_NOT_ALLOWED`. The next phone tool call in an affected turn returns a permission-change notice; reevaluate before further operations.
 
-To match the Taku Home bookmark count, count `result.screens` rows with
-`homePreviewEligible:true`. Pausing/taking over preserves eligibility during `stopping`;
-closing/releasing clears it. Home previews return to the previous Home page on exit.
+To match the Taku Home bookmark count, count `result.screens` rows with `homePreviewEligible:true`. An explicit close keeps the row counted with `stopping:true` until the broker removes it. The bookmark opens a blurred Home view with sharp preview cards. The **×** below a card releases that workspace without a confirmation dialog. Home previews return to the previous Home page on exit. A live viewer opened outside Home can also minimize to a movable preview.
+
+### Background screens while the main screen sleeps
+
+The Android 17 image includes the independent display power-group patch. Updating only the Agent APK, broker, or display JAR does not install that framework fix. `alwaysUnlocked:true` and `keptAwake:true` alone do not prove power isolation: use `dumpsys display` to confirm the selected workspace display has a nonzero `displayGroupId`, and `dumpsys power` to check its power group separately from group 0. The main display can be OFF while the workspace is ON. Continue using `observe_background` for actual image/frame evidence; `SCREEN_OFF` or `SCREEN_BLACK_FRAME` is a failure, not an empty app page. A static page may keep the same frame timestamp; verify a screen interaction before treating unchanged frame metadata as a stall.
 
 ### Force-close a specified workspace
 
 ```sh
-taku_call "$D" workspaces/release '{"threadId":"THREAD_ID","screenKey":"SCREEN_KEY","generation":"GENERATION"}'
+taku_call "$D" workspaces/release '{"threadId":"THREAD_ID","screenKey":"SCREEN_KEY","generation":"GENERATION","allocationId":"ALLOCATION_ID"}'
 ```
 
-Refresh `threadId,screenKey,generation`; a display number is insufficient. Force-close stops the main turn or stops the sub-agent and prevents further sub-agent turns; it can interrupt the caller, so use an independent readback. `returnToThread:true` opens the original conversation after release. `opened:false,returnError` reflect navigation failure after cleanup; avoid repeating cleanup. Errors: `SCREEN_NOT_BOUND`, `SCREEN_OWNER_MISMATCH`, `WORKSPACE_CONTROL_BUSY`, `WORKSPACE_EXECUTION_STOP_UNCONFIRMED`, `WORKSPACE_PROCESS_STOP_UNCONFIRMED`. A missing row alone cannot confirm physical close.
+Refresh the lease tuple and pass its `allocationId` when acting on a previously selected workspace. `INVALID_SCREEN_ALLOCATION` rejects malformed IDs. `SCREEN_LEASE_CHANGED` rejects a replacement allocation. Release always confirms that the screen host stopped before it removes the workspace. If the host does not stop (for example `HOST_STOP_TIMEOUT`), the call fails and the workspace stays listed as `paused` with that `lastError`; call `workspaces/release` again to retry. Use `controlRevision` to reject changes in control since the read. A stale revision returns `SCREEN_CONTROL_CHANGED`. The live viewer uses it when **Stop** releases a user-controlled screen.
+
+Force-close stops the main turn or ends the sub-agent's access to the screen and prevents further sub-agent turns. It can interrupt the caller, so use an independent `workspaces/list` readback. `returnToThread:true` opens the original conversation after release. `opened:false,returnError` report a navigation failure after release. Errors also include `SCREEN_NOT_BOUND`, `SCREEN_OWNER_MISMATCH`, `WORKSPACE_CONTROL_BUSY`, `WORKSPACE_EXECUTION_STOP_UNCONFIRMED`, and `WORKSPACE_PROCESS_STOP_UNCONFIRMED`.
 
 ### Preview, open, and control an exact lease
 
 ```sh
-taku_call "$D" workspaces/preview '{"threadId":"THREAD_ID","screenKey":"SCREEN_KEY","generation":"GENERATION"}'
+taku_call "$D" workspaces/preview '{"threadId":"THREAD_ID","screenKey":"SCREEN_KEY","generation":"GENERATION","allocationId":"ALLOCATION_ID"}'
 taku_call "$D" workspaces/open '{"threadId":"THREAD_ID","screenKey":"SCREEN_KEY","generation":"GENERATION"}'
-taku_call "$D" workspaces/pause '{"threadId":"THREAD_ID","screenKey":"SCREEN_KEY","generation":"GENERATION"}'
-taku_call "$D" workspaces/takeControl '{"threadId":"THREAD_ID","screenKey":"SCREEN_KEY","generation":"GENERATION"}'
+taku_call "$D" workspaces/pause '{"threadId":"THREAD_ID","screenKey":"SCREEN_KEY","generation":"GENERATION","allocationId":"ALLOCATION_ID","controlRevision":7}'
+taku_call "$D" workspaces/takeControl '{"threadId":"THREAD_ID","screenKey":"SCREEN_KEY","generation":"GENERATION","allocationId":"ALLOCATION_ID"}'
 taku_call "$D" workspaces/input '{"threadId":"THREAD_ID","screenKey":"SCREEN_KEY","generation":"GENERATION","controlRevision":7,"input":{"type":"tap","x":100,"y":200}}'
 taku_call "$D" workspaces/returnAndResume '{"threadId":"THREAD_ID","screenKey":"SCREEN_KEY","generation":"GENERATION","controlRevision":7,"requestId":"REQUEST_UUID"}'
 taku_call "$D" workspaces/addRequirement '{"threadId":"THREAD_ID","screenKey":"SCREEN_KEY","generation":"GENERATION","controlRevision":7,"requestId":"REQUEST_UUID","text":"Review the current screen before continuing."}'
@@ -394,6 +415,9 @@ taku_call "$D" workspaces/executionStatus '{"threadId":"THREAD_ID","screenKey":"
 ```
 
 Use the exact lease tuple for every call and the current integer `controlRevision` for input/resume/requirement (7 in the examples). Preview opens the retained live viewer read-only; open opens its thread. Accepted activity launches return `{opened:true,threadId}`. Errors: `SCREEN_LEASE_CHANGED`, `SCREEN_REBIND_REQUIRED`, `THREAD_UNAVAILABLE`, `AGENT_FRONTEND_UNAVAILABLE`. Pause and takeControl use stop confirmation. Only confirmed `controlOwner:"user"` permits input. Input forms: `{type:"tap",x,y}`, `{type:"swipe",fromX,fromY,toX,toY,durationMs}`, `{type:"key",keyCode:4}`. Coordinates are integer screen pixels and duration is 100–2000 ms.
+
+Home's app icon confirmation uses `workspaces/takeControl`. To open the live viewer after taking control, call `workspaces/preview` with the same tuple and `allocationId`. The preview reflects the confirmed owner. Cancel leaves the existing owner in place. Preview, pause, and takeControl accept an optional `allocationId` for the same exact-selection check as release. Pause also accepts an optional `controlRevision`.
+After a release, the viewer disables live operations and offers a visible exit. The activity history remains available. Refresh `workspaces/list` before opening a new preview.
 
 Use a fresh lowercase UUID `requestId` for new `returnAndResume/addRequirement`; reuse only for identical parameters. Requirements are nonblank, max 4,000 characters. `executionStatus` reads the receipt even after the screen disappears; inspect `status,requiresReconciliation,screenAvailable` before retrying. Errors: `WORKSPACE_REQUEST_ID_CONFLICT`, `WORKSPACE_REQUEST_NOT_FOUND`, `WORKSPACE_EXECUTION_BUSY`, `SCREEN_CONTROL_CHANGED`.
 
@@ -415,6 +439,8 @@ Repeats reuse the pending request ID. Delete upgrades archive and increments rev
 Discovery/turn preparation updates `taku-open-access/SKILL.md` when it matches the last verified official SHA-256. Interrupted updates reconcile recorded digests. `skills/read.builtinUpdate` shows retained status, reason, message and current/available hashes for local edits or untrusted baselines (`LOCAL_MODIFIED/UNVERIFIED_BASELINE`). Compare both versions before resolving. Rediscover/re-read after update; instructions already loaded in a conversation are unaffected.
 
 ### Turn-end cleanup
+
+Successful `returnAndResume` turns and successful `open_app` turns with no later screen actions can retain the live workspace. So can a successful turn whose last screen step is `hand_over_screen`: the Agent's way to leave an App on a page the user must finish themselves (login, verification code, payment) after taps or typing, which would otherwise release the screen. Its result is `{handedOver:true,screenKey,generation,apps,advice}`; any later screen action cancels it, it skips the Jev close check, and it fails with `APPS_NOT_REQUESTED`, `TURN_NOT_ACTIVE` or `SCREEN_AGENT_PAUSED`. The conversation then shows the screen's card to open and take over. A successful follow-up that uses only `screen_status` or `observe_background` keeps the retained allocation. The row is `ready` and `homePreviewEligible:true`. If apps share one display, the preview shows the top app. App reservations still apply. Explicit release and app policy changes can still remove apps or the workspace. User takeover and pause retain the workspace.
 
 `workspaces/list` shows `cleanup_failed` with `lastError:"SCREEN_CLEANUP_FAILED"`, `heldApps` and `cleanupRetryDelayMs`. The screen remains reserved. The worker retries after 30 seconds until close is confirmed. Wait and query while `stopping:true,admitted:false,canResume:false`. Empty `packageName` means current page unknown.
 

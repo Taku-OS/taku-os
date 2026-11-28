@@ -24,6 +24,7 @@ enum class TakuIcons(val viewport: Float, private val data: String, val stroke: 
   Sparkle(16f, "M6.720 2.880Q7.488 8.512 13.120 9.280Q7.488 10.048 6.720 15.680Q5.952 10.048 0.320 9.280Q5.952 8.512 6.720 2.880ZM12.800 0.480Q13.126 2.874 15.520 3.200Q13.126 3.526 12.800 5.920Q12.474 3.526 10.080 3.200Q12.474 2.874 12.800 0.480Z"),
   /** Edit-badge minus (0-5), 1.125 stroke on a 13.5 grid as a filled capsule. */
   Minus(13.5f, "M1.3 6.19H12.2A0.56 0.56 0 0 1 12.2 7.31H1.3A0.56 0.56 0 0 1 1.3 6.19Z"),
+  Close(16f, "M4 4L12 12M12 4L4 12", stroke = 1.75f),
   /** Play triangle used inside 16 dp pill buttons. */
   PlaySmall(16f, "M4.48 2.88L13.44 8L4.48 13.12Z"),
   /** Island "Expand and Collapse" (stroked corners). */

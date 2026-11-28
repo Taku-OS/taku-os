@@ -14,6 +14,7 @@
     <string name="chat_tool_request_apps">Request a background screen</string>
     <string name="chat_tool_release_apps">Release the background screen</string>
     <string name="chat_tool_screen_status">Check the background screen</string>
+    <string name="chat_tool_hand_over_screen">Hand the screen to you</string>
     <string name="chat_tool_phone">Use the phone</string>
     <string name="chat_tool_command">Run command</string>
     <string name="chat_tool_file_change">File changes</string>

@@ -42,10 +42,16 @@
     <category android:name="android.intent.category.DEFAULT"/>
    </intent-filter>
   </activity>
-  <!-- Old explicit links remain compatible; this package no longer advertises a desktop. -->
+  <!-- Old explicit links remain compatible. -->
   <activity android:name=".CodexHomeActivity" android:exported="true" android:launchMode="singleTask"/>
   <activity android:name=".MirrorActivity" android:exported="false"/>
   <activity android:name=".BackgroundWorkspacesActivity" android:label="@string/workspace_title" android:exported="false"/>
+  <activity android:name=".BScreenActivity" android:label="@string/bscreen_title" android:icon="@mipmap/ic_bscreen" android:exported="true" android:launchMode="singleTask" android:taskAffinity="org.agentos.assistant.bscreen">
+   <intent-filter>
+    <action android:name="android.intent.action.MAIN"/>
+    <category android:name="android.intent.category.LAUNCHER"/>
+   </intent-filter>
+  </activity>
   <activity android:name=".PanelActivity" android:exported="true" android:theme="@android:style/Theme.NoDisplay" android:taskAffinity="" android:excludeFromRecents="true" android:noHistory="true"/>
  </application>
 </manifest>

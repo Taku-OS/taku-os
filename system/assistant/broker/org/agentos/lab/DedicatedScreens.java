@@ -90,6 +90,9 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
     private volatile java.util.function.Predicate<String> removalFence = session -> false;
     private final Set<String> endingSessions = new HashSet<>();
 
+    /** Native turns can start before they acquire an allocation. */
+    private final Map<String, String> activeTurns = new HashMap<>();
+
     /** For a closed sub-agent: its parent, and what the parent is told when it wakes it. */
     record ParentNote(String parent, String text) {}
 
@@ -125,6 +128,120 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         OPEN
     }
 
+    private enum CompletionDisposition {
+        RELEASE, RETURN_PENDING, RETURNED, OPEN_ONLY, READ_ONLY, READY
+    }
+
+    /** What happened to a screen, as far as keeping it after its turn is concerned. */
+    private enum Retention {
+        /** It went to a session (idle or reclaimed). */
+        ALLOCATED,
+        /** The user paused it or took it over. */
+        PAUSED,
+        /** returnAndResume began: the next handback turn keeps the screen. */
+        RETURN_BEGUN,
+        /** A begun return did not give control back to the Agent (it stayed with the user, paused, or failed). */
+        CONTROL_NOT_RETURNED,
+        /** The broker queued a turn for its session. */
+        QUEUED,
+        /** An ordinary turn started. */
+        TURN_STARTED,
+        /** The turn a returnAndResume admitted started. */
+        HANDBACK_STARTED,
+        /** The Agent tapped, swiped, typed or opened something on it. */
+        AGENT_ACTED,
+        /** More Apps were granted to it. */
+        APPS_GRANTED,
+        /** The Agent opened an App and did nothing else (so far). */
+        APP_OPENED,
+        /** hand_over_screen: the user must finish something on it. */
+        HANDED_TO_USER,
+        /** Apps on it were released. */
+        APPS_RELEASED,
+        /** Its Apps were handed to another session that asked for them. */
+        APPS_HANDED_AWAY,
+        /** The user launched an App on it themselves (Open With BScreen). */
+        USER_LAUNCHED,
+        /** Its turn ended and it is kept. */
+        KEPT_AFTER_TURN,
+        /** A pending close decision was settled. */
+        DECISION_SETTLED,
+        /** It is being released. */
+        LEAVING
+    }
+
+    /**
+     * The one place that changes whether a screen is kept after its turn: {@code completion},
+     * {@code heldForUser} and a pending {@code closeDecision} (code review: these were set ad hoc in
+     * about 13 places, which let a failed handback's RETURN_PENDING leak into an unrelated turn).
+     * Hold the ledger lock.
+     */
+    private static void transition(DedicatedScreen screen, Retention event) {
+        switch (event) {
+            case ALLOCATED, PAUSED, APPS_HANDED_AWAY, LEAVING -> {
+                screen.completion = CompletionDisposition.RELEASE;
+                screen.heldForUser = false;
+                screen.closeDecision = null;
+                screen.handbackGranted = false;
+                if (event != Retention.PAUSED) screen.requestTurn = "";
+            }
+            case RETURN_BEGUN -> screen.completion = CompletionDisposition.RETURN_PENDING;
+            case CONTROL_NOT_RETURNED -> {
+                screen.handbackGranted = false;
+                if (screen.completion == CompletionDisposition.RETURN_PENDING)
+                    screen.completion = CompletionDisposition.RELEASE;
+            }
+            case QUEUED, DECISION_SETTLED -> screen.closeDecision = null;
+            case TURN_STARTED, HANDBACK_STARTED -> {
+                screen.closeDecision = null;
+                screen.heldForUser = false;
+                screen.handbackGranted = false;
+                screen.completion = switch (screen.completion) {
+                    // Only the turn the return admitted is a handback; any other turn is ordinary.
+                    case RETURN_PENDING -> event == Retention.HANDBACK_STARTED
+                            ? CompletionDisposition.RETURNED : CompletionDisposition.RELEASE;
+                    case READY -> screen.apps.isEmpty() ? CompletionDisposition.RELEASE : CompletionDisposition.READ_ONLY;
+                    default -> CompletionDisposition.RELEASE;
+                };
+            }
+            case AGENT_ACTED -> {
+                screen.closeDecision = null;
+                screen.heldForUser = false;
+                // RETURNED stays: a resumed turn acts on the screen the user gave back, and keeps it.
+                if (screen.completion == CompletionDisposition.OPEN_ONLY || screen.completion == CompletionDisposition.READ_ONLY)
+                    screen.completion = CompletionDisposition.RELEASE;
+            }
+            case APPS_GRANTED -> {
+                screen.closeDecision = null;
+                if (screen.completion == CompletionDisposition.READ_ONLY)
+                    screen.completion = CompletionDisposition.RELEASE;
+            }
+            case APP_OPENED -> {
+                if (screen.completion != CompletionDisposition.RETURNED)
+                    screen.completion = CompletionDisposition.OPEN_ONLY;
+            }
+            case HANDED_TO_USER -> {
+                screen.heldForUser = true;
+                screen.closeDecision = null;
+                screen.completion = CompletionDisposition.OPEN_ONLY;
+            }
+            case APPS_RELEASED -> {
+                screen.closeDecision = null;
+                screen.heldForUser = false;
+                if (screen.completion != CompletionDisposition.READY)
+                    screen.completion = CompletionDisposition.RELEASE;
+            }
+            case USER_LAUNCHED, KEPT_AFTER_TURN -> screen.completion = CompletionDisposition.READY;
+        }
+    }
+
+    /** The other write to this state: a Jev close decision is now pending for the kept screen. */
+    private static Object awaitDecision(DedicatedScreen screen) {
+        Object token = new Object();
+        screen.closeDecision = token;
+        return token;
+    }
+
     /**
      * One dedicated screen in the ledger: which session uses it, what it holds, who controls it.
      */
@@ -155,6 +272,16 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
 
         /** Persists the ownership evidence independently of the invalidated ticket marker. */
         String allocationId = "";
+
+        String turnId = "";
+        CompletionDisposition completion = CompletionDisposition.RELEASE;
+        Object closeDecision;
+        /**
+         * hand_over_screen: the user must act in an App here (log in, a verification code, a
+         * payment). Kept after the turn, without the Jev close check, so the conversation shows the
+         * screen's card to open and take over (BUG-0006). A later screen action cancels it.
+         */
+        boolean heldForUser;
 
         /** Task cleanup and physical close both failed; keep the entry until close confirms. */
         String cleanupError = "";
@@ -198,6 +325,16 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
          * it is the one the takeover stopped, or one refused since.
          */
         boolean resumeRequired;
+        /**
+         * A sub-agent's screen was given back (resumeGranted): its parent wakes it inside Codex,
+         * so no broker ticket carries the handback. The sub-agent's next turn is that resume.
+         */
+        boolean handbackGranted;
+        /**
+         * The turn whose request_apps made this allocation, from the tool call itself: a turn whose
+         * turn/started was never seen still ends its own allocation (turnEnded), and only that.
+         */
+        String requestTurn = "";
 
         /** Why the last control change failed, for the UI. */
         String lastError = "";
@@ -242,6 +379,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         /** The screen occupancy in which this ticket was granted, never the host generation. */
         Object occupancy;
 
+        String allocationTurn = "";
         boolean granted, withdrawn;
         Exception failure;
 
@@ -355,6 +493,13 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         return exactScreen(session, key, generation);
     } }
 
+    PhoneExecutionScreens.Lease exact(String session, String key, String generation, String allocation)
+            throws IOException {
+        try (CleanupWork.Held held = lock()) {
+            return exactScreen(session, key, generation, allocation);
+        }
+    }
+
     private DedicatedScreen exactScreen(String session, String key, String generation)
             throws IOException {
         PhoneExecutionScreens.thread(session);
@@ -362,6 +507,14 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         if (screen == null) throw new IOException("SCREEN_NOT_BOUND");
         if (!screen.key.equals(key) || !screen.generation.equals(generation))
             throw new IOException("SCREEN_OWNER_MISMATCH");
+        return screen;
+    }
+
+    private DedicatedScreen exactScreen(String session, String key, String generation, String allocation)
+            throws IOException {
+        DedicatedScreen screen = exactScreen(session, key, generation);
+        if (allocation != null && !allocation.equals(screen.allocationId))
+            throw new IOException("SCREEN_LEASE_CHANGED");
         return screen;
     }
 
@@ -481,57 +634,82 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
      * Apps (the user only borrows them), and gives up what it was still waiting for: its request in
      * line and its card.
      */
-    public void beginPause(String session, String key, String generation)
-            throws Exception { try (CleanupWork.Held held6 = lock()) {
-        DedicatedScreen screen = exactScreen(session, key, generation);
+    public void beginPause(String session, String key, String generation) throws Exception {
+        try (CleanupWork.Held held = lock()) {
+            beginPause(exactScreen(session, key, generation));
+        }
+    }
+
+    String beginControl(String session, String key, String generation, String allocationId,
+            long controlRevision, boolean close) throws Exception {
+        try (CleanupWork.Held held = lock()) {
+            DedicatedScreen screen = exactScreen(session, key, generation, allocationId);
+            if (controlRevision >= 0 && (screen.controlRevision != controlRevision || screen.stopping))
+                throw new IOException("SCREEN_CONTROL_CHANGED");
+            beginPause(screen);
+            if (close) {
+                screen.closing = true;
+                screen.closingOccupancy = screen.occupancy;
+                screen.occupancy = null;
+            }
+            return screen.allocationId;
+        }
+    }
+
+    private void beginPause(DedicatedScreen screen) throws Exception {
+        String session = screen.session;
         screen.controlOwner = "paused";
         screen.controlRevision++;
         screen.stopping = true;
         screen.closing = false;
         screen.resumeRequired = true;
+        transition(screen, Retention.PAUSED);
         screen.lastError = "";
         questions.remove(session);
         Ticket ticket = pending(session);
         if (ticket != null) withdraw(ticket);
-    } }
+    }
 
     void beginReturn(String session, String key, String generation) throws Exception { try (CleanupWork.Held held7 = lock()) {
-        requireAppsAllowed(exactScreen(session, key, generation));
+        DedicatedScreen screen = exactScreen(session, key, generation);
+        requireAppsAllowed(screen);
         beginPause(session, key, generation);
+        transition(screen, Retention.RETURN_BEGUN);
     } }
 
     /**
      * The user starts closing the screen: as for a pause, except the session is told its screen is
      * closing. close follows once the session has stopped.
      */
-    public void beginClose(String session, String key, String generation)
-            throws Exception { try (CleanupWork.Held held8 = lock()) {
-        beginPause(session, key, generation);
-        DedicatedScreen screen = exactScreen(session, key, generation);
-        screen.closing = true;
-        screen.closingOccupancy = screen.occupancy;
-        screen.occupancy = null;
-    } }
+    public void beginClose(String session, String key, String generation) throws Exception {
+        beginControl(session, key, generation, null, -1, true);
+    }
 
     /**
      * The control change, once the session has stopped: owner agent (given back), user or paused.
      */
     public JSONObject finishControl(String session, String key, String generation, String owner)
             throws Exception {
+        return finishControl(session, key, generation, null, owner);
+    }
+
+    JSONObject finishControl(String session, String key, String generation, String allocation, String owner)
+            throws Exception {
         if (!Set.of("agent", "user", "paused").contains(owner))
             throw new IOException("INVALID_SCREEN_CONTROL_OWNER");
         DedicatedScreen screen;
         try (CleanupWork.Held held21 = lock()) {
-            screen = exactScreen(session, key, generation);
+            screen = exactScreen(session, key, generation, allocation);
         }
         if (!screen.input.tryLock(2, TimeUnit.SECONDS))
             throw new IOException("SCREEN_INPUT_NOT_QUIESCENT");
         try {
             validate(screen);
             try (CleanupWork.Held held22 = lock()) {
-                if (exactScreen(session, key, generation) != screen)
+                if (exactScreen(session, key, generation, allocation) != screen)
                     throw new IOException("SCREEN_BINDING_CHANGED");
                 if (owner.equals("agent")) requireAppsAllowed(screen);
+                else transition(screen, Retention.CONTROL_NOT_RETURNED);
                 screen.controlOwner = owner;
                 screen.controlRevision++;
                 screen.stopping = false;
@@ -549,8 +727,13 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
      * again before handing control back.
      */
     public void controlFailed(
-            String session, String key, String generation, String error) throws Exception { try (CleanupWork.Held held9 = lock()) {
-        DedicatedScreen screen = exactScreen(session, key, generation);
+            String session, String key, String generation, String error) throws Exception {
+        controlFailed(session, key, generation, null, error);
+    }
+
+    void controlFailed(String session, String key, String generation, String allocation, String error)
+            throws Exception { try (CleanupWork.Held held9 = lock()) {
+        DedicatedScreen screen = exactScreen(session, key, generation, allocation);
         if (screen.closing) {
             screen.occupancy = screen.closingOccupancy;
             screen.closingOccupancy = null;
@@ -561,6 +744,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         screen.closing = false;
         screen.resumeRequired = true;
         screen.lastError = error;
+        transition(screen, Retention.CONTROL_NOT_RETURNED);
     } }
 
     /** The user's own tap, swipe or back key while the screen is taken over. */
@@ -598,7 +782,10 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
      */
     public void resumeGranted(String session, String key, String generation)
             throws Exception { try (CleanupWork.Held held10 = lock()) {
-        exactScreen(session, key, generation).resumeRequired = false;
+        DedicatedScreen screen = exactScreen(session, key, generation);
+        screen.resumeRequired = false;
+        // The handback credential goes with the sub-agent's own resumed turn, not the parent's relay.
+        screen.handbackGranted = screen.completion == CompletionDisposition.RETURN_PENDING;
     } }
 
     /** The session may run a turn: its screen, if it has one, is under the agent's control. */
@@ -630,6 +817,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         PhoneExecutionScreens.thread(session);
         if (!agentAdmitted(session)) throw new IOException("SCREEN_AGENT_PAUSED");
         DedicatedScreen screen = own(session);
+        if (screen != null) transition(screen, Retention.QUEUED);
         return screen == null
                 ? new PhoneExecutionScreens.Admission(session, "", "", -1)
                 : new PhoneExecutionScreens.Admission(
@@ -662,6 +850,23 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
             screen.resumeRequired = false;
         }
         return true;
+    } }
+
+    void nativeTurnStarted(String session, String turnId) {
+        nativeTurnStarted(session, turnId, false);
+    }
+
+    /**
+     * [handback]: the turn a returnAndResume admitted through a broker ticket; a sub-agent's first
+     * turn after resumeGranted is one too. Only such a turn keeps the screen as a handback.
+     */
+    void nativeTurnStarted(String session, String turnId, boolean handback) { try (CleanupWork.Held held = lock()) {
+        if (turnId.equals(activeTurns.put(session, turnId))) return;
+        DedicatedScreen screen = own(session);
+        if (screen != null) {
+            screen.turnId = turnId;
+            transition(screen, handback || screen.handbackGranted ? Retention.HANDBACK_STARTED : Retention.TURN_STARTED);
+        }
     } }
 
     /** Nobody has taken the screen over or paused it. */
@@ -735,6 +940,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         q.handedOver = new ArrayList<>(screen.apps);
         screen.handing.addAll(screen.apps);
         screen.apps.clear();
+        transition(screen, Retention.APPS_HANDED_AWAY);
         Thread clear =
                 new Thread(
                         () -> handOver(screen, session),
@@ -774,9 +980,20 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
      */
     JSONObject request(String session, Map<String, String> apps, String taskTitle)
             throws Exception {
+        return request(session, apps, taskTitle, false, "");
+    }
+
+    /** request_apps from a native turn: the allocation remembers that turn (see requestTurn). */
+    JSONObject request(String session, Map<String, String> apps, String taskTitle, String turnId)
+            throws Exception {
+        return request(session, apps, taskTitle, false, turnId);
+    }
+
+    private JSONObject request(String session, Map<String, String> apps, String taskTitle,
+            boolean immediate, String turnId) throws Exception {
         PhoneExecutionScreens.thread(session);
         try (CleanupWork.Held held = lock()) { cacheRequests.merge(session, 1, Integer::sum); }
-        try { return requestPinned(session, apps, taskTitle); }
+        try { return requestPinned(session, apps, taskTitle, immediate, turnId); }
         finally {
             try (CleanupWork.Held held = lock()) {
                 cacheRequests.computeIfPresent(session, (key, count) -> count == 1 ? null : count - 1);
@@ -785,8 +1002,50 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         }
     }
 
-    private JSONObject requestPinned(String session, Map<String, String> apps, String taskTitle)
+    JSONObject launch(String session, String pkg, String label, PhoneExecutionScreens.Action action)
             throws Exception {
+        try {
+            JSONObject allocation = request(session, Map.of(pkg, label), label.substring(0, Math.min(80, label.length())), true, "");
+            DedicatedScreen screen;
+            try (CleanupWork.Held held = lock()) {
+                screen = exactScreen(session, allocation.getString("screenKey"), allocation.getString("generation"));
+            }
+            screen.control.lockInterruptibly();
+            try {
+                screen.input.lockInterruptibly();
+                try {
+                    withScreen(session, "", Use.OPEN, pkg, action, true);
+                    try (CleanupWork.Held held = lock()) {
+                        if (allowed(session, Use.OPEN, pkg) != screen) throw new IOException("SCREEN_BINDING_CHANGED");
+                        if (!WorkspacePolicy.snapshot().getBoolean("allowBackground"))
+                            throw new IOException("BACKGROUND_WORK_DISABLED");
+                        transition(screen, Retention.USER_LAUNCHED);
+                        return item(screen);
+                    }
+                } finally {
+                    screen.input.unlock();
+                }
+            } finally {
+                screen.control.unlock();
+            }
+        } catch (Exception failure) {
+            boolean interrupted = Thread.interrupted() || failure instanceof InterruptedException;
+            try {
+                DedicatedScreen screen = leave(session, true);
+                if (screen != null && !finishTurn(screen)) {
+                    IOException cleanup = new IOException("WORKSPACE_LAUNCH_CLEANUP_FAILED");
+                    cleanup.addSuppressed(failure);
+                    throw cleanup;
+                }
+            } finally {
+                if (interrupted) Thread.currentThread().interrupt();
+            }
+            throw failure;
+        }
+    }
+
+    private JSONObject requestPinned(String session, Map<String, String> apps, String taskTitle,
+            boolean immediate, String turnId) throws Exception {
         if (apps.isEmpty() || apps.size() > MAX_APPS_PER_REQUEST)
             throw new IOException("INVALID_SCREEN_PACKAGE");
         for (String pkg : apps.keySet()) PhoneExecutionScreens.packageName(pkg);
@@ -803,6 +1062,9 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
                     throw new IOException("BACKGROUND_WORK_DISABLED");
                 Set<String> blocked = WorkspacePolicy.blockedPackages(policy);
                 if (!Collections.disjoint(blocked, apps.keySet())) throw new IOException("APP_NOT_ALLOWED");
+                if (immediate && (own(session) != null || activeTurns.containsKey(session)))
+                    throw new IOException("WORKSPACE_EXECUTION_BUSY");
+                if (immediate && blocker(ticket) != null) throw new IOException("APP_IN_USE");
                 if (pending(session) != null)
                     throw new IOException(
                             "REQUEST_PENDING: another request_apps call of yours is still pending.");
@@ -819,6 +1081,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
                 }
                 refuseIfQueueFull(session, ticket.apps.keySet());
                 if (ticket.screen == null) {
+                    ticket.allocationTurn = turnId;
                     int max = policy.getInt("maxActiveScreens");
                     Iterator<DedicatedScreen> idle = ledger.iterator();
                     while (ledger.size() + opening > max && idle.hasNext()) {
@@ -874,7 +1137,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
                 if (interrupted) Thread.currentThread().interrupt();
             }
         }
-        if (ticket.screen == null) start(ticket);
+        if (ticket.screen == null) start(ticket, immediate);
         return await(ticket);
     }
 
@@ -921,7 +1184,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
      * Starts the ticket's new screen outside the table lock, so other sessions go on meanwhile. A
      * session stopped meanwhile leaves the screen idle for the next one.
      */
-    private void start(Ticket ticket) throws Exception {
+    private void start(Ticket ticket, boolean immediate) throws Exception {
         String key = "task-" + UUID.randomUUID().toString().replace("-", "").substring(0, 20);
         DedicatedScreen screen = null;
         Exception failed = null;
@@ -935,6 +1198,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
             screen = readBack(key);
         } catch (Exception error) {
             failed = error;
+            if (immediate) screen = readBack(key);
         }
         boolean stopped = cut || Thread.interrupted();
         boolean codexWentAway;
@@ -942,10 +1206,11 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
             opening--;
             codexWentAway = ticket.codexRestarts != codexRestarts;
             if (screen != null && !codexWentAway) ledger.add(screen);
-            if (screen != null && !codexWentAway && !stopped && !ticket.withdrawn) {
+            if (screen != null && !codexWentAway && (immediate || !stopped && !ticket.withdrawn)) {
                 screen.session = ticket.session;
                 screen.occupancy = new Object();
                 screen.allocationId = UUID.randomUUID().toString();
+                screen.turnId = activeTurns.getOrDefault(ticket.session, "");
                 ticket.screen = screen;
             } else {
                 waiting.remove(ticket);
@@ -1008,7 +1273,9 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         if (!Collections.disjoint(blocked, ticket.apps.keySet())
                 || !Collections.disjoint(blocked, ticket.screen.apps))
             throw new IOException("APP_NOT_ALLOWED");
-        return granted(ticket.screen);
+        JSONObject allocation = granted(ticket.screen);
+        if (!ticket.allocationTurn.isEmpty()) ticket.screen.requestTurn = ticket.allocationTurn;
+        return allocation;
     } }
 
     private void withdraw(Ticket ticket) {
@@ -1053,6 +1320,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
             }
             if (sessionUnavailable(t.session) || t.screen == null || blocker(t) != null) continue;
             t.screen.apps.addAll(t.apps.keySet());
+            if (!t.apps.isEmpty()) transition(t.screen, Retention.APPS_GRANTED);
             t.screen.labels.putAll(t.apps);
             t.screen.taskTitle = t.taskTitle;
             t.occupancy = t.screen.occupancy;
@@ -1156,6 +1424,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
     void removalCancelled(String session) {
         try (CleanupWork.Held held = lock()) {
             questions.remove(session); refusals.remove(session);
+            activeTurns.remove(session);
             Ticket ticket = pending(session); if (ticket != null) withdraw(ticket);
         }
     }
@@ -1194,6 +1463,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
             cacheTimes.keySet().removeIf(session -> !sessionFamilies.containsKey(session) && !mainSessions.containsKey(session));
             closedSubAgents.keySet().removeAll(sessions); questions.keySet().removeAll(sessions);
             refusals.keySet().removeAll(sessions);
+            activeTurns.keySet().removeAll(sessions);
         }
     }
 
@@ -1208,6 +1478,16 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
      */
     JSONObject withScreen(String session, Use use, String pkg, PhoneExecutionScreens.Action action)
             throws Exception {
+        return withScreen(session, "", use, pkg, action);
+    }
+
+    JSONObject withScreen(String session, String turnId, Use use, String pkg,
+            PhoneExecutionScreens.Action action) throws Exception {
+        return withScreen(session, turnId, use, pkg, action, false);
+    }
+
+    private JSONObject withScreen(String session, String turnId, Use use, String pkg,
+            PhoneExecutionScreens.Action action, boolean requirePlacement) throws Exception {
         DedicatedScreen screen;
         try (CleanupWork.Held held33 = lock()) {
             screen = allowed(session, use, pkg);
@@ -1231,13 +1511,15 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
                                                     "The App on top of your screen is not one you"
                                                             + " hold. request_apps it, then use it"
                                                             + " or release_apps it to close it."));
+                if (use != Use.LOOK) transition(screen, Retention.AGENT_ACTED);
             }
             if (Thread.currentThread().isInterrupted()) throw new InterruptedException();
             try {
                 PhoneExecutionScreens.Screen handle = screen.screenHandle();
                 JSONObject result = action.run(handle);
                 if (use == Use.OPEN && pkg != null && !pkg.isEmpty())
-                    result = settleOpen(screen, pkg, now, () -> action.run(handle), result);
+                    result = settleOpen(screen, session, turnId, pkg, now, () -> action.run(handle), result,
+                            requirePlacement);
                 return result;
             } catch (InterruptedException stopped) {
                 throw stopped;
@@ -1252,6 +1534,39 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
             }
         } finally {
             screen.input.unlock();
+        }
+    }
+
+    /**
+     * hand_over_screen: keep this turn's screen, as it is now, for the user after the turn ends, so
+     * the conversation shows it as a card to open and take over instead of only telling the user to
+     * go and act (BUG-0006). Only for the turn that holds it, while the Agent controls it, with an
+     * App held; a later screen action cancels it, like an App left open.
+     */
+    JSONObject keepForUser(String session, String turnId) throws Exception {
+        PhoneExecutionScreens.thread(session);
+        try (CleanupWork.Held held = lock()) {
+            DedicatedScreen screen = own(session);
+            if (screen == null || screen.apps.isEmpty())
+                throw new IOException("APPS_NOT_REQUESTED: request_apps and open_app the App the user must use first");
+            if (!agentControls(screen)) throw agentPaused(screen);
+            if (turnId.isEmpty() || !turnId.equals(screen.turnId) || !turnId.equals(activeTurns.get(session)))
+                throw new IOException("TURN_NOT_ACTIVE: hand_over_screen only works during the turn that holds the screen");
+            transition(screen, Retention.HANDED_TO_USER);
+            return new JSONObject().put("handedOver", true).put("screenKey", screen.key).put("generation", screen.generation)
+                .put("apps", new JSONArray(screen.apps))
+                .put("advice", "End your turn now without further screen actions. The screen stays open and the"
+                    + " conversation shows it as a card: tell the user to open it and finish there, then to tell you"
+                    + " when done so you can check the result.");
+        }
+    }
+
+    private void retainOpenedApp(DedicatedScreen screen, String session, String turnId) {
+        if (turnId.isEmpty()) return;
+        try (CleanupWork.Held held = lock()) {
+            if (own(session) == screen && !screen.resumeRequired && agentControls(screen)
+                    && turnId.equals(screen.turnId) && turnId.equals(activeTurns.get(session)))
+                transition(screen, Retention.APP_OPENED);
         }
     }
 
@@ -1338,24 +1653,45 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
      */
     private JSONObject settleOpen(
             DedicatedScreen screen,
+            String session,
+            String turnId,
             String pkg,
             List<PhoneTasks.Task> before,
             Launch launch,
-            JSONObject result)
+            JSONObject result,
+            boolean requirePlacement)
             throws Exception {
         boolean onMainBefore = false;
         for (PhoneTasks.Task t : before)
             if (t.displayId() == MAIN_DISPLAY && t.packageName().equals(pkg)) onMainBefore = true;
+        Set<Integer> existing = new HashSet<>();
+        for (PhoneTasks.Task t : before) existing.add(t.id());
+        // A missing task is a failure for a native turn or a required placement, so give Android
+        // openSettleMs to create it first rather than judging one snapshot taken right after
+        // `am start` (code review: slow-starting Apps failed with APP_NOT_OPENED_ON_SCREEN).
+        boolean judged = requirePlacement || !turnId.isEmpty();
         for (int attempt = 0; ; attempt++) {
-            List<PhoneTasks.Task> now = placed(screen, pkg, onMainBefore);
+            List<PhoneTasks.Task> now = placed(screen, pkg, onMainBefore || judged);
             List<Integer> onMain = new ArrayList<>();
-            boolean onScreen = false;
+            boolean onScreen = false, newOnScreen = false;
             for (PhoneTasks.Task t : now) {
+                if (t.displayId() == screen.display && !existing.contains(t.id())) newOnScreen = true;
                 if (!t.packageName().equals(pkg)) continue;
                 if (t.displayId() == screen.display) onScreen = true;
                 else if (t.displayId() == MAIN_DISPLAY) onMain.add(t.id());
             }
-            if (onScreen || onMain.isEmpty()) return result;
+            if (onScreen) {
+                retainOpenedApp(screen, session, turnId);
+                return result;
+            }
+            if (onMain.isEmpty()) {
+                // A launcher that redirects into another package still opened on this screen: as
+                // before, that is success, but it is not clearly the App asked for, so it does not
+                // keep the screen after the turn. An App that landed on another display fails.
+                if (newOnScreen) return result;
+                if (judged) throw new IOException("APP_NOT_OPENED_ON_SCREEN");
+                return result;
+            }
             if (attempt > 0 || PROTECTED_PACKAGES.contains(pkg))
                 throw new IOException(
                         "OPEN_LANDED_ON_MAIN: "
@@ -1424,6 +1760,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         try (CleanupWork.Held held39 = lock()) {
             for (String pkg : packages) if (screen.apps.contains(pkg)) released.add(pkg);
             if (released.isEmpty()) return released(released, screen.apps);
+            transition(screen, Retention.APPS_RELEASED);
             last = released.containsAll(screen.apps);
         }
         closeTasks(screen, last ? null : released);
@@ -1435,14 +1772,92 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         }
     }
 
-    /**
-     * The session's turn ended: its request still in line is withdrawn, everything it holds is
-     * released and its screen becomes idle. Marks the screen at once, then removes every task on it
-     * (including Apps opened by an in-App jump) on a thread of its own, after the step in flight;
-     * the Apps and the screen are handed out only then. Returns that thread, or null when nothing
-     * is released: the session had no screen, or the user has taken it over (the session keeps it).
-     */
+    interface CloseDecision {
+        void request(Runnable close);
+    }
+
+    Thread turnEnded(String session, String turnId, boolean successful) {
+        return turnEnded(session, turnId, successful, null);
+    }
+
+    Thread turnEnded(String session, String turnId, boolean successful, CloseDecision decision) {
+        try (CleanupWork.Held held = lock()) {
+            if (!activeTurns.containsKey(session)) {
+                // Its turn/started was never seen (a lost event, a reconnect). End only the
+                // allocation this very turn requested and that no recorded turn holds; a newer
+                // turn's screen, or one kept from an earlier turn, is not this turn's to end.
+                DedicatedScreen lost = own(session);
+                if (lost == null || turnId.isEmpty() || !lost.turnId.isEmpty() || !turnId.equals(lost.requestTurn))
+                    return null;
+                activeTurns.put(session, turnId);
+                lost.turnId = turnId;
+            }
+            if (!turnId.equals(activeTurns.get(session))) return null;
+            activeTurns.remove(session);
+            DedicatedScreen screen = own(session);
+            if (screen == null || !turnId.equals(screen.turnId) || !canComplete(screen))
+                return turnEnded(session);
+
+            screen.turnId = "";
+
+            long policyRevision = screen.apps.isEmpty() ? -1 : jevCloseRevision();
+            boolean handback = screen.completion == CompletionDisposition.RETURNED;
+            // Waiting for the user is not "finished": no Jev close check for a handed-over screen.
+            boolean forUser = screen.heldForUser;
+            boolean retain = successful && (handback || screen.completion == CompletionDisposition.OPEN_ONLY
+                    || screen.completion == CompletionDisposition.READ_ONLY);
+            // Jev close keeps a screen only while it decides: a successful turn with a decision to
+            // ask and a readable policy. A failed or stopped turn, an internal steer (no decision)
+            // or an unreadable policy releases as with Jev off; nothing would ever close it otherwise.
+            boolean jevDecides = successful && !handback && !forUser && decision != null
+                    && policyRevision >= 0 && policyRevision != Long.MAX_VALUE;
+            if (retain || jevDecides) {
+                retainAfterTurn(screen);
+                if (jevDecides) {
+                    Object token = awaitDecision(screen);
+                    long controlRevision = screen.controlRevision;
+                    decision.request(() -> closeAfterDecision(session, token, controlRevision, policyRevision));
+                }
+                return null;
+            }
+            return turnEnded(session);
+        }
+    }
+
+    private static boolean canComplete(DedicatedScreen screen) {
+        return !screen.resumeRequired && !screen.closing && agentControls(screen);
+    }
+
+    private void retainAfterTurn(DedicatedScreen screen) {
+        refusals.remove(screen.session);
+        questions.remove(screen.session);
+        Ticket ticket = pending(screen.session);
+        if (ticket != null) withdraw(ticket);
+        transition(screen, Retention.KEPT_AFTER_TURN);
+    }
+
+    private static long jevCloseRevision() {
+        try {
+            JSONObject policy = WorkspacePolicy.snapshot();
+            return policy.getBoolean("jevCloseEnabled") ? policy.getLong("revision") : -1;
+        } catch (Exception unavailable) {
+            return Long.MAX_VALUE;
+        }
+    }
+
+    private void closeAfterDecision(String session, Object token, long controlRevision, long policyRevision) {
+        try (CleanupWork.Held held = lock()) {
+            DedicatedScreen screen = own(session);
+            if (screen == null || screen.closeDecision != token || activeTurns.containsKey(session)
+                    || !canComplete(screen) || screen.controlRevision != controlRevision || sessionUnavailable(session)) return;
+            transition(screen, Retention.DECISION_SETTLED);
+            if (jevCloseRevision() == policyRevision && policyRevision != Long.MAX_VALUE)
+                turnEnded(session);
+        }
+    }
+
     Thread turnEnded(String session) {
+        try (CleanupWork.Held held = lock()) { activeTurns.remove(session); }
         DedicatedScreen screen = leave(session, false);
         if (screen == null) return null;
         // Named after the screen (one release per screen at a time) and its session.
@@ -1524,6 +1939,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
             waiting.clear();
             questions.clear();
             refusals.clear();
+            activeTurns.clear();
             for (DedicatedScreen screen : ledger)
                 if (!screen.releasing) {
                     screen.releasing = true;
@@ -1549,6 +1965,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
      * and evenTakenOver is false: the session keeps a screen it lent to the user.
      */
     private DedicatedScreen leave(String session, boolean evenTakenOver) { try (CleanupWork.Held held18 = lock()) {
+        activeTurns.remove(session);
         refusals.remove(session);
         questions.remove(session);
         Ticket ticket = pending(session);
@@ -1557,6 +1974,8 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         if (screen == null || (screen.resumeRequired && !evenTakenOver)) return null;
         screen.releasing = true;
         screen.occupancy = null;
+        screen.turnId = "";
+        transition(screen, Retention.LEAVING);
         return screen;
     } }
 
@@ -1669,32 +2088,49 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
 
     void close(String session, String key, String generation, ParentNote subAgent,
             boolean confirmHostStopped) throws Exception {
+        close(session, key, generation, null, subAgent, confirmHostStopped);
+    }
+
+    void close(String session, String key, String generation, String allocation, ParentNote subAgent,
+            boolean confirmHostStopped) throws Exception {
         DedicatedScreen screen;
         Object occupancy = null;
         boolean retiring = false;
         try (CleanupWork.Held held48 = lock()) {
-            screen = exactScreen(session, key, generation);
+            screen = exactScreen(session, key, generation, allocation);
         }
         screen.input.lockInterruptibly();
         try {
             try (CleanupWork.Held held49 = lock()) {
-                if (exactScreen(session, key, generation) != screen)
+                if (exactScreen(session, key, generation, allocation) != screen)
                     throw new IOException("SCREEN_BINDING_CHANGED");
                 occupancy = screen.occupancy;
                 screen.occupancy = null;
                 retiring = true;
             }
-            try {
-                if (confirmHostStopped) validate(screen);
-                closeTasks(screen, null);
-            } catch (Exception error) {
-                if (confirmHostStopped) throw error;
-                warn.accept("dedicated screen tasks not removed: " + error.getMessage());
+            if (confirmHostStopped) {
+                boolean live = true;
+                try {
+                    validate(screen);
+                } catch (IOException unavailable) {
+                    String state = host.removalState(screen.key, screen.generation);
+                    if (!state.equals("gone") && !state.equals("replaced")) throw unavailable;
+                    live = false;
+                }
+                if (live) {
+                    closeTasks(screen, null);
+                    host.stop(screen.key, screen.generation);
+                }
+            } else {
+                try {
+                    closeTasks(screen, null);
+                } catch (Exception error) {
+                    warn.accept("dedicated screen tasks not removed: " + error.getMessage());
+                }
             }
-            // Automatic revocation reports a successful release only after the host exits. Keep
-            // the paused lease available for retry if Android could not complete the close.
-            if (confirmHostStopped) host.stop(screen.key, screen.generation);
             try (CleanupWork.Held held50 = lock()) {
+                if (exactScreen(session, key, generation, allocation) != screen)
+                    throw new IOException("SCREEN_BINDING_CHANGED");
                 ledger.remove(screen);
                 screen.occupancy = null;
                 screen.closingOccupancy = null;
@@ -1806,11 +2242,18 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
             for (Asking a : asking) a.item.put("waitReason", userReason(a.text, language));
         }
         if (items.isEmpty()) return new JSONArray();
-        Map<Integer, String> top = listedTopApps(items);
+        Map<Integer, Set<String>> packages = new HashMap<>();
+        for (int display : displays) packages.putIfAbsent(display, new LinkedHashSet<>());
+        for (PhoneTasks.Task task : listedTasks(items)) {
+            Set<String> onScreen = packages.get(task.displayId());
+            if (onScreen != null) onScreen.add(task.packageName());
+        }
         for (int i = 0; i < items.size(); i++) {
             JSONObject item = items.get(i);
             item.put("mainThreadId", mainSession(item.getString("threadId")));
-            item.put("packageName", top.getOrDefault(displays.get(i), ""));
+            Set<String> onScreen = packages.get(displays.get(i));
+            item.put("packageName", onScreen.isEmpty() ? "" : onScreen.iterator().next());
+            item.put("taskPackages", new JSONArray(onScreen));
         }
         // A session can acquire another screen while its previous turn finishes cleanup.
         items.sort(Comparator.comparing(item -> item.optString("status").equals("cleanup_failed")));
@@ -1823,6 +2266,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         JSONObject item = screen.screenHandle()
                 .json()
                 .put("threadId", screen.session)
+                .put("allocationId", screen.allocationId)
                 .put("taskTitle", waits == null ? screen.taskTitle : waits.taskTitle)
                 .put("label", "")
                 .put("status", status(screen))
@@ -1830,7 +2274,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
                 .put("controlOwner", screen.controlOwner)
                 .put("controlRevision", screen.controlRevision)
                 .put("admitted", !screen.releasing)
-                .put("homePreviewEligible", screen.session != null && !screen.closing && !screen.releasing)
+                .put("homePreviewEligible", screen.session != null && !screen.releasing)
                 .put("stopping", screen.stopping || screen.releasing)
                 .put("resumeRequired", screen.resumeRequired)
                 .put("canResume", !screen.releasing && !screen.controlOwner.equals("agent") && !screen.stopping)
@@ -1882,7 +2326,8 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         if (screen.controlOwner.equals("user")) return "user_control";
         if (screen.controlOwner.equals("paused")) return "paused";
         if (questions.containsKey(screen.session)) return "waiting_for_user";
-        return pending(screen.session) == null ? "running" : "waiting_for_app";
+        if (pending(screen.session) != null) return "waiting_for_app";
+        return screen.completion == CompletionDisposition.READY ? "ready" : "running";
     }
 
     /**
@@ -1955,7 +2400,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
                     app.put("waiting", app.getInt("waiting") + 1);
                 }
         }
-        Map<Integer, String> top = listedTopApps(screens);
+        Map<Integer, String> top = topApps(listedTasks(screens));
         for (int i = 0; i < screens.size(); i++)
             screens.get(i).put("topApp", top.getOrDefault(displays.get(i), ""));
         return new JSONObject()
@@ -1983,15 +2428,15 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
     }
 
     /** Cleanup failures stay queryable even when Android cannot report the current pages. */
-    private Map<Integer, String> listedTopApps(List<JSONObject> items) throws Exception {
+    private List<PhoneTasks.Task> listedTasks(List<JSONObject> items) throws Exception {
         if (items.stream().allMatch(item -> item.optString("status").equals("cleanup_failed")))
-            return Map.of();
+            return List.of();
         try {
-            return topApps(tasks.list());
+            return tasks.list();
         } catch (Exception unavailable) {
             if (items.stream().noneMatch(item -> item.optString("status").equals("cleanup_failed")))
                 throw unavailable;
-            return Map.of();
+            return List.of();
         }
     }
 
@@ -2018,6 +2463,8 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
                 screen.session = session;
                 screen.occupancy = new Object();
                 screen.allocationId = UUID.randomUUID().toString();
+                screen.turnId = activeTurns.getOrDefault(session, "");
+                transition(screen, Retention.ALLOCATED);
                 screen.emptySince = NEVER;
                 return screen;
             }
@@ -2035,6 +2482,8 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
                 screen.session = session;
                 screen.occupancy = new Object();
                 screen.allocationId = UUID.randomUUID().toString();
+                screen.turnId = activeTurns.getOrDefault(session, "");
+                transition(screen, Retention.ALLOCATED);
                 screen.emptySince = NEVER;
                 return screen;
             }

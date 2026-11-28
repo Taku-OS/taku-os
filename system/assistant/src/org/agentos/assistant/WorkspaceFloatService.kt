@@ -49,14 +49,14 @@ class WorkspaceFloatService : Service() {
     private var root: FrameLayout? = null
     private var header: LinearLayout? = null
     private var footer: LinearLayout? = null
+    private var previewArea: FrameLayout? = null
     private var preview: ChatWorkspacePreview? = null
     private var requirement: WorkspaceRequirementView? = null
     private lateinit var title: TextView
     private lateinit var status: TextView
     private lateinit var appIcon: ImageView
     private lateinit var stateDot: View
-    private lateinit var primary: Button
-    private lateinit var secondary: ImageButton
+    private lateinit var expandPreview: ImageButton
     private var editorOpen = false
     private var firstFrameReady = false
     private var deferredEditor = false
@@ -109,6 +109,7 @@ class WorkspaceFloatService : Service() {
                     .putExtra("threadId", lease.getString("threadId"))
                     .putExtra("screenKey", lease.getString("screenKey"))
                     .putExtra("generation", lease.getString("generation"))
+                    .putExtra("allocationId", lease.optString("allocationId").ifEmpty { null })
                 if (context.startService(intent) == null) {
                     pendingId = null
                     pendingAttached = null
@@ -153,7 +154,8 @@ class WorkspaceFloatService : Service() {
                 .put("threadId", intent.getStringExtra("threadId"))
                 .put("screenKey", intent.getStringExtra("screenKey"))
                 .put("generation", intent.getStringExtra("generation")))
-            if (!WorkspaceUi.same(next, lease) || root == null) {
+            next.put("allocationId", intent.getStringExtra("allocationId"))
+            if (!WorkspaceUi.same(next, lease) || next.optString("allocationId") != lease?.optString("allocationId") || root == null) {
                 removeWindow()
                 lease = next
                 admittedThread = null
@@ -162,11 +164,12 @@ class WorkspaceFloatService : Service() {
             } else {
                 // Each presentation handoff waits for a fresh validated frame.
                 firstFrameReady = false
+                expandPreview.visibility = View.INVISIBLE
                 deferredEditor = deferredEditor || editorOpen
                 editorOpen = false
                 requirement?.visibility = View.GONE
                 editing(false)
-                editorLabels()
+                renderEditorMode()
                 clamp()
             }
             main.removeCallbacks(poll)
@@ -254,10 +257,27 @@ class WorkspaceFloatService : Service() {
         card.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
         val framePreview = ChatWorkspacePreview(windowContext, DrawerTheme(windowContext, false)) { expand() }
         preview = framePreview
+        val frameArea = FrameLayout(windowContext)
+        previewArea = frameArea
+        frameArea.addView(framePreview, FrameLayout.LayoutParams(-1, -2))
+        expandPreview = ImageButton(windowContext).apply {
+            contentDescription = getString(R.string.workspace_float_expand)
+            visibility = View.INVISIBLE
+            scaleType = ImageView.ScaleType.CENTER
+            setImageDrawable(ChatDesign.icon(windowContext, R.drawable.ic_taku_arrow_up_right_from_square, color(R.color.taku_text_inverse)))
+            val overlay = GradientDrawable().apply {
+                setColor(color(R.color.workspace_viewer_expand_overlay))
+                cornerRadius = dp(12).toFloat()
+            }
+            background = RippleDrawable(ColorStateList.valueOf(0x24FFFFFF), overlay, null)
+            setPadding(0, 0, 0, 0)
+            setOnClickListener { expand() }
+        }
+        frameArea.addView(expandPreview, FrameLayout.LayoutParams(-1, -1))
         framePreview.setOnFrameReady {
             if (destroyed || suppressed || !attached || windowEpoch != epoch) return@setOnFrameReady
             firstFrameReady = true
-            primary.isEnabled = true
+            expandPreview.visibility = View.VISIBLE
             if (launchId != null && launchId == pendingId) {
                 val callback = pendingAttached
                 pendingId = null
@@ -274,7 +294,7 @@ class WorkspaceFloatService : Service() {
             }
         }
         framePreview.floatingLease(origin)
-        contents.addView(framePreview, LinearLayout.LayoutParams(-1, -2))
+        contents.addView(frameArea, LinearLayout.LayoutParams(-1, -2))
         val requirementView = WorkspaceRequirementView(windowContext, origin)
         requirement = requirementView
         requirementView.setOnEditingChanged(::editing)
@@ -299,8 +319,9 @@ class WorkspaceFloatService : Service() {
         }
         val footerRow = LinearLayout(windowContext).apply { gravity = Gravity.CENTER }
         footer = footerRow
-        primary = Button(windowContext).apply {
+        val backToPreview = Button(windowContext).apply {
             isAllCaps = false
+            setText(R.string.workspace_float_back_preview)
             includeFontPadding = false
             ChatDesign.text(this, ChatDesign.Role.META_MEDIUM)
             minHeight = dp(48)
@@ -310,13 +331,16 @@ class WorkspaceFloatService : Service() {
             setTextColor(color(R.color.taku_text_inverse))
             setPadding(dp(8), dp(4), dp(8), dp(4))
             background = compactActionBackground()
-            setOnClickListener { if (editorOpen) editor(false) else expand() }
+            val arrow = ChatDesign.icon(windowContext, R.drawable.ic_taku_arrow_left, color(R.color.taku_text_inverse))
+            arrow.setBounds(0, 0, dp(16), dp(16))
+            compoundDrawablePadding = dp(6)
+            setCompoundDrawablesRelative(arrow, null, null, null)
+            setOnClickListener { editor(false) }
         }
-        footerRow.addView(primary, LinearLayout.LayoutParams(0, -2, 1f))
-        secondary = icon(R.drawable.ic_taku_chat, R.string.workspace_float_chat, ::openChat)
-        footerRow.addView(secondary, LinearLayout.LayoutParams(dp(48), dp(48)))
+        footerRow.addView(backToPreview, LinearLayout.LayoutParams(0, -2, 1f))
+        footerRow.addView(icon(R.drawable.ic_taku_chat, R.string.workspace_float_chat, ::openChat))
         contents.addView(footerRow, LinearLayout.LayoutParams(-1, -2))
-        editorLabels()
+        renderEditorMode()
         val params = WindowManager.LayoutParams(
             minOf(dp(184), safeArea().width()), dp(360), WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
@@ -353,11 +377,6 @@ class WorkspaceFloatService : Service() {
         return RippleDrawable(ColorStateList.valueOf(0x24FFFFFF), null, mask)
     }
 
-    private fun expandBackground(): RippleDrawable {
-        val face = GradientDrawable().apply { setColor(color(R.color.taku_surface)); cornerRadius = dp(6).toFloat() }
-        return RippleDrawable(ColorStateList.valueOf(0x14000000), InsetDrawable(face, 0, dp(8), 0, dp(8)), null)
-    }
-
     private fun safeArea(): Rect {
         val metrics = checkNotNull(manager).currentWindowMetrics
         val bounds = Rect(metrics.bounds)
@@ -381,7 +400,7 @@ class WorkspaceFloatService : Service() {
         status.maxWidth = Math.round(width * .32f)
         val headerHeight = maxOf(dp(48), header?.measuredHeight ?: 0)
         val editorHeight = if (editorOpen) maxOf(dp(48), requirement?.measuredHeight ?: 0) + dp(8) else 0
-        val footerHeight = maxOf(dp(48), footer?.measuredHeight ?: 0)
+        val footerHeight = if (editorOpen) maxOf(dp(48), footer?.measuredHeight ?: 0) else 0
         val frameHeight = if (editorOpen) 0 else maxOf(dp(96), minOf(dp(200),
             minOf(Math.round((width - dp(16)) * 1.25f), area.height() - headerHeight - footerHeight - dp(4))))
         if (!editorOpen) preview?.setFloatingPreviewLimit(frameHeight)
@@ -408,25 +427,11 @@ class WorkspaceFloatService : Service() {
         }
     }
 
-    private fun editorLabels() {
+    private fun renderEditorMode() {
         renderHeaderState()
-        primary.setText(if (editorOpen) R.string.workspace_float_back_preview else R.string.workspace_float_expand)
-        ChatDesign.text(primary, ChatDesign.Role.META_MEDIUM)
-        primary.setTextColor(color(if (editorOpen) R.color.taku_text_inverse else R.color.taku_text_primary))
-        primary.background = if (editorOpen) compactActionBackground() else expandBackground()
-        primary.setPadding(dp(8), dp(4), dp(8), dp(4))
-        val arrow = ChatDesign.icon(windowContext, if (editorOpen) R.drawable.ic_taku_arrow_left else R.drawable.ic_taku_arrow_up_right,
-            color(R.color.taku_text_inverse))
-        arrow.setBounds(0, 0, dp(16), dp(16))
-        primary.compoundDrawablePadding = dp(6)
-        primary.setCompoundDrawablesRelative(if (editorOpen) arrow else null, null, null, null)
-        val actionSize = primary.layoutParams as LinearLayout.LayoutParams
-        actionSize.width = 0
-        actionSize.weight = 1f
-        primary.layoutParams = actionSize
-        primary.isEnabled = editorOpen || firstFrameReady
-        secondary.visibility = if (editorOpen) View.VISIBLE else View.GONE
-        preview?.visibility = if (editorOpen) View.GONE else View.VISIBLE
+        footer?.visibility = if (editorOpen) View.VISIBLE else View.GONE
+        if (editorOpen) expandPreview.visibility = View.INVISIBLE
+        previewArea?.visibility = if (editorOpen) View.GONE else View.VISIBLE
     }
 
     private fun renderHeaderState() {
@@ -451,7 +456,7 @@ class WorkspaceFloatService : Service() {
         if (!open && editorOpen) restoreCompactPosition = true
         editorOpen = open
         requirementView.visibility = if (open) View.VISIBLE else View.GONE
-        editorLabels()
+        renderEditorMode()
         if (!open) { requirementView.clearFocus(); editing(false) }
         clamp()
         if (open && focus) {
@@ -529,7 +534,8 @@ class WorkspaceFloatService : Service() {
                 checkedAt = SystemClock.elapsedRealtime()
                 val entries = ChatWorkspacePreviewProtocol.select(catalog, origin.getString("threadId"))
                 for (index in 0 until entries.length()) {
-                    if (WorkspaceUi.same(origin, entries.optJSONObject(index))) current = entries.getJSONObject(index)
+                    val entry = entries.getJSONObject(index)
+                    if (WorkspaceUi.sameAllocation(origin, origin.optString("allocationId"), entry)) current = entry
                 }
                 val state = NativeClient.state(origin.getString("threadId"))
                 val requests = state.optJSONArray("requests")
@@ -545,6 +551,7 @@ class WorkspaceFloatService : Service() {
                 polling = false
                 if (needsInput || latest == null) {
                     preview?.stop()
+                    expandPreview.visibility = View.INVISIBLE
                     suppressed = true
                     editing(false)
                     windowRoot.visibility = View.GONE
@@ -586,6 +593,7 @@ class WorkspaceFloatService : Service() {
             .putExtra("threadId", origin.optString("threadId"))
             .putExtra("screenKey", origin.optString("screenKey"))
             .putExtra("generation", origin.optString("generation"))
+            .putExtra("allocationId", origin.optString("allocationId").ifEmpty { null })
         startActivity(intent)
         stopSelf()
     }
@@ -612,6 +620,7 @@ class WorkspaceFloatService : Service() {
         header = null
         footer = null
         body = null
+        previewArea = null
         preview = null
         requirement = null
         layout = null

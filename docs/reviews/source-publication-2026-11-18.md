@@ -36,7 +36,9 @@ All 462 tracked bitmap images were processed with English OCR, with no OCR execu
 
 An internal conversation identifier, a private Workspace Portal route, a private build-host address, and incidental personal configuration details were removed from authored prose. Synthetic network addresses, emulator networking, public source identifiers, and checksum-bound evidence were retained where meaningful.
 
-## Dependency advisory still open
+## Dependency advisory at the time of review
+
+Update, 2026-11-26: GitHub has withdrawn GHSA-fc5q-39xc-vjpf, and a complete official-registry audit of the Expo 58.1 alignment reports zero findings. The temporary policy below is retired and retained only as a historical record; current CI rejects any vulnerability at any severity. The following paragraphs describe the original 2026-11-18 review.
 
 The user authorized queries to the official npm registry and dependency installation for validation. Installation used lockfiles with install scripts disabled; downloads and caches stayed in ignored local directories. Reviewed repository preparation scripts were run separately for validation.
 

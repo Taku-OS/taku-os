@@ -32,6 +32,8 @@ public final class WorkspaceReturnRuntimeTest {
             if(prepared.observation!=null)prepared.observation.put("capturedAt",System.currentTimeMillis()-20000);
             runtime.dispatch(request,prepared).result().get();
             check(NativeBridge.delivered!=null,"the original task must be dispatched despite time spent preparing it");
+            check(NativeBridge.delivered.workspaceHandback==!child,
+                    "only the main session's own return is the handback; a child's is its own resumed turn (resumeGranted)");
             check(prepared.observation==null && WorkspaceControl.captures==0,"return must not capture before the agent wakes");
             check(prepared.params.getString("threadId").equals(child?PARENT:THREAD),"main returns directly; child returns through its parent");
             check(prepared.method.equals(parentTurn.isEmpty()?"turn/start":"turn/steer"),"running parent is steered; idle parent starts");

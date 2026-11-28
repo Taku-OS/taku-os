@@ -37,10 +37,11 @@ final class NativeBridge {
         final JSONObject params;
         final CompletableFuture<JSONObject> result = new CompletableFuture<>();
         String workspaceRequestId = "";
-        boolean nativeSent,responseReceived;
+        boolean nativeSent,responseReceived,workspaceHandback;
         Guard workspaceGuard;
         Call(String method,JSONObject params) { this.method=method;this.params=params; }
     }
+    static void suppressWorkspaceClose(String thread, String turn) {}
     static JSONObject askCodex(String method,JSONObject params) {
         JSONObject source = new JSONObject();
         if(!parent.isEmpty()) source.put("subAgent",new JSONObject().put("thread_spawn",

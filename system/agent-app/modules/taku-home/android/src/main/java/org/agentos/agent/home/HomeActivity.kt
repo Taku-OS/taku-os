@@ -148,6 +148,7 @@ class HomeActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
             revealPending = assistant.revealPending, afterScreenOff = resetAfterScreenOff,
             expansionAtScreenOff = expansionAtScreenOff, expansionRequest = assistant.expansionRequest)) controller.assistant.dismiss()
         controller.drag.menu = null; controller.openFolderId = null
+        controller.dismissWorkspaceTakeover()
         controller.setHomeEditing(false)
         // "You’re all set" keeps Home on the Feed until onboarding is done.
         val home = if (controller.onboarding.state.value.step == org.agentos.agent.home.onboarding.OnboardingStep.ALL_SET) org.agentos.agent.home.ui.PAGE_FEED else PAGE_HOME
@@ -157,6 +158,7 @@ class HomeActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
         val request = panelRequest ?: return@LaunchedEffect
         if (!controller.panelsLoaded) return@LaunchedEffect
         controller.closeMenu(); controller.drag.menu = null; controller.openFolderId = null; controller.editingPins = false
+        controller.dismissWorkspaceTakeover()
         val page = controller.panelPage(request.first)
         if (page != null) {
           pager.animateScrollToPage(page)

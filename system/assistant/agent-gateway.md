@@ -41,7 +41,7 @@ Responses over 256 KiB return `{ok:true,resultUri:"content://org.agentos.assista
 | `live/task-cancel` | `{threadId,taskId,requestId,text}` | Same task snapshot after explicit cancellation of an owned task, regardless of its permission mode. A finished task returns its actual terminal snapshot. |
 | `answer` | `{threadId,key,response}` | Native response receipt; supported pending request must belong to the same thread |
 | `getWorkspaces` | `{threadId}` or `{scope:"home"}` | `{schema:"taku.agent-workspaces/1",screens:[lease with previewUri]}` |
-| `openWorkspace` | `{threadId,screenKey,generation,source?:"home"}` | `{opened:true}`; opens existing native control UI after exact lease check |
+| `openWorkspace` | `{threadId,screenKey,generation,source?,allocationId?,takeControl?}` | `{opened:true}` after the viewer launch. Home can pass `takeControl:true` with `source:"home"` and `allocationId`. |
 | `requests/list`, `requests/read`, `requests/submit`, `requests/respond`, `requests/cancel` | `{threadId,key?,values?,response?}` | Request identities, a request as a form, an answer by form field (secrets in `extras["credential"]`), a raw response, or cancellation |
 | `openSettings` | `{page?:"models"\|"system"\|"workspaces"\|"account"}` | `{opened:true}` for the matching Expo page; `account` opens `/system-ai?section=account` |
 | `readTaskDetail` | `{taskId}` | `{taskId,state,prompt,message}` from the native task store |
@@ -132,13 +132,11 @@ returns `UNSUPPORTED_PARAMETER`.
 
 Session previews use `content://org.agentos.assistant.agent-gateway/preview/<threadId>/<screenKey>/<generation>`. Read with `openInputStream` on a worker thread. The native directory read is scoped to the exact requested thread and exposes up to three of its admitted independent screens. The JPEG is view-only. Use `openWorkspace` to open the full screen from a session preview. It performs a fresh native catalog validation. Stop session frame polling when the UI is hidden and clear stale frames on read failure.
 
-For a Home card, pass `source: "home"` to `openWorkspace` along with the card's
-`threadId`, `screenKey` and `generation`. The gateway rechecks the identity against
-the current Home list, and cards can open while their frames are loading. Back and
-the viewer's exit control return to the previous Home page with the previews
-collapsed. Omitting `source` uses the session list and returns to the original
-conversation on Back. An unsupported source returns `INVALID_WORKSPACE_SOURCE`.
-A screen that no longer matches the list returns `SCREEN_LEASE_CHANGED`.
+For a Home card, pass `source:"home"`, `threadId`, `screenKey`, `generation`, and `allocationId` to `openWorkspace`. The gateway checks the selected allocation against the current Home list. Back and the viewer's exit control restore the previous Home page with the previews collapsed. Omitting `source` uses the session list and returns to the original conversation on Back.
+
+After the user confirms takeover from an app icon, add `takeControl:true`. The gateway waits for the same broker operation as the viewer's Take over button. If the takeover succeeds and launching the viewer fails, the gateway returns `{opened:false,controlOwner:"user"}`. Open the preview again to use the workspace.
+
+An unsupported source returns `INVALID_WORKSPACE_SOURCE`. A takeover request without `source:"home"` and `allocationId` returns `INVALID_WORKSPACE_ACTION`. A replaced allocation returns `SCREEN_LEASE_CHANGED`. A stopping workspace returns `WORKSPACE_CONTROL_BUSY` for takeover.
 
 Home and session `getWorkspaces` reads publish independent, immutable verified catalogs with a five-second monotonic lifetime. Each frame read uses the matching catalog and validates socket UID/PID, display identity, generation and JPEG dimensions. Before returning the JPEG over a pipe, it rechecks the original catalog lifetime and the current exact lease. Current read and frame failures invalidate the applicable catalog. Session selection invalidates the session catalog. Stale asynchronous failures leave newer results intact.
 
