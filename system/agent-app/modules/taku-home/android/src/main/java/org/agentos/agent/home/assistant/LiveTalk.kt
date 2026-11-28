@@ -23,6 +23,11 @@ internal data class LiveTaskView(val requestId: String?, val taskId: String?, va
     .put("turnId", turnId ?: JSONObject.NULL).put("state", state).put("version", version).put("error", error ?: JSONObject.NULL)
 }
 
+/** Shared screen or camera state reported by the Audio Engine; `masked` means frames are withheld for privacy. */
+internal data class LiveVideoView(val source: String = "none", val active: Boolean = false, val masked: Boolean = false, val reason: String? = null) {
+  fun json() = JSONObject().put("source", source).put("active", active).put("masked", masked).put("reason", reason ?: JSONObject.NULL)
+}
+
 internal data class LiveTalkSnapshot(
   val sessionId: String,
   val threadId: String?,
@@ -42,6 +47,7 @@ internal data class LiveTalkSnapshot(
   val error: String? = null,
   /** The `ai-setup` service whose setup page fixes [error] (`fal` for a missing fal key), else null. */
   val setup: String? = null,
+  val video: LiveVideoView = LiveVideoView(),
 ) {
   val open get() = lifecycle != "closed"
   val disclosure get() = when (provider.takeIf { lifecycle == "connecting" || lifecycle == "active" }) {
@@ -58,7 +64,7 @@ internal data class LiveTalkSnapshot(
     .put("input", input?.json("itemId") ?: JSONObject.NULL)
     .put("output", output?.json("responseId")?.put("source", "generated") ?: JSONObject.NULL)
     .put("levels", JSONArray(levels)).put("task", task?.json() ?: JSONObject.NULL).put("error", error ?: JSONObject.NULL)
-    .put("setup", setup ?: JSONObject.NULL)
+    .put("setup", setup ?: JSONObject.NULL).put("video", video.json())
 }
 
 internal class LiveTalk(
@@ -82,6 +88,8 @@ internal class LiveTalk(
     var cancellationVersion: Long? = null
     var result: String? = null
     var announcedState: String? = null
+    /** Last state shared with the model as silent context. */
+    var notedState: String? = null
   }
   private data class Announcement(val offerId: String, val ipcId: String, val task: Task, val outcome: String)
 
@@ -98,6 +106,7 @@ internal class LiveTalk(
     var version = 0L
     var handoffText: String? = null
     var handoffTextId: String? = null
+    var videoId: String? = null
     var task: Task? = null
     var command: Command? = null
     var work: Job? = null
@@ -215,7 +224,7 @@ internal class LiveTalk(
     s.connected = false
     s.handoffText = null
     s.handoffTextId = null
-    update(s) { it.copy(muted = muted, capturing = false, speech = false,
+    update(s) { it.copy(muted = muted, capturing = false, speech = false, video = LiveVideoView(),
       lifecycle = if (!muted && s.engineId != null) "connecting" else it.lifecycle,
       generation = if (!muted && s.engineId != null) it.generation + 1 else it.generation,
       playback = if (it.playback == "speaking") "interrupted" else it.playback, input = null, levels = emptyList()) }
@@ -266,7 +275,7 @@ internal class LiveTalk(
     s.handoffTextId = null
     if (text != null) recoverHandoff(text)
     val provider = s.view.provider
-    update(s) { it.copy(lifecycle = if (code in CONNECTION_ERRORS) "disconnected" else "failed", error = code,
+    update(s) { it.copy(lifecycle = if (code in CONNECTION_ERRORS) "disconnected" else "failed", error = code, video = LiveVideoView(),
       setup = provider?.let { accepted -> LiveTalkSetup.service(code, accepted, null) },
       capturing = false, speech = false, playback = if (it.playback == "speaking") "interrupted" else it.playback,
       input = it.input?.takeIf(LiveCaption::final), levels = emptyList()) }
@@ -319,6 +328,11 @@ internal class LiveTalk(
           s.handoffTextId = null
         }
         s.announcement?.ipcId -> if (!ok) s.announcement = null
+        s.videoId -> {
+          s.videoId = null
+          // A refused video request leaves the voice session running; it only reports why.
+          if (!ok) update(s) { it.copy(video = LiveVideoView(reason = code)) }
+        }
       }
       return
     }
@@ -356,6 +370,11 @@ internal class LiveTalk(
       val offer = s.announcement?.takeIf { it.offerId == value.getString("offerId") } ?: return
       s.announcement = null
       if (value.getBoolean("sent")) offer.task.announcedState = offer.outcome
+      return
+    }
+    if (kind == "Video") {
+      update(s) { it.copy(video = LiveVideoView(value.getString("source"), value.getBoolean("active"),
+        value.optBoolean("masked"), value.optString("reason").ifBlank { null })) }
       return
     }
     if (kind == "Mic") {
@@ -622,10 +641,41 @@ internal class LiveTalk(
     }
     if (current) {
       showTask(s, task, task.state)
+      noteProgress(s, task)
       maybeAnnounce(s)
     }
     return !task.terminal || current && s.connected && !s.view.muted &&
       task.result != null && task.announcedState != task.state
+  }
+
+  /** Video sharing: `screen`, `camera` or `none`. The engine reports the actual state as a Video event. */
+  fun setVideo(source: String) {
+    require(source in VIDEO_SOURCES)
+    val s = session ?: return
+    val engine = s.engineId ?: throw AssistantException("LIVE_CONNECTING", "Wait for Live Talk to connect")
+    if (!s.connected || s.view.muted) throw AssistantException("LIVE_CONNECTING", "Resume Live Talk before sharing video")
+    if (s.view.provider !in VIDEO_PROVIDERS) throw AssistantException("VIDEO_UNSUPPORTED", "The selected Live Talk provider does not support video")
+    s.videoId = send(s, "audio.live.video", JSONObject().put("sessionId", engine).put("source", source))
+  }
+
+  /**
+   * Background task progress reaches the model as context that never prompts it to speak, so a
+   * running task stays current without interrupting the conversation. Only MOSS-Live supports it.
+   */
+  private fun noteProgress(s: Session, task: Task) {
+    val engine = s.engineId ?: return
+    if (!s.connected || s.view.muted || s.view.provider !in VIDEO_PROVIDERS || task.notedState == task.state) return
+    task.notedState = task.state
+    val label = when (task.state) {
+      "queued", "submitting" -> "is queued"
+      "running" -> "is running"
+      "needs_user" -> "is waiting for the user in the original chat"
+      "completed" -> "has finished; its result will be announced separately"
+      "failed" -> "has failed"
+      "cancelled" -> "was cancelled"
+      else -> return
+    }
+    send(s, "audio.live.context", JSONObject().put("sessionId", engine).put("text", "The delegated Taku Agent task $label."))
   }
 
   private fun showTask(s: Session, task: Task?, state: String, error: String? = null) {
@@ -657,6 +707,9 @@ internal class LiveTalk(
   private fun explicitCancel(text: String): Boolean = text.trim().lowercase().trimEnd('.', '!', '。', '！') in EXPLICIT_CANCEL
 
   companion object {
+    val VIDEO_SOURCES = setOf("none", "screen", "camera")
+    /** Providers whose engine driver accepts video and silent context. */
+    private val VIDEO_PROVIDERS = setOf("moss-live")
     const val DISCLOSURE = "Live Talk sends microphone audio, conversation context, and task details for spoken replies to the provider selected in Taku Audio (MOSS-Live, Grok Voice via fal, or Google Gemini Live)."
     private const val RESPONSE_GRACE_MS = 8_000L
     private val COMMANDS = setOf("submit", "correct", "cancel")

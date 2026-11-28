@@ -84,6 +84,8 @@ class HomeAssistantProvider : ContentProvider() {
           "assistant/live-start" -> session.startLiveTalk(p.optionalString("threadId").orEmpty())
           "assistant/live-stop" -> session.stopLiveTalk(p.optionalString("threadId"), p.optionalString("sessionId"))
           "assistant/live-toggle-mic" -> session.toggleLiveMic(p.optionalString("threadId"))
+          "assistant/live-set-video" -> session.setLiveVideo(p.requiredString("sessionId"), p.requiredString("source"))
+          "assistant/live-get" -> Unit
           "assistant/live-set-mic" -> session.setLiveMic(p.requiredString("sessionId"), p.opt("muted") as? Boolean
             ?: throw AssistantException("INVALID_ARGUMENT", "muted must be a boolean"))
           "assistant/open" -> {

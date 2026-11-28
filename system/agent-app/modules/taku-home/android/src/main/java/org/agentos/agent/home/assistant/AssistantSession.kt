@@ -505,6 +505,15 @@ class AssistantSession private constructor(private val context: Context, private
     }
   }
 
+  /** Shares `screen` or `camera` frames in the open Live Talk session, or stops with `none`. Unlocked devices only. */
+  fun setLiveVideo(sessionId: String, source: String) {
+    if (source !in LiveTalk.VIDEO_SOURCES) throw AssistantException("INVALID_ARGUMENT", "source must be none, screen or camera")
+    val current = requireLiveSession(null, sessionId)?.takeIf { it.open } ?: throw AssistantException("SESSION_CHANGED", "Live Talk has changed")
+    if (source != "none" && voiceDeviceUnavailable()) throw AssistantException("DEVICE_LOCKED", "Unlock the device before sharing the screen or camera")
+    if (current.video.source == source && (source == "none" || current.video.active)) return
+    live.setVideo(source)
+  }
+
   private fun requireLiveSession(threadId: String?, sessionId: String?): LiveTalkSnapshot? {
     val current = live.snapshot
     if (sessionId != null && sessionId.isBlank()) throw AssistantException("INVALID_ARGUMENT", "sessionId must be nonempty")

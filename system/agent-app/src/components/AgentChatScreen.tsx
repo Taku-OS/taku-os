@@ -11,6 +11,7 @@ import {VoiceIcon} from '../chat/VoiceIcon';
 import {AssistantBubble, ComposerGlassRim, GlassRim, QuickStarts} from '../chat/ChatSurfaces';
 import {useLiveTalk} from '../chat/useLiveTalk';
 import {liveLightStyle, shouldShowLiveLight} from '../chat/liveGlow';
+import {liveVideoLabel, liveVideoSupported, nextVideoSource} from '../chat/liveVideo';
 import * as Haptics from 'expo-haptics';
 import {colors as baseColors, containsChinese, layout, typography, type TypeRole} from '../theme';
 import {languageFor, textFor, type Language, type TextKey} from '../i18n';
@@ -714,6 +715,7 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     : voice?.muted ? 'liveMicPaused' : voice?.playback.state === 'speaking' ? 'liveSpeaking'
     : voice?.capturing ? 'listening' : 'liveReady';
   const liveDisconnected = voice?.lifecycle === 'disconnected' || voice?.lifecycle === 'failed';
+  const videoSupported = liveVideoSupported(voice?.provider, voice?.lifecycle, voice?.muted);
   const beginLiveTalk = () => { void live.start().catch(error => onVoiceFailure(failureOf(error?.code))); };
   // Live Talk learns of a missing fal key only after it tried to connect: prompt once per failed attempt.
   const falPrompted = useRef<string | null>(null);
@@ -997,13 +999,18 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
         {liveFalKeyMissing && <Label role="meta" style={[styles.center, styles.secondary]}>{ct('liveFalKeyMissing')}</Label>}
         {liveFalKeyMissing &&
           <Pressable testID="live-talk-add-fal-key" accessibilityRole="button" onPress={() => { openAiSetup('fal'); }}><Label role="label">{ct('addFalKey')}</Label></Pressable>}
+        {!!voice.video && voice.video.source !== 'none' &&
+          <Label role="meta" style={[styles.center, styles.secondary]}>{ct(voice.video.masked ? 'liveVideoMasked' : voice.video.source === 'screen' ? 'liveVideoSharingScreen' : 'liveVideoSharingCamera')}</Label>}
         {liveDisconnected &&
           <Pressable testID="live-talk-reconnect" accessibilityRole="button" onPress={beginLiveTalk}><Label role="label">{ct('liveReconnect')}</Label></Pressable>}
       </View>
       <View style={styles.liveControls}>
         <View style={styles.liveControlGroup}>
           <Pressable accessibilityRole="button" accessibilityLabel="More tools" onPress={openSidebar} style={styles.liveControl}><VoiceIcon name="plusLive"/></Pressable>
-          <View accessibilityRole="button" accessibilityLabel="Video input unavailable" accessibilityState={{disabled: true}} style={[styles.liveControl, {opacity: 0.45}]}><VoiceIcon name="video"/></View>
+          <Pressable testID="live-talk-video" accessibilityRole="button" accessibilityLabel={ct(liveVideoLabel(voice.video?.source ?? 'none', videoSupported))}
+            accessibilityState={{disabled: !videoSupported, selected: !!voice.video?.active}} disabled={!videoSupported}
+            onPress={() => { void live.setVideo(nextVideoSource(voice.video?.source ?? 'none')).catch(error => onVoiceFailure(failureOf(error?.code))); }}
+            style={[styles.liveControl, !videoSupported && {opacity: 0.45}, !!voice.video?.active && {backgroundColor: 'rgba(255,255,255,0.92)'}]}><VoiceIcon name="video"/></Pressable>
         </View>
         <View style={styles.liveControlGroup}>
           <Pressable testID="live-talk-mic" accessibilityRole="button" accessibilityLabel={ct(voice.muted ? 'liveMicResume' : 'liveMicPause')}

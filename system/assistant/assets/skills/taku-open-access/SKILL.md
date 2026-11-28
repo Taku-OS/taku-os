@@ -844,13 +844,15 @@ taku_call "$A" assistant/voice-continue   # Keep talking → existing chat
 taku_call "$A" assistant/live-start '{"threadId":"ID"}'
 taku_call "$A" assistant/live-toggle-mic
 taku_call "$A" assistant/live-set-mic '{"sessionId":"SESSION_ID","muted":true}'
+taku_call "$A" assistant/live-set-video '{"sessionId":"SESSION_ID","source":"screen"}'
+taku_call "$A" assistant/live-get
 taku_call "$A" assistant/live-stop
 taku_call "$A" assistant/voice-finish     # release: finalize and submit once
 # Legacy operation without a button on 1-1:
 taku_call "$A" assistant/voice-to-text    # finalize into the editable draft
 ```
 
-Patched Quickstep double-tap opens focused text over the current app; hold starts the selected Taku voice service. Recognition runs only while held; pauses never send. The microphone starts before the speech model or fal key is ready, retaining early audio. During `voice.phase:"Preparing"`, the island shows no listening text or animation; `Capturing` shows “Taku is listening...” and triggers the hold's only vibration, indicating it is time to speak. Releasing stops and finalizes capture, sending a successful nonempty transcript once and leaving the card open for progress and the reply. Releasing before capture starts or with an empty result sends nothing and closes the voice page; errors remain visible. A hold on an idle conversation starts from a clean card: the previous finished turn leaves the session (`assistant/get` `turn` becomes null) and never shows again, even if the hold is cancelled or empty, in which case the island closes. The thread continues, so the next message keeps its context; a running turn, a question or approval stays on the card. Tapping the expanded island card outside suggestion chips runs its primary action (open conversation or missing-fal-key setup); swiping up still collapses it. Cancel revokes undelivered capture. Keep talking enters the same conversation in Live Talk without dropping the active recording. Live utterances resume after the reply; microphone toggles pause/resume and close returns to chat. Hold-to-talk audio stops when leaving foreground or turning off the screen, and Live Talk stops when the screen turns off; a connected Live Talk session continues in the island's Live capsule when its chat leaves the screen; rotation and Keep talking handoff retain capture. The video control is disabled because upstream is unavailable. Outside text, Agent voice-start/open(voice) act as the press: recording continues through pauses until voice-finish releases and sends, or voice-cancel cancels. An unfinished hold is cancelled without sending at 120 s. voice-to-text appends into the draft. Failed/partial/cancelled speech never delivers. Overflow retains the full result for recovery.
+Patched Quickstep double-tap opens focused text over the current app; hold starts the selected Taku voice service. Recognition runs only while held; pauses never send. The microphone starts before the speech model or fal key is ready, retaining early audio. During `voice.phase:"Preparing"`, the island shows no listening text or animation; `Capturing` shows “Taku is listening...” and triggers the hold's only vibration, indicating it is time to speak. Releasing stops and finalizes capture, sending a successful nonempty transcript once and leaving the card open for progress and the reply. Releasing before capture starts or with an empty result sends nothing and closes the voice page; errors remain visible. A hold on an idle conversation starts from a clean card: the previous finished turn leaves the session (`assistant/get` `turn` becomes null) and never shows again, even if the hold is cancelled or empty, in which case the island closes. The thread continues, so the next message keeps its context; a running turn, a question or approval stays on the card. Tapping the expanded island card outside suggestion chips runs its primary action (open conversation or missing-fal-key setup); swiping up still collapses it. Cancel revokes undelivered capture. Keep talking enters the same conversation in Live Talk without dropping the active recording. Live utterances resume after the reply; microphone toggles pause/resume and close returns to chat. Hold-to-talk audio stops when leaving foreground or turning off the screen, and Live Talk stops when the screen turns off; a connected Live Talk session continues in the island's Live capsule when its chat leaves the screen; rotation and Keep talking handoff retain capture. The Live Talk panel's video button cycles off, share screen, camera, off; it is enabled only on an active, unmuted MOSS-Live connection. Outside text, Agent voice-start/open(voice) act as the press: recording continues through pauses until voice-finish releases and sends, or voice-cancel cancels. An unfinished hold is cancelled without sending at 120 s. voice-to-text appends into the draft. Failed/partial/cancelled speech never delivers. Overflow retains the full result for recovery.
 
 `assistant/live-start` takes `threadId` (empty begins a new conversation on send); stop/toggle take optional threadId and leave other chats untouched. `voice-continue` requires active (held) recording; `THREAD_UNAVAILABLE` leaves listening open. `assistant/choose-prompt {"text":"PROMPT"}` cancels undelivered capture and opens an editable draft (1–16,000 characters). It does not send.
 
@@ -872,6 +874,17 @@ A muted session keeps no provider connection open for either provider. When
 Gemini Live retires its connection after its fixed lifetime, the Audio Engine
 replaces it in place with the same confirmed text context: `lifecycle` stays
 `active`, the generation does not change and no error is reported.
+
+`live-set-video` requires a nonempty `sessionId` and `source` (`none`, `screen` or `camera`); starting
+`screen` or `camera` requires an unlocked device. It works only with MOSS-Live (`VIDEO_UNSUPPORTED`
+otherwise, or when that connection has no video stream). Read `result.liveTalk.video`
+(`source`, `active`, `masked`, `reason`): `masked:true` with `DEVICE_LOCKED` means frames are
+withheld until unlock, `NETWORK_THROTTLED` means video paused for a slow network while audio
+continues, and a refused request leaves `source:"none"` with its error code as `reason`.
+Windows marked secure (passwords, payments, protected media) stay black in shared frames.
+`live-get` returns the same snapshot without changing anything. With MOSS-Live, each change in a
+delegated task's state (queued, running, waiting for the user, finished, failed, cancelled) is shared
+with the model as silent context, so it can answer progress questions without interrupting.
 
 `live-set-mic` requires a nonempty `sessionId` and a JSON boolean `muted`. A repeated
 setter with the same target state makes no change. `live-stop` accepts an optional

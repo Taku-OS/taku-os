@@ -17,6 +17,8 @@ export type LiveTalkState = {
   output: (Caption & {responseId: string; source: 'generated'}) | null;
   levels: number[];
   task: {requestId: string | null; taskId: string | null; turnId: string | null; state: string; version: number; error: string | null} | null;
+  /** Shared screen or camera; `masked` means frames are withheld while the device is locked. */
+  video?: {source: 'none' | 'screen' | 'camera'; active: boolean; masked: boolean; reason: string | null};
   error: string | null;
   /** The setup page that fixes `error`: `fal` when Live Talk needs a fal key. */
   setup?: 'fal' | null;
@@ -64,6 +66,8 @@ export function useLiveTalk(threadId: string, loading: boolean, selectThread: (i
     state, active,
     start: () => action('assistant/live-start', {threadId}),
     stop: () => { if (active && state) stopSession(state.sessionId); },
+    setVideo: (source: 'none' | 'screen' | 'camera') => state && active
+      ? action('assistant/live-set-video', {sessionId: state.sessionId, source}) : Promise.resolve(),
     toggleMic: () => state && active
       ? action('assistant/live-set-mic', {sessionId: state.sessionId, muted: !state.muted}) : Promise.resolve(),
   };
