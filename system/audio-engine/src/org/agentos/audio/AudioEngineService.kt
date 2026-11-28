@@ -17,6 +17,7 @@ class AudioEngineService : Service() {
             "LIVE_TALK" -> when (request.profileId) {
                 AudioProfiles.LIVE_GEMINI -> GeminiLiveDriver(this, request)
                 AudioProfiles.LIVE_GROK -> GrokLiveDriver(this, request)
+                AudioProfiles.LIVE_MOSS -> MossLiveDriver(this, request)
                 else -> throw AudioFailure("UNSUPPORTED_PROFILE", "Choose a Live Talk provider")
             }
             "SPEAK" -> KokoroDriver(this, request)
@@ -58,6 +59,7 @@ class AudioEngineService : Service() {
         if(!next.optBoolean("enabled") || !next.optBoolean("audioEnabled"))runtime.revoke("POLICY_REVOKED")
         if(next.optJSONObject("fal")?.optBoolean("configured")!=true)runtime.revokeProfiles(AudioProfiles.fal,"PROVIDER_REMOVED")
         if(!geminiConfigured(next))runtime.revokeProfiles(setOf(AudioProfiles.LIVE_GEMINI),"PROVIDER_REMOVED")
+        if(!mossConfigured(next))runtime.revokeProfiles(setOf(AudioProfiles.LIVE_MOSS),"PROVIDER_REMOVED")
         for((binder,value) in clients.toMap()) {
             val uid=value.first.substringBefore(':').toInt()
             if(!allowedConfig(uid)) {
@@ -72,6 +74,14 @@ class AudioEngineService : Service() {
 
     private fun geminiConfigured(snapshot: JSONObject?): Boolean =
         snapshot?.optJSONObject("live")?.optJSONObject("gemini")?.optBoolean("configured") == true
+    private fun mossConfigured(snapshot: JSONObject?): Boolean =
+        snapshot?.optJSONObject("live")?.optJSONObject("moss")?.optBoolean("configured") == true
+
+    private fun liveConfigured(snapshot: JSONObject?): Boolean = when(liveProfile(snapshot)) {
+        AudioProfiles.LIVE_GEMINI -> geminiConfigured(snapshot)
+        AudioProfiles.LIVE_MOSS -> mossConfigured(snapshot)
+        else -> snapshot?.optJSONObject("fal")?.optBoolean("configured") == true
+    }
     private fun cancelPendingReads(binder: IBinder,code: String) {
         pendingReads[binder]?.forEach { pending ->
             if(pending.failure==null)pending.failure=AudioFailure(code,"Audio configuration is no longer valid")
@@ -157,6 +167,7 @@ class AudioEngineService : Service() {
                     val needsFal = liveProfile == AudioProfiles.LIVE_GROK || media && (selectedProfile in AudioProfiles.fal || call && outgoingProfile in AudioProfiles.fal)
                     if(needsFal && snapshot?.optJSONObject("fal")?.optBoolean("configured")!=true)throw AudioFailure("PROVIDER_NOT_CONFIGURED","Add a fal Key in Taku Audio first")
                     if(liveProfile == AudioProfiles.LIVE_GEMINI && !geminiConfigured(snapshot))throw AudioFailure("PROVIDER_NOT_CONFIGURED","Add a Gemini Live key in Taku Audio first")
+                    if(liveProfile == AudioProfiles.LIVE_MOSS && !mossConfigured(snapshot))throw AudioFailure("PROVIDER_NOT_CONFIGURED","Add a MOSS API key in Taku Audio first")
                     val voice=if(purpose=="SPEAK" || media)params.optString("voiceId",if(purpose=="SPEAK" || hybrid)defaults?.optString("voiceId") ?: "" else "")else ""
                     val speed=if(purpose=="SPEAK" || hybrid)params.optDouble("speed",defaults?.optDouble("speed",1.0) ?: 1.0).toFloat()else 1f
                     if(purpose=="DICTATION" || purpose=="LIVE_TALK") {
@@ -329,6 +340,7 @@ class AudioEngineService : Service() {
                     val configured=when {
                         profile in AudioProfiles.fal -> fal
                         profile==AudioProfiles.LIVE_GEMINI -> geminiConfigured(snapshot)
+                        profile==AudioProfiles.LIVE_MOSS -> mossConfigured(snapshot)
                         profile=="local-hybrid" -> textConfigured
                         else -> true
                     }
@@ -347,7 +359,7 @@ class AudioEngineService : Service() {
             .put("requiresMicrophone",true).put("readyRecognitionLanguages",languages).put("qualityVerified",false)
         return JSONObject().put("speechInterruption",interruption).put("availability",availability).put("permissions",permissions).put("consumerAuthorized",authorizedConsumer(uid,snapshot))
             .put("dictation",JSONObject().put("assistant-entry",dictationView.toJson()))
-            .put("live",JSONObject().put("configured",if(liveProfile(snapshot)==AudioProfiles.LIVE_GEMINI)geminiConfigured(snapshot) else fal).put("profileId",liveProfile(snapshot)).put("echoCancelerAvailable",android.media.audiofx.AcousticEchoCanceler.isAvailable()).put("qualityVerified",false))
+            .put("live",JSONObject().put("configured",liveConfigured(snapshot)).put("profileId",liveProfile(snapshot)).put("echoCancelerAvailable",android.media.audiofx.AcousticEchoCanceler.isAvailable()).put("qualityVerified",false))
             .put("resourceState",JSONObject().put("busy",resource.busy).put("purpose",resource.purpose).put("profileId",resource.profileId).put("phase",resource.phase?.name ?: "Idle")
                 .put("ownedByCaller",resource.ownedByCaller).put("previousRestoreConfirmed",resource.previousRestoreConfirmed ?: JSONObject.NULL))
             .put("availabilityScope","Local prerequisites only; source, remote authorization and connectivity are checked at open")

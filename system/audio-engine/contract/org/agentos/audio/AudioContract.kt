@@ -85,7 +85,8 @@ interface AudioDriver {
 object AudioProfiles {
     const val LIVE_GROK = "fal-grok"
     const val LIVE_GEMINI = "gemini-live"
-    val live = setOf(LIVE_GROK, LIVE_GEMINI)
+    const val LIVE_MOSS = "moss-live"
+    val live = setOf(LIVE_GROK, LIVE_GEMINI, LIVE_MOSS)
     val dictation: Map<String,DictationBackend> = linkedMapOf(
         "zipformer" to DictationBackend("zipformer",listOf("zh-CN","en-US"),"LOCAL",true,false,null,5000),
         "fal-whisper" to DictationBackend("fal-whisper",listOf("zh-CN","en-US"),"CLOUD_AUDIO",false,true,60000,100000),
