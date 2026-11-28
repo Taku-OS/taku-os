@@ -12,7 +12,8 @@ todo = [q for q in qs if q['question_id'] not in done]; lock = threading.Lock();
 harness = json.load(open(ROOT + '/system/assistant/res/raw/taku_harness.json', encoding='utf-8'))
 text = json.dumps(harness, ensure_ascii=False)
 policy = json.loads('"' + re.search(r'(Search Taku Memory as needed.*?private directories\.)', text).group(1) + '"').replace('taku_phone.memory_search', 'memory_search')
-SYSTEM = "You are Taku, the assistant on the user's phone. You and the user have talked many times before. " + policy + " Answer the user's question."
+# The first sentence says what memory holds: LongMemEval's history is the user's own chats with Taku; set TAKU_LEAD for others.
+SYSTEM = os.environ.get('TAKU_LEAD', "You are Taku, the assistant on the user's phone. You and the user have talked many times before.") + ' ' + policy + " Answer the user's question."
 TOOLS = 'mcp__taku_phone__memory_search,mcp__taku_phone__memory_get'
 def run(q):
     cfg = {'mcpServers': {'taku_phone': {'command': 'python3', 'args': ['-I', here + '/mcp_taku.py', q['question_id'], str(port)]}}}

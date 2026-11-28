@@ -90,21 +90,29 @@ class Phone:
                 k = f'{sid}#{i}'; text = stored(t['role'], t['content'])
                 if text is None: continue
                 rows.append({'key': k, 'idx': recs[k], 'seen': base + 1000 * i, 'speaker': 'user' if t['role'] == 'user' else 'assistant',
-                             'text': text, 'kw': 'Taku \n' + text, 'answer': bool(t.get('has_answer'))})
+                             'title': 'Taku', 'source': 'org.agentos.agent', 'text': text, 'answer': bool(t.get('has_answer'))})
+        # The phone's clock: the end of the question's day. 76 haystacks hold sessions later on that same day than the
+        # question's time stamp (none on a later day); LongMemEval treats every session as history.
+        d = datetime.datetime.strptime(q['question_date'][:10], '%Y/%m/%d').replace(tzinfo=datetime.timezone.utc)
+        self.build(rows, vec, int((d + datetime.timedelta(days=1)).timestamp() * 1000) - 1)
+    @classmethod
+    def of(cls, rows, vec, now):
+        """A phone holding the given records: each {key, idx, seen, speaker ('' for captured evidence), title, source, text, answer}."""
+        p = cls.__new__(cls); p.build(rows, vec, now); return p
+    def build(self, rows, vec, now):
+        for r in rows: r['kw'] = r['title'] + ' ' + '\n' + r['text']   # title||' '||head||char(10)||fresh, head empty
         rows.sort(key=lambda r: (r['seen'], r['key']))   # the vector index is in first-seen order
         for n, r in enumerate(rows):
             r['id'] = str(uuid.uuid5(uuid.NAMESPACE_URL, 'lme:' + r['key'])); r['ref'] = 'e' + str(n + 1); r['low'] = ascii_lower(r['kw'])
         self.rows = rows; self.by_id = {r['id']: r for r in rows}; self.by_ref = {r['ref']: r for r in rows}
         self.V = vec[np.array([r['idx'] for r in rows])] if rows else np.zeros((0, 384), np.float32)
         self.taku = np.array([r['speaker'] == 'assistant' for r in rows]); self.seen = np.array([r['seen'] for r in rows], dtype=np.int64)
-        # The phone's clock: the end of the question's day. 76 haystacks hold sessions later on that same day than the
-        # question's time stamp (none on a later day); LongMemEval treats every session as history.
-        d = datetime.datetime.strptime(q['question_date'][:10], '%Y/%m/%d').replace(tzinfo=datetime.timezone.utc)
-        self.now = int((d + datetime.timedelta(days=1)).timestamp() * 1000) - 1
+        self.now = now
     def item(self, r):
-        room = max(0, (800 if r['speaker'] == 'user' else 400) - len('Taku') - 1); body = r['text'][:room]
-        o = {'kind': 'e', 'id': r['id'], 'ref': r['ref'], 'source': 'org.agentos.agent', 'title': 'Taku', 'body': body, 'first_seen': r['seen'], 'last_seen': r['seen'],
-             'revision': 1, 'category': '未分类', 'seenAt': local_time(r['seen']), 'speaker': r['speaker']}
+        room = max(0, (800 if r['speaker'] == 'user' else 400) - len(r['title']) - 1); body = r['text'][:room]
+        o = {'kind': 'e', 'id': r['id'], 'ref': r['ref'], 'source': r['source'], 'title': r['title'], 'body': body, 'first_seen': r['seen'], 'last_seen': r['seen'],
+             'revision': 1, 'category': '未分类', 'seenAt': local_time(r['seen'])}
+        if r['speaker']: o['speaker'] = r['speaker']
         if len(r['text']) > room: o['cut'] = True
         return o
     def search(self, query, limit=10, qv=None, taku=None, frm=None, to=None):
