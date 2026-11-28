@@ -208,6 +208,8 @@ condition = "AND"
 regexTarget = "secret"
 paths = ['''^system/audio\-engine/rom\-input\-lock\.json$''']
 regexes = [
+    # SHA-256 of system/audio-engine/src/org/agentos/audio/AudioOpenAccessProvider.kt (ROM source input digest).
+    '''^cde133cd826da00c41432e9fae3d082de21dbd58c0c4a2899a06854fad9061a5$''',
     '''^5eabb2bcf5a8af66aeab37431c09fab4a9c65cdebf02bd7e50f8c589044bd70e$''',
     '''^82fc838d0af035e561598c80c010d7399328a010039dedf4abb646e7ef06b0d3$''',
     '''^84794c45a621741b555e1153042251cc4faad5b33cade583dd057ea3e8c964e4$''',
