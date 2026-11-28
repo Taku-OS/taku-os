@@ -215,7 +215,7 @@ Expo Go cannot run this app's local native gateway module.
 ```sh
 cd system/agent-app
 npm ci                    # strict install-script policy, see below
-npm run audit:deps        # full audit, zero findings, signatures, Android bundle check
+npm run audit:deps        # full audit, scoped exception, signatures, Android bundle check
 npm run doctor            # expo-doctor, pinned in devDependencies
 node node_modules/expo/bin/cli install --check  # SDK version alignment
 npm run typecheck
@@ -247,18 +247,28 @@ Use the installed CLI's `install --fix` to align the dependencies and commit bot
   fails instead of allowing npx to fetch an unpinned tool. Keep `npm audit` and
   `npm audit signatures` enabled. Signatures establish package origin, not that
   every line of dependency code is harmless.
-- **Zero-finding audit.** The complete official-registry audit includes development,
-  optional and peer dependencies at every severity. Any reported finding, malformed
-  report or registry failure blocks CI. No advisory exceptions are applied.
-  The former [picomatch policy](security/npm-audit-exception.json) is retained as an
-  inactive historical record: [the advisory was withdrawn](https://github.com/advisories/GHSA-fc5q-39xc-vjpf),
-  and the Expo 58.1 alignment was verified with zero reported findings.
-  Registry signatures remain mandatory. A fresh production Android export also
-  verifies that build-time picomatch, micromatch and tinyglobby stay outside all
-  bundle source maps; missing maps, executable/DOM assets and unsupported layouts fail.
-  `npm run audit:deps` performs these checks locally. Complete audit JSON, the
-  zero-finding decision and bundle/hash evidence remain under ignored `out/security/`
-  and in the CI `agent-app-dependency-audit` artifact for 30 days.
+- **Temporary picomatch exception.** The explicitly accepted policy in
+  [`security/npm-audit-exception.json`](security/npm-audit-exception.json) covers
+  only [GHSA-fc5q-39xc-vjpf](https://github.com/advisories/GHSA-fc5q-39xc-vjpf),
+  expiring at **2026-12-18 00:00 UTC**. npm still reports 41 high-severity
+  affected-package entries; accepting this tooling risk does not fix the advisory.
+  CI runs the full official-registry audit at every severity and checks the exact
+  lockfile digest and accepted findings graph. Changed dependencies, new or changed
+  findings, an incomplete audit, or an expired policy fail the check. Normalization
+  ignores ordering, duplicate edges, npm's computed transitive version ranges and
+  suggested upgrades; it preserves every direct advisory field, severity, installed
+  package path and dependency edge. Registry signatures remain mandatory.
+  A fresh production Android JavaScript export must exclude picomatch, micromatch
+  and tinyglobby from every bundle's recursively inspected source maps. Missing maps,
+  DOM/executable assets and unsupported bundle layouts fail until reviewed. The
+  exception assumes build tooling receives no untrusted external glob patterns.
+  `npm run audit:deps` performs these checks locally, including the reviewed Markdown
+  and feed preparation scripts after signature verification. CI retains the complete
+  audit, decision and bundle evidence as `agent-app-dependency-audit` for 30 days;
+  local copies are under ignored `out/security/`. The deadline is checked on each
+  invocation; historical successful checks are not automatically rerun at expiry.
+  Retire the policy in a reviewed change after a compatible fix or advisory withdrawal;
+  never refresh its digests or extend its deadline automatically.
 - **Install scripts.** `.npmrc` sets `strict-allow-scripts`, so `npm ci` fails
   when a dependency adds an install script that `allowScripts` in
   `package.json` does not cover. `react-native-enriched-markdown@1.1.1` is

@@ -14,7 +14,7 @@ test('visits nested indexed maps, including deeply nested forbidden packages', (
   assert.throws(() => checkSources(sources), /Tooling-only/);
 });
 
-test('rejects all build-time glob packages with source roots, nested node_modules, or Windows paths', () => {
+test('rejects all waived packages with source roots, nested node_modules, or Windows paths', () => {
   for (const source of ['/node_modules/picomatch/index.js', '/node_modules/a/node_modules/micromatch/index.js',
     'C:\\project\\node_modules\\tinyglobby\\dist\\index.cjs']) {
     assert.throws(() => checkSources(collectSources(flat([source]))), /Tooling-only/);
