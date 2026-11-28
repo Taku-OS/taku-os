@@ -111,6 +111,8 @@ internal class LiveTalk(
     var handoffText: String? = null
     var handoffTextId: String? = null
     var videoId: String? = null
+    /** Engine snapshot requests by IPC id, completed by the reply's file (or null when refused). */
+    val snapshots = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.CompletableDeferred<android.os.ParcelFileDescriptor?>>()
     var task: Task? = null
     var command: Command? = null
     var work: Job? = null
@@ -167,6 +169,11 @@ internal class LiveTalk(
     s.engineSequence = 0
     lateinit var client: AudioClient
     client = AudioClient(context, object : AudioClient.Listener {
+      override fun file(id: String, descriptor: android.os.ParcelFileDescriptor) {
+        val waiter = s.snapshots.remove(id)
+        if (s.client !== client || waiter == null || !waiter.complete(descriptor)) runCatching { descriptor.close() }
+      }
+
       override fun connected() {
         if (s.client !== client) return
         val history = JSONArray(s.history.map { (role, text) -> JSONObject().put("role", role).put("text", text) })
@@ -334,6 +341,7 @@ internal class LiveTalk(
           s.handoffTextId = null
         }
         s.announcement?.ipcId -> if (!ok) s.announcement = null
+        in s.snapshots.keys -> if (!ok) s.snapshots.remove(id)?.complete(null)
         s.videoId -> {
           s.videoId = null
           // A refused video request leaves the voice session running; it only reports why.
@@ -620,8 +628,9 @@ internal class LiveTalk(
     s.command = null
     showTask(s, next, "submitting")
     val permit = s.permit
+    val screenshot = if (command.args.optBoolean("attachScreen")) snapshot(s) else null
     val receipt = try {
-      delivery.submit(next.request) { permit.valid && command.permit.valid }
+      delivery.submit(next.request, { permit.valid && command.permit.valid }, screenshot)
     } catch (failure: GatewayException) {
       if (failure.code != "RECEIPT_SAVE_FAILED") throw failure
       LiveReceipt("deliveryUnknown", code = failure.code)
@@ -634,7 +643,8 @@ internal class LiveTalk(
     }
     if (session === s && s.view.open && permit.valid && s.connected && !s.view.muted) {
       toolReply(s, command.callId, receipt.state, when {
-        receipt.accepted -> "The Agent accepted the task (taskId ${receipt.taskId}). It has not finished."
+        receipt.accepted -> "The Agent accepted the task (taskId ${receipt.taskId})${if (screenshot != null) " with the shared screen attached" else
+          if (command.args.optBoolean("attachScreen")) " as text only; the screen could not be attached" else ""}. It has not finished."
         receipt.pending -> "Delivery has not been verified. Do not resubmit it."
         else -> "The Agent did not receive this request."
       })
@@ -676,6 +686,24 @@ internal class LiveTalk(
     }
     return !task.terminal || current && s.connected && !s.view.muted &&
       task.result != null && task.announcedState != task.state
+  }
+
+  /**
+   * A PNG of the screen the user is sharing, for a task the model asked to see it. Only while the
+   * screen is shared and unmasked; the engine and the gateway check the policy and lock state again.
+   * Null means the message goes as plain text.
+   */
+  private suspend fun snapshot(s: Session): android.os.ParcelFileDescriptor? {
+    val engine = s.engineId ?: return null
+    val video = s.view.video
+    if (video.source != "screen" || !video.active || video.masked || !s.connected) return null
+    val waiter = kotlinx.coroutines.CompletableDeferred<android.os.ParcelFileDescriptor?>()
+    val id = send(s, "audio.live.snapshot", JSONObject().put("sessionId", engine)) ?: return null
+    s.snapshots[id] = waiter
+    val file = kotlinx.coroutines.withTimeoutOrNull(SNAPSHOT_TIMEOUT_MS) { waiter.await() }
+    s.snapshots.remove(id)
+    if (file == null && waiter.isCompleted) runCatching { waiter.getCompleted()?.close() }
+    return file
   }
 
   /** Video sharing: `screen`, `camera` or `none`. The engine reports the actual state as a Video event. */
@@ -852,6 +880,7 @@ internal class LiveTalk(
     private val COMMANDS = setOf("submit", "correct", "steer", "cancel", "confirm")
     /** Tasks one Live Talk session tracks at once, including the newest. */
     const val MAX_TASKS = 8
+    private const val SNAPSHOT_TIMEOUT_MS = 2_500L
     private val CONNECTION_ERRORS = setOf("NETWORK_FAILED", "ENGINE_UNAVAILABLE", "QUEUE_BACKLOG", "CONNECT_TIMEOUT", "PROVIDER_DISCONNECTED", "SESSION_EXPIRED")
     private val RETRYABLE_REPLACEMENT = setOf("LIVE_TASK_STARTING", "GATEWAY_UNAVAILABLE", "RUNTIME_UNAVAILABLE")
   }

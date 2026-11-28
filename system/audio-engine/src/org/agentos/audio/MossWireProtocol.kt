@@ -88,6 +88,7 @@ internal object MossWireProtocol {
             .put("text", JSONObject().put("type", "string").put("description", "The user's complete request, correction or spoken answer, faithfully transcribed."))
             .put("taskId", JSONObject().put("type", "string").put("description", "The Taku task to steer, cancel, check or answer, from an earlier receipt. Omit for the most recent task."))
             .put("optionIndex", JSONObject().put("type", "integer").put("description", "For confirm: the zero-based option the user chose for Taku's question."))
+            .put("attachScreen", JSONObject().put("type", "boolean").put("description", "For submit: attach the screen the user is sharing right now, when the task is about what is on screen."))
         val tool = JSONObject().put("type", "function").put("name", TOOL_NAME)
             .put("description", "Delegate an external lookup or phone action to the existing Taku Agent without waiting for it; several tasks may run at once. " +
                 "Use steer to change a running task, cancel only for an explicit cancellation, status to check progress, and confirm only to relay the user's " +

@@ -882,7 +882,10 @@ otherwise, or when that connection has no video stream). Read `result.liveTalk.v
 withheld until unlock, `NETWORK_THROTTLED` means video paused for a slow network while audio
 continues, and a refused request leaves `source:"none"` with its error code as `reason`.
 Windows marked secure (passwords, payments, protected media) stay black in shared frames.
-`live-get` returns the same snapshot without changing anything. With MOSS-Live, each change in a
+`live-get` returns the same snapshot without changing anything. While the user shares the screen, a MOSS-Live
+`submit` may ask to attach it: Live Talk takes one still image (secure windows black) and sends the task
+through `live/sendMessage`; when the screen is not shared, masked, locked, or assistant screenshots
+are off, the task goes as text only and the receipt says so. With MOSS-Live, each change in a
 delegated task's state (queued, running, waiting for the user, finished, failed, cancelled) is shared
 with the model as silent context, so it can answer progress questions without interrupting.
 

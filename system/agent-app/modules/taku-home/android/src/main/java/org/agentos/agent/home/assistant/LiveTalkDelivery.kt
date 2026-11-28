@@ -45,16 +45,22 @@ internal class LiveTalkDelivery(context: Context, private val gateway: AgentGate
     }
   }
 
-  suspend fun submit(request: LiveRequest, allowed: () -> Boolean): LiveReceipt = withContext(worker) {
-    if (!allowed()) return@withContext LiveReceipt("notSent", code = "INPUT_REVOKED")
+  /** [screenshot], when present, is a read-only PNG of the shared screen sent through `live/sendMessage`; it is closed here. */
+  suspend fun submit(request: LiveRequest, allowed: () -> Boolean, screenshot: android.os.ParcelFileDescriptor? = null): LiveReceipt = withContext(worker) {
+    screenshot.use { submitNow(request, allowed, it) }
+  }
+
+  private fun submitNow(request: LiveRequest, allowed: () -> Boolean, screenshot: android.os.ParcelFileDescriptor?): LiveReceipt = run {
+    if (!allowed()) return@run LiveReceipt("notSent", code = "INPUT_REVOKED")
     if (unresolved(request.threadId).any { pending ->
         pending.text == request.text && lookup(pending).also { if (!it.pending) persist(pending, it) }.pending
-      }) return@withContext LiveReceipt("notSent", code = "UNKNOWN_DELIVERY")
-    if (!allowed()) return@withContext LiveReceipt("notSent", code = "INPUT_REVOKED")
+      }) return@run LiveReceipt("notSent", code = "UNKNOWN_DELIVERY")
+    if (!allowed()) return@run LiveReceipt("notSent", code = "INPUT_REVOKED")
     persist(request, LiveReceipt("deliveryUnknown"))
-    if (!allowed()) return@withContext LiveReceipt("notSent", code = "INPUT_REVOKED").also { persist(request, it) }
+    if (!allowed()) return@run LiveReceipt("notSent", code = "INPUT_REVOKED").also { persist(request, it) }
     val receipt = try {
-      gateway.call("sendMessage", request.arguments()).receipt(request)
+      if (screenshot == null) gateway.call("sendMessage", request.arguments()).receipt(request)
+      else gateway.call("live/sendMessage", request.arguments(), android.os.Bundle().apply { putParcelable("screenshot", screenshot) }).receipt(request)
     } catch (failure: Exception) {
       if (HomeComposer.deliveryCouldBeUnknown(failure)) LiveReceipt("deliveryUnknown")
       else LiveReceipt("notSent", code = (failure as? GatewayException)?.code)

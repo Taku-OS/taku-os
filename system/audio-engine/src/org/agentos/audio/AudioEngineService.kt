@@ -209,6 +209,7 @@ class AudioEngineService : Service(), LiveVideoHost {
                 "audio.live.video" -> {runtime.live(owner,params.getString("sessionId"),LiveAudioCommand.SetVideo(params.getString("source")));JSONObject()}
                 "audio.live.keyframe" -> {runtime.live(owner,params.getString("sessionId"),LiveAudioCommand.RequestKeyframe(params.getString("reason")));JSONObject()}
                 "audio.live.context" -> {runtime.live(owner,params.getString("sessionId"),LiveAudioCommand.ContextNote(params.getString("text")));JSONObject()}
+                "audio.live.snapshot" -> { snapshot(reply,requestId,owner,params.getString("sessionId"));return }
                 "audio.session.status" -> { val id=params.getString("sessionId");val data=runtime.status(owner,id).json().getJSONObject("data");val info=sessionInfo(owner,id);info.keys().forEach{key->data.put(key,info.get(key))};data }
                 else -> throw AudioFailure("METHOD_NOT_FOUND","Audio method is not implemented")
             }
@@ -241,6 +242,35 @@ class AudioEngineService : Service(), LiveVideoHost {
                 }finally{retained.recycle()}
             }
         },"audio-settings-read").start()
+    }
+    /**
+     * One PNG of the screen the caller's MOSS-Live session is sharing, for a delegated task. The reply
+     * carries a read-only pipe in `file`; pixels never travel as JSON. Refused unless that session is
+     * sharing an unmasked screen, the device is unlocked and assistant screenshots are allowed.
+     */
+    private fun snapshot(reply: Messenger,requestId: String,owner: String,id: String) {
+        val request=runtime.request(owner,id)
+        if(request.purpose!="LIVE_TALK" || request.profileId!=AudioProfiles.LIVE_MOSS || runtime.status(owner,id).phase!=AudioPhase.Running)
+            throw AudioFailure("SESSION_CHANGED","Live Talk is not running")
+        if(!MossLiveDriver.screenShared)throw AudioFailure("SCREENSHOT_UNAVAILABLE","Share the screen in Live Talk first")
+        if(getSystemService(android.app.KeyguardManager::class.java).isKeyguardLocked || !getSystemService(PowerManager::class.java).isInteractive)
+            throw AudioFailure("DEVICE_LOCKED","Unlock the device first")
+        if(android.provider.Settings.Secure.getInt(contentResolver,"assist_screenshot_enabled",1)==0)
+            throw AudioFailure("SCREENSHOT_UNAVAILABLE","Assistant screenshots are turned off")
+        Thread({
+            try {
+                val file=LiveVideoIo.snapshot(this)
+                main.post {
+                    try {
+                        reply.send(Message.obtain(null,1).apply { data=Bundle().apply {
+                            putString("json",JSONObject().put("protocol","taku/0.1").put("type","response").put("id",requestId).put("ok",true)
+                                .put("result",JSONObject().put("format","png")).toString())
+                            putParcelable("file",file)
+                        } })
+                    } catch(_: RemoteException) { } finally { runCatching { file.close() } }
+                }
+            } catch(e: Exception) { main.post { respondFailure(reply,requestId,e) } }
+        },"audio-live-snapshot").start()
     }
     private fun respond(reply: Messenger,id: String,result: JSONObject) {
         send(reply,JSONObject().put("protocol","taku/0.1").put("type","response").put("id",id).put("ok",true).put("result",result))

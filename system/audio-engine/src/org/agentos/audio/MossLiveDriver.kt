@@ -212,6 +212,7 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
             socket?.close(1000, null); socket?.cancel(); socket = null
             io?.let { restored = it.release() && restored; it.clear() }
             if(videoCreated) video.release()
+            screenShared = false
             work.clear(); calls.clear(); history.clear(); turns.clear()
             client.dispatcher.executorService.shutdown()
             client.connectionPool.evictAll()
@@ -473,6 +474,7 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
         val turn = input ?: newInput()
         val forwarded = JSONObject()
         args.opt("taskId")?.let { if(it is String && it.isNotBlank()) forwarded.put("taskId", it) }
+        if(args.opt("attachScreen") == true && action == "submit") forwarded.put("attachScreen", true)
         args.opt("optionIndex")?.let { if(it is Number && it.toDouble() == it.toInt().toDouble() && it.toInt() in 0..31) forwarded.put("optionIndex", it.toInt()) }
         calls[event.callId] = ToolCall(event.callId, turn.id, action, text, forwarded.toString())
         deliverTools()
@@ -525,6 +527,7 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
     }
 
     private fun startVideo(source: String, codec: String) {
+        screenShared = source == "screen"
         videoMasked = false
         awaitingKey = true
         // The provider requires the first frame after enabling to be a key frame.
@@ -540,6 +543,7 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
         val source = videoWanted
         if(source == "none" && !videoSending) return
         video.stop()
+        screenShared = false
         if(videoSending && connected) runCatching { send(MossWireProtocol.videoState(source, false)) }
         videoSending = false
         if(!masked) videoWanted = "none"
@@ -635,9 +639,15 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
         deliverTools()
     }
 
-    private companion object {
-        const val PRIVACY_CHECK_MS = 100L
+    companion object {
+        /**
+         * The single Live Talk lease is sharing an unmasked screen right now; a screen snapshot for a
+         * delegated task is allowed only then.
+         */
+        @Volatile var screenShared = false
+            private set
+        private const val PRIVACY_CHECK_MS = 100L
         /** Request-level rejections that leave the conversation usable. */
-        val RECOVERABLE = setOf("unknown_call_id", "tool_task_conflict", "unknown_tool_task", "unsupported_control")
+        private val RECOVERABLE = setOf("unknown_call_id", "tool_task_conflict", "unknown_tool_task", "unsupported_control")
     }
 }

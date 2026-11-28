@@ -20,6 +20,7 @@ object AudioParameters {
             "audio.live.video" -> setOf("sessionId","source")
             "audio.live.keyframe" -> setOf("sessionId","reason")
             "audio.live.context" -> setOf("sessionId","text")
+            "audio.live.snapshot" -> setOf("sessionId")
             else -> throw AudioFailure("METHOD_NOT_FOUND","Audio method is not implemented")
         }
         if(params.keys().asSequence().any{it !in keys})invalid("Audio parameters contain an unknown field")

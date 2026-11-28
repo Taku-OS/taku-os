@@ -240,10 +240,53 @@ internal class LiveVideoIo(private val context: Context, private val listener: L
         const val BIT_RATE = 400_000
         const val KEY_INTERVAL_S = 10
 
-        /** Scales to at most [MAX_LONG_SIDE] on the long side, keeping the aspect ratio, in multiples of 16. */
-        fun scaled(width: Int, height: Int): Pair<Int, Int> {
+        const val SNAPSHOT_LONG_SIDE = 1280
+
+        /**
+         * One still image of the screen the user is sharing, as a PNG on the read end of a pipe. It
+         * mirrors the default display through its own non-secure virtual display, so `FLAG_SECURE`
+         * windows stay black. Requires the system build's `CAPTURE_VIDEO_OUTPUT`. Blocks up to 1.5 s.
+         */
+        fun snapshot(context: Context): android.os.ParcelFileDescriptor {
+            if(context.checkSelfPermission(CAPTURE_VIDEO_OUTPUT) != PackageManager.PERMISSION_GRANTED)
+                throw AudioFailure("SCREENSHOT_UNAVAILABLE", "Screen snapshots need the Taku OS system build")
+            val bounds = context.getSystemService(WindowManager::class.java).maximumWindowMetrics.bounds
+            val (width, height) = scaled(bounds.width(), bounds.height(), SNAPSHOT_LONG_SIDE)
+            val thread = HandlerThread("audio-live-snapshot").apply { start() }
+            val reader = android.media.ImageReader.newInstance(width, height, android.graphics.PixelFormat.RGBA_8888, 2)
+            val captured = java.util.concurrent.atomic.AtomicReference<android.graphics.Bitmap?>()
+            val ready = java.util.concurrent.CountDownLatch(1)
+            reader.setOnImageAvailableListener({ source ->
+                source.acquireLatestImage()?.use { image ->
+                    if(captured.get() != null) return@use
+                    val plane = image.planes[0]
+                    val padded = plane.rowStride / plane.pixelStride
+                    val full = android.graphics.Bitmap.createBitmap(padded, height, android.graphics.Bitmap.Config.ARGB_8888)
+                    full.copyPixelsFromBuffer(plane.buffer)
+                    captured.set(if(padded == width) full else android.graphics.Bitmap.createBitmap(full, 0, 0, width, height).also { full.recycle() })
+                    ready.countDown()
+                }
+            }, Handler(thread.looper))
+            val display = context.getSystemService(DisplayManager::class.java).createVirtualDisplay("taku-live-snapshot", width, height,
+                context.resources.displayMetrics.densityDpi, reader.surface, DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR)
+            val bitmap = try {
+                if(!ready.await(1500, java.util.concurrent.TimeUnit.MILLISECONDS)) throw AudioFailure("SCREENSHOT_UNAVAILABLE", "The screen could not be captured")
+                captured.get()!!
+            } finally {
+                runCatching { display?.release() }; runCatching { reader.close() }; thread.quitSafely()
+            }
+            val (read, write) = android.os.ParcelFileDescriptor.createPipe()
+            Thread({
+                android.os.ParcelFileDescriptor.AutoCloseOutputStream(write).use { output -> bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, output) }
+                bitmap.recycle()
+            }, "audio-live-snapshot-png").start()
+            return read
+        }
+
+        /** Scales to at most [longSide] on the long side, keeping the aspect ratio, in multiples of 16. */
+        fun scaled(width: Int, height: Int, longSide: Int = MAX_LONG_SIDE): Pair<Int, Int> {
             require(width > 0 && height > 0)
-            val factor = minOf(1.0, MAX_LONG_SIDE.toDouble() / maxOf(width, height))
+            val factor = minOf(1.0, longSide.toDouble() / maxOf(width, height))
             fun align(value: Int) = maxOf(16, (value * factor).toInt() / 16 * 16)
             return align(width) to align(height)
         }

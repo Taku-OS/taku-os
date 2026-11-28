@@ -31,6 +31,7 @@ fun main() {
     check((0 until actions.length()).map(actions::getString) == listOf("submit", "steer", "cancel", "status", "confirm"), "Live Talk tool actions")
     val toolProperties = tool.getJSONObject("parameters").getJSONObject("properties")
     check(toolProperties.has("taskId") && toolProperties.getJSONObject("optionIndex").getString("type") == "integer", "task and option arguments")
+    check(toolProperties.getJSONObject("attachScreen").getString("type") == "boolean", "submit may attach the shared screen")
     check(tool.getJSONObject("parameters").getJSONArray("required").length() == 1, "status needs no text")
     val instructions = session.getString("instructions")
     check(instructions.contains("User: hello") && instructions.contains("Assistant: hi there"), "fresh session carries confirmed history")
