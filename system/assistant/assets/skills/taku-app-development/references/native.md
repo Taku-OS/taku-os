@@ -2,7 +2,7 @@
 
 Prepared development toolchain: `/data/local/agentos/light-app-lab/toolchain/`; helper: `/data/local/agentos/light-app-lab/build-native.sh`. Check these exist. This helper is currently experimental and may have been prepared after flashing; its presence is not guaranteed by the image channel.
 
-Write the application's own `AndroidManifest.xml` and `src/<package>/MainActivity.java`. Set `<uses-sdk android:targetSdkVersion="…"/>` to the device's API level (`getprop ro.build.version.sdk`) and follow that level's permission and foreground-service rules: Play Protect blocks apps built for an older Android (`INSTALL_FAILED_VERIFICATION_FAILURE`), and the helper stops before linking with `BUILD_STATUS=target_sdk_missing` or `BUILD_STATUS=target_sdk_too_old` when the manifest targets less. The minimal helper uses Android framework classes, Java 16 or earlier, ECJ, D8, aapt2/aapt, zipalign and a dedicated development signature. It does not establish support for arbitrary Gradle/AndroidX dependencies.
+Write the application's own `AndroidManifest.xml` and `src/<package>/MainActivity.java`. Set `<uses-sdk android:targetSdkVersion="…"/>` to the device's API level (`getprop ro.build.version.sdk`) and follow that level's permission and foreground-service rules: Play Protect blocks apps built for an older Android (`INSTALL_FAILED_VERIFICATION_FAILURE`), and the helper stops before compiling with `BUILD_STATUS=target_sdk_missing` or `BUILD_STATUS=target_sdk_too_old` when the manifest targets less. It reads the value from the manifest as aapt2 linked it, so any valid XML spelling works. The minimal helper uses Android framework classes, Java 16 or earlier, ECJ, D8, aapt2/aapt, zipalign and a dedicated development signature. It does not establish support for arbitrary Gradle/AndroidX dependencies.
 
 Run with the actual background display ID from current Harness context:
 
@@ -14,7 +14,7 @@ The helper reports the install on one `INSTALL_STATUS=` line, and the app is lau
 
 | Status | Exit | Meaning and next step |
 | --- | --- | --- |
-| `waiting_for_user` | (still running) | A Play Protect or installer page has focus. You cannot read it: ask the user to respond there. Their answer is not the result; wait for the final status. |
+| `waiting_for_user` | (still running) | A Play Protect verifier or package-installer page took focus after this install began and the install is still blocked. An ordinary Play Store page does not count. You cannot read the page: ask the user to respond there. Their answer is not the result; wait for the final status. |
 | `installed` | 0 | The package is installed with this APK's `versionCode`. |
 | `cancelled` | 4 | The user or a restriction stopped it (`INSTALL_FAILED_ABORTED`, `INSTALL_FAILED_USER_RESTRICTED`). Do not retry without asking. |
 | `blocked` | 3 | Package verification refused it (`INSTALL_FAILED_VERIFICATION_FAILURE` / `_TIMEOUT`). Ask the user for the reason shown, fix the cause (usually the target SDK) and rebuild. An "install anyway" answer applies to a new install, not this failed one. |

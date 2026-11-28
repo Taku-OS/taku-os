@@ -11,11 +11,14 @@ export LD_LIBRARY_PATH="$LAB/native/lib"
 export PATH="$LAB/native:/apex/com.android.art/bin:/system/bin:/system_ext/bin"
 cd "$PROJECT"
 mkdir -p build/classes build/dex build/resources
+aapt2 link -I "$TOOLS/android.jar" --manifest AndroidManifest.xml -o build/unsigned.apk
 # Target the device's API level. Play Protect blocks apps "built for an older version of Android"
 # (INSTALL_FAILED_VERIFICATION_FAILURE, BUG-0043), and raising the target silently would change
-# behaviour the app's code was written for, so the manifest must state it.
+# behaviour the app's code was written for, so the manifest must state it. Read from the linked
+# manifest, so any valid XML spelling (quotes, spacing, line breaks) yields the same number.
 DEVICE_SDK=$(getprop ro.build.version.sdk)
-TARGET_SDK=$(sed -n 's/.*android:targetSdkVersion="\([0-9]*\)".*/\1/p' AndroidManifest.xml | head -n 1)
+TARGET_SDK=$(aapt2 dump xmltree --file AndroidManifest.xml build/unsigned.apk |
+  sed -n 's/.*android:targetSdkVersion([^)]*)=\([0-9][0-9]*\).*/\1/p' | head -n 1)
 case "$TARGET_SDK" in ''|*[!0-9]*)
   echo "BUILD_STATUS=target_sdk_missing DEVICE_SDK=$DEVICE_SDK: add <uses-sdk android:targetSdkVersion=\"$DEVICE_SDK\"/> to AndroidManifest.xml" >&2; exit 2;;
 esac
@@ -26,7 +29,6 @@ fi
 # The app source is generated on the device; no precompiled business implementation.
 dalvikvm -Xmx512m -Djava.io.tmpdir="$PROJECT/build" -cp "$TOOLS/ecj.jar" org.eclipse.jdt.internal.compiler.batch.Main -proc:none -16 -cp "$TOOLS/android.classes.jar" -d build/classes $(find src -name '*.java')
 dalvikvm -Xmx512m -cp "$TOOLS/d8.dex" com.android.tools.r8.D8 --lib "$TOOLS/android.jar" --min-api 30 --output build/dex $(find build/classes -name '*.class')
-aapt2 link -I "$TOOLS/android.jar" --manifest AndroidManifest.xml -o build/unsigned.apk
 cp build/dex/classes.dex build/classes.dex
 (cd build && aapt add -f unsigned.apk classes.dex)
 zipalign -f 4 build/unsigned.apk build/aligned.apk
@@ -39,11 +41,18 @@ test -n "$ACTIVITY" && test -n "$PACKAGE"
 # Install, reporting one machine-readable INSTALL_STATUS line (BUG-0043): waiting_for_user while a
 # Play Protect / installer page has focus, then installed | cancelled | blocked | target_sdk_too_old
 # | failed. Acting on that page is not an install: only a confirmed package with this version is.
+# waiting_for_user needs evidence that the page belongs to this install: a verifier or installer
+# window (not an ordinary Play Store page) that took focus after this install began, while it is
+# still blocked.
+focus() { dumpsys window 2>/dev/null | sed -n 's/.*mCurrentFocus=Window{[^ ]* [^ ]* \([^}]*\)}.*/\1/p' | head -n 1; }
+BEFORE_FOCUS=$(focus)
 pm install -r build/app.apk > build/install.log 2>&1 &
 INSTALLER=$!
 WAITING=0
 while kill -0 "$INSTALLER" 2>/dev/null; do
-  if [ "$WAITING" = 0 ] && dumpsys window 2>/dev/null | grep -E 'mCurrentFocus=.*(com\.android\.vending|com\.google\.android\.gms|packageinstaller|permissioncontroller)' >/dev/null; then
+  NOW_FOCUS=$(focus)
+  if [ "$WAITING" = 0 ] && [ -n "$NOW_FOCUS" ] && [ "$NOW_FOCUS" != "$BEFORE_FOCUS" ] &&
+    printf '%s\n' "$NOW_FOCUS" | grep -Ei '^(com\.android\.vending/.*verif|com\.google\.android\.gms/.*(verif|security)|[a-z.]*packageinstaller/|[a-z.]*permissioncontroller/)' >/dev/null; then
     echo "INSTALL_STATUS=waiting_for_user PACKAGE=$PACKAGE: a Play Protect or installer page is on screen; ask the user to respond there" >&2
     WAITING=1
   fi

@@ -27,7 +27,11 @@ class AssistantOverlayActivity : AppCompatActivity() {
   private var focusedOnce = false
   private var resumed = false
   private var presenting = false
-  /** Counted in [AssistantSession.overlayHosts] from presenting until destroyed. */
+  /**
+   * Counted in [AssistantSession.overlayHosts] while started. Home or a task switch may only stop
+   * this window (it is destroyed later, or never while its task is kept), and Home must take its
+   * composer back the moment it is visible again.
+   */
   private var hosting = false
 
   override fun onCreate(state: Bundle?) {
@@ -39,8 +43,6 @@ class AssistantOverlayActivity : AppCompatActivity() {
     // and sharp while this window showed. The overlay draws its own surfaces; the app stays as is.
     presenting = open(intent)
     if (!presenting) { finish(); return }
-    hosting = true
-    session.overlayHostStarted()
     setContent {
       val ui by session.state.collectAsStateWithLifecycle()
       val scene = rememberGraphicsLayer()
@@ -85,6 +87,10 @@ class AssistantOverlayActivity : AppCompatActivity() {
     // An irrelevant/replayed intent must not close an already active overlay.
     if (open(intent)) { setIntent(intent); presenting = true }
   }
+  override fun onStart() {
+    super.onStart()
+    if (presenting && !hosting) { hosting = true; session.overlayHostStarted() }
+  }
   override fun onResume() { super.onResume(); resumed = true }
   override fun onPause() { resumed = false; super.onPause() }
   override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -99,6 +105,7 @@ class AssistantOverlayActivity : AppCompatActivity() {
   override fun onStop() {
     if (presenting && intent.getStringExtra("mode") == "voice")
       session.onVoiceSurfaceStopped(intent.getStringExtra("gestureId").orEmpty(), isChangingConfigurations)
+    if (hosting) { hosting = false; session.overlayHostEnded() }
     super.onStop()
   }
 }

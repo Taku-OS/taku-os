@@ -84,11 +84,17 @@ while an icon is dragged past the last app page, and an app page other than 0 di
   text/voice overlay. The input opens as soon as the system screenshot and page context arrive,
   and at most 300 ms after the session shows (so the screenshot is of the user's screen, not
   the overlay). The capture is handed to the gateway separately, and the first message sent
-  after the handoff carries it; one sent before goes without the screenshot. Opening the
+  after the handoff carries it; one sent before goes without the screenshot. Each invocation
+  gets an ID before the input opens (`SystemInvocation`). It goes to the gateway with the
+  capture (`assistInvocation` `begin`, `invocationId`) and with every Home submit
+  (`composer/submit` `invocationId`). The gateway attaches a screenshot only from that
+  invocation's received capture. A message sent before it arrives is plain text and ends that
+  invocation's automatic screenshot, so a quick send never carries the previous invocation's
+  screen. Opening the
   input hides the voice session, which cancels whatever the system has not delivered yet;
   what arrived is still handed off. A missing screenshot or a refused capture grant never
   closes the open input or asks to invoke again: the user keeps typing without it. A gateway
-  that refuses the automatic-screenshot field (`INVALID_ARGUMENT`) is asked for a plain grant. The overlay does not blur the app behind it: Android switches cross-window blur off and on by itself (tunnelled video, GPU load), which made video feeds and games flicker underneath. Over Home, the overlay is the only surface drawing the entry (`overlayHosts`): Home's own copy stands down, so two composers never compete for the keyboard, and the keyboard leaving an unfocused window is never read as the user dismissing it. Quickstep still implements navigation/overview, with HOME targeting
+  that refuses the automatic-screenshot or invocation-ID field (`INVALID_ARGUMENT`) is asked for a plain grant, and Home stops naming invocations in its submits. The overlay does not blur the app behind it: Android switches cross-window blur off and on by itself (tunnelled video, GPU load), which made video feeds and games flicker underneath. Over Home, the overlay is the only surface drawing the entry while it is started (`overlayHosts`, counted from `onStart` to `onStop`, so Home takes the entry back as soon as Home or a task switch covers the overlay): Home's own copy stands down, so two composers never compete for the keyboard, and the keyboard leaving an unfocused window is never read as the user dismissing it. Quickstep still implements navigation/overview, with HOME targeting
   this app. Advanced native controls and background task ownership remain in the backend.
 
 ## Data pipeline

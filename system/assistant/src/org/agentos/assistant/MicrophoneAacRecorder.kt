@@ -9,6 +9,7 @@ import android.media.MediaCodecInfo
 import android.media.MediaFormat
 import android.media.MediaMuxer
 import android.media.MediaRecorder
+import android.os.SystemClock
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.Executor
@@ -27,6 +28,11 @@ import java.util.concurrent.atomic.AtomicBoolean
  * the stream and waits for the finished file. [failed] reports a capture failure or the size
  * limit (the file up to the limit is still finalized) from a thread of its own, so it may call
  * [stop].
+ *
+ * Once asked to stop, the worker stops the microphone at once and has [FINISH_DEADLINE_MS] to end
+ * the stream: an encoder that never hands out an input buffer or never signals the end would
+ * otherwise keep it looping (and the microphone open) forever. Past the deadline it abandons the
+ * file and releases everything. [stop] blocks, so callers run it off the main thread.
  */
 internal class MicrophoneAacRecorder(private val file: File, private val maxBytes: Long, private val failed: (String) -> Unit) {
     private val record: AudioRecord
@@ -93,8 +99,17 @@ internal class MicrophoneAacRecorder(private val file: File, private val maxByte
         var inputEnded = false
         var pcmBytes = 0L
         var written = 0L
+        var stopAt = 0L
         try {
             while (true) {
+                if (stopping.get()) {
+                    val now = SystemClock.elapsedRealtime()
+                    if (stopAt == 0L) {
+                        // Nothing more is read: free the microphone now, not when the encoder drains.
+                        stopAt = now
+                        runCatching { record.stop() }
+                    } else if (now - stopAt > FINISH_DEADLINE_MS) throw IOException("RECORDING_FINALIZE_TIMEOUT")
+                }
                 if (!inputEnded) {
                     val index = codec.dequeueInputBuffer(TIMEOUT_US)
                     if (index >= 0) {
@@ -168,7 +183,13 @@ internal class MicrophoneAacRecorder(private val file: File, private val maxByte
         stopping.set(true)
         val thread = worker ?: throw IOException("RECORDING_NOT_STARTED")
         if (thread !== Thread.currentThread()) thread.join(STOP_TIMEOUT_MS)
-        if (thread.isAlive) throw IOException("RECORDING_FINALIZE_TIMEOUT")
+        if (thread.isAlive) {
+            // The worker is stuck inside a framework call past its own deadline: unblock a pending
+            // read and let it release the encoder and muxer as soon as that call returns.
+            runCatching { record.stop() }
+            thread.interrupt()
+            throw IOException("RECORDING_FINALIZE_TIMEOUT")
+        }
         if (!finalized) throw IOException("RECORDING_FINALIZE_FAILED")
     }
 
@@ -186,6 +207,9 @@ internal class MicrophoneAacRecorder(private val file: File, private val maxByte
         /** 64 ms of 16 kHz mono PCM per codec input buffer. */
         const val CHUNK_BYTES = 2048
         const val TIMEOUT_US = 10_000L
+        /** How long the worker may take to end the stream after a stop before abandoning it. */
+        const val FINISH_DEADLINE_MS = 3_000L
+        /** How long [stop] waits for the worker; longer than its deadline, so normally never reached. */
         const val STOP_TIMEOUT_MS = 5_000L
     }
 }

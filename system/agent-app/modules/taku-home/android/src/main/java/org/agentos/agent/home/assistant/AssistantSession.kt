@@ -1019,7 +1019,7 @@ class AssistantSession private constructor(private val context: Context, private
             acceptDraft(current, saved)
           }
           if (editor !== current || flow.value.abandoned) return@withLock
-          val request = HomeComposer.Request.new(saved, steerTurn)
+          val request = HomeComposer.Request.new(saved, steerTurn, SystemInvocation.forSubmit)
           composer.remember(request)
           if (editor !== current || flow.value.abandoned) {
             composer.forget(request)

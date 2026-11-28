@@ -24,22 +24,25 @@ internal class HomeComposer(
     val action: String,
     val turnId: String?,
     val attachmentIds: List<String>,
+    /** The system invocation this composer belongs to; the gateway matches its screenshot by it. */
+    val invocationId: String? = null,
   ) {
     fun key() = JSONObject().put("threadId", threadId).put("requestId", id)
 
     fun submission(): JSONObject = key().put("revision", revision).put("action", action)
       .put("attachmentIds", JSONArray(attachmentIds)).apply { turnId?.let { put("expectedTurnId", it) } }
+      .apply { invocationId?.let { put("invocationId", it) } }
 
     companion object {
-      fun new(draft: Draft, turnId: String?) = Request(draft.threadId, draft.revision,
+      fun new(draft: Draft, turnId: String?, invocationId: String? = null) = Request(draft.threadId, draft.revision,
         UUID.randomUUID().toString(), draft.text.trim(), if (turnId == null) "sendMessage" else "steer", turnId,
-        draft.attachments.map(Attachment::id))
+        draft.attachments.map(Attachment::id), invocationId)
 
       fun parse(value: JSONObject) = Request(value.getString("threadId"), value.getString("revision"),
         value.getString("requestId"), value.getString("text"), value.getString("action"),
         value.optString("expectedTurnId").ifEmpty { null }, value.getJSONArray("attachmentIds").let { ids ->
           List(ids.length(), ids::getString)
-        })
+        }, value.optString("invocationId").ifEmpty { null })
     }
   }
 

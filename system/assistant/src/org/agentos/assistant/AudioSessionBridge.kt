@@ -62,6 +62,8 @@ internal class AudioSessionBridge private constructor(private val context: Conte
         var generation = ""
         var sequence = 0L
         var closed: CompletableFuture<Void> = CompletableFuture.completedFuture(null)
+        /** The last recording's finalization, which runs off the caller's thread. */
+        var finishing: CompletableFuture<Void> = CompletableFuture.completedFuture(null)
     }
 
     private val binding = object : ServiceConnection {
@@ -91,7 +93,7 @@ internal class AudioSessionBridge private constructor(private val context: Conte
                 changed(session)
             } catch (_: Exception) { }
             releaseMicrophone(session)
-            session.closed.complete(null)
+            closeAfterRecording(session)
             session.generation = ""
         }
         if (bound) {
@@ -342,7 +344,7 @@ internal class AudioSessionBridge private constructor(private val context: Conte
                 session.data.put("status", if (uncertain) "interrupted" else "failed").put("error", cause.message ?: cause.javaClass.simpleName)
                 try { stopRecording(session) } catch (_: Exception) { session.data.put("recordingError", "RECORDING_FINALIZE_FAILED") }
                 releaseMicrophone(session)
-                session.closed.complete(null)
+                closeAfterRecording(session)
                 try { changed(session) } catch (_: Exception) { session.data.put("storageError", "AUDIO_STORAGE_UNAVAILABLE") }
             }
         }
@@ -409,7 +411,7 @@ internal class AudioSessionBridge private constructor(private val context: Conte
             session.data.put("completion", event.optString("completion")).put("restored", event.optBoolean("restored"))
             stopRecording(session)
             releaseMicrophone(session)
-            session.closed.complete(null)
+            closeAfterRecording(session)
             session.generation = ""
         }
         changed(session)
@@ -471,27 +473,51 @@ internal class AudioSessionBridge private constructor(private val context: Conte
         } catch (_: Exception) { }
     }
 
+    /**
+     * Ends the session's recording without waiting for it: engine events, disconnects and capture
+     * callbacks arrive on the main thread, and finishing the file can take seconds. The recorder
+     * is detached at once (the microphone stops immediately, see [MicrophoneAacRecorder]); the
+     * file is settled on its own thread, which records it in the session and completes
+     * [Session.finishing].
+     */
     private fun stopRecording(session: Session) {
-        if (session.recorder == null) return
-        try {
-            session.recorder!!.stop()
-            session.data.getJSONArray("recordings").put(JSONObject().put("id", session.recording!!.name).put("mimeType", "audio/mp4")
-                .put("startedAt", session.data.optLong("recordingStartedAt")).put("endedAt", System.currentTimeMillis())
-                .put("durationMs", SystemClock.elapsedRealtime() - session.data.optLong("recordingStartedMonotonicMs"))
-                .put("bytes", session.recording!!.length()).put("anchor", recordingUri(session, session.recording!!.name))
-                .put("url", recordingUri(session, session.recording!!.name)))
-            session.data.put("recordingState", if (session.data.has("recordingError")) "failed" else "saved")
-        } catch (_: Exception) {
-            session.data.put("recordingState", "failed").put("recordingError", "RECORDING_FINALIZE_FAILED")
-            session.recording!!.delete()
-        } finally {
-            // The encoder worker releases AudioRecord, which unregisters its callbacks.
-            // Unregistering again throws and used to leave the Closed future incomplete.
-            session.recorder!!.release()
-            session.recorder = null
-            session.recording = null
-            session.recordingCallback = null
-        }
+        val recorder = session.recorder ?: return
+        val file = session.recording!!
+        val endedAt = System.currentTimeMillis()
+        val durationMs = SystemClock.elapsedRealtime() - session.data.optLong("recordingStartedMonotonicMs")
+        // The encoder worker releases AudioRecord, which unregisters its callbacks.
+        // Unregistering again throws and used to leave the Closed future incomplete.
+        session.recorder = null
+        session.recording = null
+        session.recordingCallback = null
+        session.data.put("recordingState", "finalizing")
+        val done = CompletableFuture<Void>()
+        session.finishing = done
+        Thread({
+            val saved = try { recorder.stop(); true } catch (_: Exception) { false } finally { recorder.release() }
+            synchronized(this) {
+                try {
+                    if (saved) {
+                        session.data.getJSONArray("recordings").put(JSONObject().put("id", file.name).put("mimeType", "audio/mp4")
+                            .put("startedAt", session.data.optLong("recordingStartedAt")).put("endedAt", endedAt)
+                            .put("durationMs", durationMs).put("bytes", file.length())
+                            .put("anchor", recordingUri(session, file.name)).put("url", recordingUri(session, file.name)))
+                        session.data.put("recordingState", if (session.data.has("recordingError")) "failed" else "saved")
+                    } else {
+                        session.data.put("recordingState", "failed").put("recordingError", "RECORDING_FINALIZE_FAILED")
+                        file.delete()
+                    }
+                    changed(session)
+                } catch (_: Exception) {
+                } finally { done.complete(null) }
+            }
+        }, "audio-recording-finalize").start()
+    }
+
+    /** The session's Closed future completes once its recording is settled, so `stop` returns it. */
+    private fun closeAfterRecording(session: Session) {
+        val closed = session.closed
+        session.finishing.whenComplete { _, _ -> closed.complete(null) }
     }
 
     private fun recordingUri(session: Session, recordingId: String): String = Uri.Builder().scheme("content")

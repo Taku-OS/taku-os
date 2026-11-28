@@ -14,8 +14,23 @@ import android.os.SystemClock
 import android.service.voice.VoiceInteractionSession
 import android.util.Log
 import java.io.File
+import java.util.UUID
 import java.util.concurrent.Executors
 import org.json.JSONObject
+
+/**
+ * The latest system invocation in this process. Home's composer names it on every submit, and the
+ * gateway attaches an invocation screenshot only when its capture belongs to that invocation.
+ */
+internal object SystemInvocation {
+  @Volatile var latest: String? = null
+  @Volatile private var supported = true
+
+  /** What a submit names: nothing for a gateway that does not know invocation IDs. */
+  val forSubmit: String? get() = latest?.takeIf { supported }
+
+  fun unsupported(id: String) { supported = false; if (latest == id) latest = null }
+}
 
 /** System invocation has no legacy drawer: hardware entries always present the new UI. */
 class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession(ctx) {
@@ -54,16 +69,22 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
     if (request?.containsKey("jevTestToken") != true) {
       val capturedAt = SystemClock.elapsedRealtime()
       val autoScreenshot = SystemAssistantEntry.routeFor(args?.getString(SystemAssistantEntry.TRIGGER)).autoScreenshot
+      // Named before the UI can open: a message sent before this invocation's capture reaches the
+      // gateway names it too, so the gateway sends it as plain text instead of reading the
+      // previous invocation's screenshot.
+      val invocationId = UUID.randomUUID().toString()
+      SystemInvocation.latest = invocationId
       IO.execute {
         if (version != generation) return@execute
         try {
-          val result = try { gateway("assistInvocation", begin(capturedAt, autoScreenshot)) }
+          val result = try { gateway("assistInvocation", begin(capturedAt, autoScreenshot, invocationId)) }
           catch (rejected: IllegalStateException) {
-            // A gateway without the one-shot grant (#57) answers INVALID_ARGUMENT to its field;
-            // the screenshot is still worth delivering, the user can attach it themselves.
-            if (!autoScreenshot || rejected.message != "INVALID_ARGUMENT") throw rejected
-            Log.w("TakuSystemAssistant", "Gateway refused the automatic screenshot grant; requesting a plain one")
-            gateway("assistInvocation", begin(capturedAt, false))
+            // A gateway without the one-shot grant (#57) or invocation IDs answers INVALID_ARGUMENT
+            // to the field; the screenshot is still worth delivering, the user can attach it themselves.
+            if (rejected.message != "INVALID_ARGUMENT") throw rejected
+            Log.w("TakuSystemAssistant", "Gateway refused the invocation fields; requesting a plain capture")
+            SystemInvocation.unsupported(invocationId)
+            gateway("assistInvocation", begin(capturedAt, false, null))
           }
           if (version == generation) invocationToken = result.getString("token")
         } catch (failure: Exception) { Log.w("TakuSystemAssistant", "Invocation capture authorization unavailable", failure) }
@@ -199,9 +220,10 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
     }
   }
 
-  private fun begin(capturedAt: Long, autoScreenshot: Boolean): JSONObject =
+  private fun begin(capturedAt: Long, autoScreenshot: Boolean, invocationId: String?): JSONObject =
     JSONObject().put("operation", "begin").put("capturedAt", capturedAt)
       .apply { if (autoScreenshot) put("autoScreenshot", true) }
+      .apply { if (invocationId != null) put("invocationId", invocationId) }
 
   private fun gateway(method: String, payload: JSONObject, extras: Bundle? = null): JSONObject {
     val response = ctx.contentResolver.call(Uri.parse("content://org.agentos.assistant.agent-gateway"), method, payload.toString(), extras)
