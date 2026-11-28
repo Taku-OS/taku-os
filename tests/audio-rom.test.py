@@ -74,7 +74,7 @@ class AudioRom(unittest.TestCase):
 
     def test_permission_addition_and_duplicate_policy_are_rejected(self):
         self.files[verify.POLICY] = self.files[verify.POLICY].replace(b'</privapp-permissions>', b'<permission name="android.permission.DUMP"/></privapp-permissions>')
-        with self.assertRaisesRegex(ValueError, 'approved five'):
+        with self.assertRaisesRegex(ValueError, 'approved six'):
             self.check()
         self.files[verify.POLICY] = (verify.HERE / 'permissions/org.agentos.audio.xml').read_bytes()
         self.files['SYSTEM_EXT/etc/permissions/extra.xml'] = self.files[verify.POLICY]

@@ -99,7 +99,8 @@ service = adb('shell', 'getprop', 'init.svc.taku_broker')
 if service != 'running':
     raise SystemExit('Production Broker did not start from init: ' + service)
 permissions = ['CAPTURE_AUDIO_OUTPUT', 'MODIFY_AUDIO_ROUTING', 'CALL_AUDIO_INTERCEPTION',
-               'BYPASS_CONCURRENT_RECORD_AUDIO_RESTRICTION', 'START_FOREGROUND_SERVICES_FROM_BACKGROUND']
+               'BYPASS_CONCURRENT_RECORD_AUDIO_RESTRICTION', 'START_FOREGROUND_SERVICES_FROM_BACKGROUND',
+               'CAPTURE_VIDEO_OUTPUT']
 dump = adb('shell', 'dumpsys', 'package', 'org.agentos.audio')
 defined = adb('shell', 'pm', 'list', 'permissions', '-f')
 unsupported = []
@@ -120,7 +121,7 @@ report = {'passed': True, 'avd': avd, 'sdk': adb('shell', 'getprop', 'ro.build.v
           'bootId': adb('shell', 'cat', '/proc/sys/kernel/random/boot_id'), 'apk': package,
           'sealedAssetsVerified': len(checks), 'modelDataDirectory': data_models,
           'privilegedPermissions': granted, 'platformUnsupportedPermissions': unsupported,
-          'allFivePermissionsVerified': not unsupported, 'brokerStartedByInit': service == 'running', 'permissionPoliciesVerified': True, 'assistantRoutingGranted': True,
+          'allPrivilegedPermissionsVerified': not unsupported, 'brokerStartedByInit': service == 'running', 'permissionPoliciesVerified': True, 'assistantRoutingGranted': True,
           'selinux': adb('shell', 'getenforce'), 'mounts': mounts, 'readonlySystemExt': readonly,
           'scope': 'Disposable AOSP SDK image with system preinstall; not a built Pixel ROM or OTA'}
 (args.output / 'boot.json').write_text(json.dumps(report, indent=2) + '\n')

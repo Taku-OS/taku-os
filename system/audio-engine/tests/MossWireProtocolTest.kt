@@ -19,6 +19,9 @@ fun main() {
     val media = json(MossWireProtocol.mediaConfigure(48000))
     check(media.getJSONObject("output_audio").getInt("sample_rate") == 48000 && media.getJSONObject("output_audio").getString("format") == "pcm16", "48 kHz pcm16 output")
     check(media.getJSONObject("input_audio").getInt("sample_rate") == 16000 && media.getString("playback") == "client", "16 kHz input, client playback")
+    val stream = media.getJSONObject("video").getJSONObject("stream")
+    check(stream.getJSONArray("codecs").getString(0) == "h264" && stream.getJSONArray("codecs").getString(1) == "vp8", "video codec preference")
+    check(stream.getInt("fps") in 1..30 && stream.getInt("max_long_side") == 720 && stream.getInt("keyframe_interval_ms") in 1000..60000, "video stream within provider bounds")
 
     val update = json(MossWireProtocol.sessionUpdate(listOf(LiveHistoryTurn("user", "hello"), LiveHistoryTurn("model", "hi there"))))
     val session = update.getJSONObject("session")
@@ -74,6 +77,12 @@ fun main() {
     val withVideo = event("media.configured", JSONObject().put("output_audio", JSONObject().put("format", "pcm16").put("sample_rate", 48000))
         .put("video", JSONObject().put("stream", JSONObject().put("codec", "vp8")))) as MossWireProtocol.Event.MediaConfigured
     check(withVideo.videoCodec == "vp8", "negotiated video codec")
+    val vp9 = event("media.configured", JSONObject().put("output_audio", JSONObject().put("format", "pcm16").put("sample_rate", 48000))
+        .put("video", JSONObject().put("stream", JSONObject().put("codec", "vp9")))) as MossWireProtocol.Event.MediaConfigured
+    check(vp9.videoCodec == null, "a codec the encoder cannot produce means audio only")
+    check((event("media.configured", JSONObject().put("output_audio", JSONObject().put("format", "pcm16").put("sample_rate", 48000)))
+        as MossWireProtocol.Event.MediaConfigured).videoCodec == null, "no stream means no video")
+    check(json(MossWireProtocol.videoState("screen", false)).let { it.getString("action") == "video.state" && !it.getBoolean("enabled") && it.getString("source") == "screen" }, "video.state")
     rejects("opus output") { event("media.configured", JSONObject().put("output_audio", JSONObject().put("format", "opus").put("sample_rate", 48000))) }
     rejects("16 kHz output") { event("media.configured", JSONObject().put("output_audio", JSONObject().put("format", "pcm16").put("sample_rate", 16000))) }
     check(event("session.updated", JSONObject().put("error", "")) == MossWireProtocol.Event.SessionUpdated(null), "empty error is success")

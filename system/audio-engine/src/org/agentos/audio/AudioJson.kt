@@ -33,5 +33,6 @@ private fun LiveAudioEvent.json(): JSONObject = JSONObject().apply {
         is LiveAudioEvent.Mic -> put("kind","Mic").put("muted",event.muted)
         is LiveAudioEvent.Speech -> put("kind","Speech").put("active",event.active)
         is LiveAudioEvent.TaskResult -> put("kind","TaskResult").put("offerId",event.offerId).put("sent",event.sent)
+        is LiveAudioEvent.Video -> put("kind","Video").put("source",event.source).put("active",event.active).put("masked",event.masked).put("reason",event.reason)
     }
 }

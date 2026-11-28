@@ -1,7 +1,7 @@
 # Audio Engine ROM delivery
 
 The userdebug/eng Taku product includes the platform-signed Audio Engine, its
-five approved privileged audio permissions, the assistant's existing
+six approved privileged audio and video-capture permissions, the assistant's existing
 `MODIFY_AUDIO_ROUTING` request, the CLI bridge, and English/Chinese Zipformer
 and multilingual Kokoro resources. Runtime microphone/notification permission
 prompts are unchanged. No credentials or cloud subscription are bundled.
@@ -77,6 +77,6 @@ The API 36 AOSP SDK fixture does not define the feature-flagged
 `BYPASS_CONCURRENT_RECORD_AUDIO_RESTRICTION` permission at runtime. For that
 fixture only, pass `--allow-unsupported-permissions` and instrumentation
 `-e allowUnsupportedPermissions true`. Reports list unsupported permissions
-and set `allFivePermissionsVerified=false`; a defined but denied permission
+and set `allPrivilegedPermissionsVerified=false`; a defined but denied permission
 still fails. Do not use this exception for target-ROM acceptance. The normal
-strict defaults require all five permissions.
+strict defaults require all six permissions.

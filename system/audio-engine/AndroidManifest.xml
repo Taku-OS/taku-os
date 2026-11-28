@@ -16,6 +16,11 @@
  <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
  <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
  <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+ <uses-permission android:name="android.permission.CAMERA"/>
+ <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA"/>
+ <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION"/>
+ <uses-permission android:name="android.permission.CAPTURE_VIDEO_OUTPUT"/>
+ <uses-permission android:name="android.permission.WAKE_LOCK"/>
  <application android:label="@string/app_name" android:icon="@drawable/taku_brand_mark" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:allowBackup="false" android:extractNativeLibs="false">
   <activity android:name=".AudioHomeActivity" android:taskAffinity="org.agentos.audio.home" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:exported="true">
    <intent-filter>
@@ -32,7 +37,9 @@
   <activity android:name=".AudioHostActivity" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:exported="true"/>
   <activity android:name=".MediaTranslationActivity" android:launchMode="singleTask" android:exported="true" android:permission="org.agentos.audio.USE_AUDIO"/>
   <receiver android:name=".AudioBridgeReceiver" android:exported="true" android:permission="android.permission.DUMP"/>
-  <service android:name=".AudioEngineService" android:foregroundServiceType="mediaPlayback|microphone" android:exported="true"/>
+  <activity android:name=".LiveProjectionActivity" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:exported="false" android:excludeFromRecents="true" android:taskAffinity="org.agentos.audio.projection"/>
+  <!-- Camera and media projection types are added at runtime only while that capture runs. -->
+  <service android:name=".AudioEngineService" android:foregroundServiceType="mediaPlayback|microphone|camera|mediaProjection" android:exported="true"/>
   <service android:name=".TranslationOverlayService" android:foregroundServiceType="specialUse" android:exported="true" android:permission="org.agentos.audio.USE_AUDIO">
    <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="persistent translation floating window entry"/>
   </service>

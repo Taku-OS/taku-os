@@ -25,12 +25,23 @@ sealed interface LiveAudioEvent {
     data class Mic(val muted: Boolean) : LiveAudioEvent
     data class Speech(val active: Boolean) : LiveAudioEvent
     data class TaskResult(val offerId: String, val sent: Boolean) : LiveAudioEvent
+    /**
+     * Video sharing state. [source] is `none`, `screen` or `camera`; [masked] means frames are
+     * withheld for privacy (locked device); [reason] explains a stop (`DEVICE_LOCKED`,
+     * `NETWORK_THROTTLED`, `VIDEO_UNSUPPORTED`, `PERMISSION_DENIED`, `CAPTURE_FAILED`, ...).
+     */
+    data class Video(val source: String, val active: Boolean, val masked: Boolean = false, val reason: String = "") : LiveAudioEvent
 }
 sealed interface LiveAudioCommand {
     data class Mute(val muted: Boolean) : LiveAudioCommand
     data class Text(val text: String) : LiveAudioCommand
     data class ToolResult(val callId: String, val result: String) : LiveAudioCommand
     data class Result(val offerId: String, val afterInput: String, val text: String) : LiveAudioCommand
+    /** Share `screen` or `camera` frames with the provider, or `none` to stop. */
+    data class SetVideo(val source: String) : LiveAudioCommand
+    data class RequestKeyframe(val reason: String) : LiveAudioCommand
+    /** Context for the model that must not prompt a reply (background task progress). */
+    data class ContextNote(val text: String) : LiveAudioCommand
 }
 data class LiveHistoryTurn(val role: String, val text: String)
 data class DictationBackend(

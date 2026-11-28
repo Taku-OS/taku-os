@@ -9,7 +9,7 @@ import org.json.JSONObject
 import java.util.UUID
 
 /** Bound audio host. Messenger provides Binder caller UID and client-death tracking. */
-class AudioEngineService : Service() {
+class AudioEngineService : Service(), LiveVideoHost {
     private val main = Handler(Looper.getMainLooper())
     private val clients = mutableMapOf<IBinder, Pair<String,IBinder.DeathRecipient>>()
     private val runtime = AudioRuntime(clock={SystemClock.elapsedRealtime()}) { request ->
@@ -206,6 +206,9 @@ class AudioEngineService : Service() {
                 "audio.live.text" -> {runtime.live(owner,params.getString("sessionId"),LiveAudioCommand.Text(params.getString("text")));JSONObject()}
                 "audio.live.result" -> {runtime.live(owner,params.getString("sessionId"),LiveAudioCommand.Result(params.getString("offerId"),params.getString("afterInput"),params.getString("text")));JSONObject()}
                 "audio.live.tool" -> {runtime.live(owner,params.getString("sessionId"),LiveAudioCommand.ToolResult(params.getString("callId"),params.getString("result")));JSONObject()}
+                "audio.live.video" -> {runtime.live(owner,params.getString("sessionId"),LiveAudioCommand.SetVideo(params.getString("source")));JSONObject()}
+                "audio.live.keyframe" -> {runtime.live(owner,params.getString("sessionId"),LiveAudioCommand.RequestKeyframe(params.getString("reason")));JSONObject()}
+                "audio.live.context" -> {runtime.live(owner,params.getString("sessionId"),LiveAudioCommand.ContextNote(params.getString("text")));JSONObject()}
                 "audio.session.status" -> { val id=params.getString("sessionId");val data=runtime.status(owner,id).json().getJSONObject("data");val info=sessionInfo(owner,id);info.keys().forEach{key->data.put(key,info.get(key))};data }
                 else -> throw AudioFailure("METHOD_NOT_FOUND","Audio method is not implemented")
             }
@@ -262,7 +265,23 @@ class AudioEngineService : Service() {
         val notification=android.app.Notification.Builder(this,"audio-reading").setSmallIcon(android.R.drawable.ic_lock_silent_mode_off)
             .setContentTitle(title).setContentText("Tap to stop").setOngoing(true)
             .addAction(android.app.Notification.Action.Builder(null,"Stop",stop).build()).build()
+        foreground=notification;foregroundMicrophone=microphone
         startForeground(100,notification,android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK or if(microphone)android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0)
+    }
+    @Volatile private var foreground: android.app.Notification?=null
+    @Volatile private var foregroundMicrophone=false
+    /**
+     * Adds the camera or media-projection foreground type only while that capture runs and drops it
+     * as soon as it stops, so the service never claims a capture it is not doing.
+     */
+    override fun videoForeground(camera: Boolean,projection: Boolean) {
+        val notification=foreground ?: return
+        val types=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK or
+            (if(foregroundMicrophone)android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0) or
+            (if(camera)android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA else 0) or
+            (if(projection)android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION else 0)
+        try { startForeground(100,notification,types) }
+        catch(e: Exception) { if(camera || projection)throw AudioFailure("PERMISSION_DENIED","Video capture is not allowed right now") }
     }
     private fun capabilities(uid: Int,owner: String,filter: JSONObject,snapshot: JSONObject?=config): JSONObject {
         val dictationView=dictationResolver.inspect(snapshot ?: JSONObject())
@@ -359,7 +378,10 @@ class AudioEngineService : Service() {
             .put("requiresMicrophone",true).put("readyRecognitionLanguages",languages).put("qualityVerified",false)
         return JSONObject().put("speechInterruption",interruption).put("availability",availability).put("permissions",permissions).put("consumerAuthorized",authorizedConsumer(uid,snapshot))
             .put("dictation",JSONObject().put("assistant-entry",dictationView.toJson()))
-            .put("live",JSONObject().put("configured",liveConfigured(snapshot)).put("profileId",liveProfile(snapshot)).put("echoCancelerAvailable",android.media.audiofx.AcousticEchoCanceler.isAvailable()).put("qualityVerified",false))
+            .put("live",JSONObject().put("configured",liveConfigured(snapshot)).put("profileId",liveProfile(snapshot)).put("echoCancelerAvailable",android.media.audiofx.AcousticEchoCanceler.isAvailable()).put("qualityVerified",false)
+                .put("video",JSONObject().put("providers",org.json.JSONArray().put(AudioProfiles.LIVE_MOSS))
+                    .put("screen",if(checkSelfPermission(LiveVideoIo.CAPTURE_VIDEO_OUTPUT)==PackageManager.PERMISSION_GRANTED)"system" else "consent")
+                    .put("cameraPermission",checkSelfPermission("android.permission.CAMERA")==PackageManager.PERMISSION_GRANTED)))
             .put("resourceState",JSONObject().put("busy",resource.busy).put("purpose",resource.purpose).put("profileId",resource.profileId).put("phase",resource.phase?.name ?: "Idle")
                 .put("ownedByCaller",resource.ownedByCaller).put("previousRestoreConfirmed",resource.previousRestoreConfirmed ?: JSONObject.NULL))
             .put("availabilityScope","Local prerequisites only; source, remote authorization and connectivity are checked at open")

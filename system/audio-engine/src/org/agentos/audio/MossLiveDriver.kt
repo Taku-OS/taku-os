@@ -34,6 +34,8 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
         data class Binary(val generation: Long, val bytes: ByteArray) : Work
         data class Command(val generation: Long, val command: LiveAudioCommand) : Work
         data object MuteChanged : Work
+        class Video(val generation: Long, val source: String, val monotonicUs: Long, val keyFrame: Boolean, val data: ByteArray) : Work
+        data class VideoStopped(val generation: Long, val source: String, val reason: String) : Work
     }
     private enum class Handshake { Attaching, Mode, Configuring, Updating, Ready }
     private data class InputTurn(val id: String, val text: StringBuilder = StringBuilder(), var final: Boolean = false)
@@ -79,11 +81,36 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
     private var audioContext: PlaybackChunkAck? = null
     private val history = ArrayDeque<LiveHistoryTurn>(request.history)
     private var historyChars = request.history.sumOf { it.text.length }
+    /** Codec the provider negotiated for this connection, or null for audio only. */
+    @Volatile private var videoCodec: String? = null
+    /** The source the user asked for; it stays wanted while privacy masking withholds it. */
+    @Volatile private var videoWanted = "none"
+    private var videoSending = false
+    private var videoMasked = false
+    private var awaitingKey = true
+    private var privacyCheckedAt = 0L
+    /** Maps encoder timestamps onto the 16 kHz microphone sample clock the provider aligns video with. */
+    @Volatile private var clockSamples = 0L
+    @Volatile private var clockUs = 0L
+    private var videoCreated = false
+    private val video by lazy { videoCreated = true; LiveVideoIo(context, object : LiveVideoIo.Listener {
+        override fun frame(source: String, monotonicUs: Long, keyFrame: Boolean, data: ByteArray) {
+            // A full queue drops the frame; video never fails the voice session.
+            work.offer(Work.Video(generation.get(), source, monotonicUs, keyFrame, data))
+        }
+        override fun stopped(source: String, reason: String) { work.offer(Work.VideoStopped(generation.get(), source, reason)) }
+    }) }
+    private val keyguard by lazy { context.getSystemService(android.app.KeyguardManager::class.java) }
+    private val power by lazy { context.getSystemService(android.os.PowerManager::class.java) }
 
     private val listener = object : LiveAudioIo.Listener {
         override fun emit(event: LiveAudioEvent) = this@MossLiveDriver.emit(event)
         override fun level(level: Float, frames: Int) = sink.level(level, frames)
-        override fun upload(bytes: ByteArray, count: Int): Boolean = sendBinary(MossWireProtocol.encodeAudio(bytes, count))
+        override fun upload(bytes: ByteArray, count: Int): Boolean {
+            val sent = sendBinary(MossWireProtocol.encodeAudio(bytes, count))
+            if(sent) { clockSamples = (io?.uploadedFrames ?: 0L) + count / 2; clockUs = System.nanoTime() / 1000 }
+            return sent
+        }
         /** The provider decides barge-in; local detection only drives levels and UI hints. */
         override fun localSpeechStarted() = Unit
         override fun localSpeechMayEnd(): Boolean = false
@@ -116,6 +143,12 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
         }
         if(muted.get()) throw AudioFailure("MIC_MUTED", "Resume Live Talk before sending input")
         if(!connected) throw AudioFailure("LIVE_CONNECTING", "Wait for Live Talk to connect")
+        if(command is LiveAudioCommand.SetVideo && command.source != "none") {
+            if(videoCodec == null) throw AudioFailure("VIDEO_UNSUPPORTED", "The provider did not accept a video stream for this connection")
+            if(deviceLocked()) throw AudioFailure("DEVICE_LOCKED", "Unlock the device before sharing the screen or camera")
+            if(command.source == "camera" && context.checkSelfPermission(android.Manifest.permission.CAMERA) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+                throw AudioFailure("PERMISSION_DENIED", "Allow Taku Audio to use the camera")
+        }
         if(command is LiveAudioCommand.ToolResult) {
             val call = calls[command.callId] ?: throw AudioFailure("SESSION_CHANGED", "The provider tool call is no longer active")
             val prior = call.result.get()
@@ -162,6 +195,8 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
                 if(connected && !muted.get() && connectionGeneration == generation.get()) {
                     io?.capture()
                     io?.play()
+                    val now = SystemClock.elapsedRealtime()
+                    if(now - privacyCheckedAt >= PRIVACY_CHECK_MS) { privacyCheckedAt = now; checkPrivacy() }
                 }
             }
         } catch(_: InterruptedException) {
@@ -176,6 +211,7 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
             credential?.close()
             socket?.close(1000, null); socket?.cancel(); socket = null
             io?.let { restored = it.release() && restored; it.clear() }
+            if(videoCreated) video.release()
             work.clear(); calls.clear(); history.clear(); turns.clear()
             client.dispatcher.executorService.shutdown()
             client.connectionPool.evictAll()
@@ -244,7 +280,12 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
                 if(item.generation == generation.get()) handleAudio(item.bytes)
             }
             is Work.Command -> if(item.generation == generation.get()) handleCommand(item.command)
+            is Work.Video -> if(item.generation == generation.get()) sendVideo(item)
+            is Work.VideoStopped -> if(item.generation == generation.get() && item.source == videoWanted) {
+                stopVideo(item.reason)
+            }
             Work.MuteChanged -> {
+                stopVideo("MIC_MUTED")
                 connected = false; connectDeadline = 0
                 socket?.close(1000, null); socket?.cancel(); socket = null
                 io?.let { audio ->
@@ -280,6 +321,7 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
                 if(handshake != Handshake.Configuring) return
                 if(event.error != null) throw AudioFailure("PROVIDER_REJECTED", "Live provider rejected the audio format")
                 outputRate = event.outputSampleRate
+                videoCodec = event.videoCodec
                 handshake = Handshake.Updating
                 send(MossWireProtocol.sessionUpdate(history.toList()))
             }
@@ -459,8 +501,79 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
                 call.sent = true
                 send(MossWireProtocol.toolOutput(call.id, JSONObject(command.result)))
             }
+            is LiveAudioCommand.SetVideo -> setVideo(command.source)
+            is LiveAudioCommand.RequestKeyframe -> if(videoSending) video.requestKeyframe()
+            is LiveAudioCommand.ContextNote -> send(MossWireProtocol.thinking(command.text))
             is LiveAudioCommand.Mute -> Unit
         }
+    }
+
+    private fun deviceLocked(): Boolean = keyguard.isKeyguardLocked || !power.isInteractive
+
+    private fun setVideo(source: String) {
+        if(source == videoWanted && (source == "none" || videoSending || videoMasked)) return
+        if(videoWanted != "none") stopVideo("")
+        if(source == "none") return
+        val codec = videoCodec ?: run { emit(LiveAudioEvent.Video(source, false, reason = "VIDEO_UNSUPPORTED")); return }
+        if(deviceLocked()) { emit(LiveAudioEvent.Video(source, false, masked = true, reason = "DEVICE_LOCKED")); return }
+        videoWanted = source
+        startVideo(source, codec)
+    }
+
+    private fun startVideo(source: String, codec: String) {
+        videoMasked = false
+        awaitingKey = true
+        // The provider requires the first frame after enabling to be a key frame.
+        send(MossWireProtocol.videoState(source, true))
+        videoSending = true
+        video.start(source, codec)
+        emit(LiveAudioEvent.Video(source, true))
+        Log.i("AudioLive", "provider=moss-live video source=$source codec=$codec")
+    }
+
+    /** Stops capture and tells the provider; [reason] empty means a plain user switch. */
+    private fun stopVideo(reason: String, masked: Boolean = false) {
+        val source = videoWanted
+        if(source == "none" && !videoSending) return
+        video.stop()
+        if(videoSending && connected) runCatching { send(MossWireProtocol.videoState(source, false)) }
+        videoSending = false
+        if(!masked) videoWanted = "none"
+        videoMasked = masked
+        emit(LiveAudioEvent.Video(if(masked) source else "none", false, masked, reason))
+    }
+
+    /** Locked or dark screen: withhold frames immediately and resume the wanted source once unlocked. */
+    private fun checkPrivacy() {
+        if(videoWanted == "none") return
+        val locked = deviceLocked()
+        if(locked && !videoMasked) stopVideo("DEVICE_LOCKED", masked = true)
+        else if(!locked && videoMasked) videoCodec?.let { startVideo(videoWanted, it) }
+    }
+
+    private fun sendVideo(frame: Work.Video) {
+        if(!videoSending || frame.source != videoWanted || videoMasked) return
+        if(awaitingKey && !frame.keyFrame) return
+        val ws = socket ?: return
+        when(backpressure.video(ws.queueSize(), frame.keyFrame, SystemClock.elapsedRealtime())) {
+            MossBackpressure.Video.SKIP -> return
+            MossBackpressure.Video.PAUSE -> {
+                send(MossWireProtocol.videoState(frame.source, false))
+                emit(LiveAudioEvent.Video(frame.source, false, reason = "NETWORK_THROTTLED"))
+                return
+            }
+            MossBackpressure.Video.RESUME -> {
+                send(MossWireProtocol.videoState(frame.source, true))
+                emit(LiveAudioEvent.Video(frame.source, true))
+                awaitingKey = true
+                video.requestKeyframe()
+                if(!frame.keyFrame) return
+            }
+            MossBackpressure.Video.SEND -> Unit
+        }
+        awaitingKey = false
+        val samples = (clockSamples + (frame.monotonicUs - clockUs) * MossWireProtocol.INPUT_SAMPLE_RATE / 1_000_000).coerceAtLeast(0)
+        ws.send(MossWireProtocol.encodeVideo(frame.source, samples, frame.keyFrame, frame.data).toByteString())
     }
 
     private fun send(text: String): Boolean {
@@ -519,6 +632,7 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
     }
 
     private companion object {
+        const val PRIVACY_CHECK_MS = 100L
         /** Request-level rejections that leave the conversation usable. */
         val RECOVERABLE = setOf("unknown_call_id", "tool_task_conflict", "unknown_tool_task", "unsupported_control")
     }

@@ -33,9 +33,14 @@ internal object MossWireProtocol {
 
     fun mediaMode(): String = JSONObject().put("action", "media.mode").put("binary_protocol", "tagged-v1").toString()
 
+    /** Codecs the hardware encoder offers, in preference order; the provider answers with one or no stream. */
+    val VIDEO_CODECS = listOf("h264", "vp8")
+
     fun mediaConfigure(outputSampleRate: Int = 48000): String = JSONObject().put("action", "media.configure")
         .put("input_audio", JSONObject().put("format", "pcm16").put("sample_rate", INPUT_SAMPLE_RATE))
         .put("output_audio", JSONObject().put("format", "pcm16").put("sample_rate", outputSampleRate))
+        .put("video", JSONObject().put("stream", JSONObject().put("codecs", JSONArray(VIDEO_CODECS)).put("fps", 2)
+            .put("bitrate_kbps", 400).put("keyframe_interval_ms", 10000).put("max_long_side", 720)))
         .put("playback", "client").toString()
 
     fun micState(enabled: Boolean): String = JSONObject().put("action", "mic_state").put("enabled", enabled).toString()
@@ -174,7 +179,9 @@ internal object MossWireProtocol {
                 val failure = error(data.opt("error"))
                 if(failure == null && (format != "pcm16" || rate !in OUTPUT_SAMPLE_RATES))
                     throw AudioFailure("PROVIDER_PROTOCOL_ERROR", "Live provider returned an unsupported audio format")
-                Event.MediaConfigured(rate, data.optJSONObject("video")?.optJSONObject("stream")?.optString("codec")?.ifBlank { null }, failure)
+                // Only a codec the encoder can produce counts; anything else means audio only.
+                val codec = data.optJSONObject("video")?.optJSONObject("stream")?.optString("codec")?.takeIf { it in VIDEO_CODECS }
+                Event.MediaConfigured(rate, codec, failure)
             }
             "session.updated" -> Event.SessionUpdated(error(data.opt("error")))
             "input.speech.started" -> Event.SpeechStarted(true)

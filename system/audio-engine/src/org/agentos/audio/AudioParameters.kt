@@ -17,6 +17,9 @@ object AudioParameters {
             "audio.live.text" -> setOf("sessionId","text")
             "audio.live.result" -> setOf("sessionId","offerId","afterInput","text")
             "audio.live.tool" -> setOf("sessionId","callId","result")
+            "audio.live.video" -> setOf("sessionId","source")
+            "audio.live.keyframe" -> setOf("sessionId","reason")
+            "audio.live.context" -> setOf("sessionId","text")
             else -> throw AudioFailure("METHOD_NOT_FOUND","Audio method is not implemented")
         }
         if(params.keys().asSequence().any{it !in keys})invalid("Audio parameters contain an unknown field")
@@ -104,6 +107,12 @@ object AudioParameters {
                     val result=string(params,"result","")
                     if(result.length>12000)invalid("Tool result is too long")
                     try{JSONObject(result)}catch(_: Exception){invalid("Tool result must be a JSON object encoded as a string")}
+                }
+                "audio.live.video" -> if(string(params,"source","") !in listOf("none","screen","camera"))invalid("Video source must be none, screen or camera")
+                "audio.live.keyframe" -> if(!string(params,"reason","").matches(Regex("[a-z_]{1,32}")))invalid("Invalid keyframe reason")
+                "audio.live.context" -> {
+                    val text=string(params,"text","")
+                    if(text.isBlank() || text.length>4000)invalid("Live context must contain 1–4000 characters")
                 }
                 "audio.live.result" -> {
                     val offerId=string(params,"offerId", "")
