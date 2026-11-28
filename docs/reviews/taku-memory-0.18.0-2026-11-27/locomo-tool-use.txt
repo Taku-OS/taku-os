@@ -1,0 +1,8 @@
+questions 1540, with any call 1540
+search: mean 1.68 per question, questions with any 1540
+get: mean 0.01 per question, questions with any 9
+dated: mean 0.39 per question, questions with any 475
+taku_arg: mean 0.00 per question, questions with any 4
+taku_on: mean 0.00 per question, questions with any 1
+limit>20: mean 0.63 per question, questions with any 556
+error: mean 0.00 per question, questions with any 0

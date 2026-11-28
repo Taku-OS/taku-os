@@ -145,6 +145,53 @@ The question-word rule for Taku's replies matches 51 of the 56 single-session-as
 
 A discarded partial run (wrong clock) cost $4.00.
 
+## A second benchmark: LoCoMo
+
+LoCoMo (snap-research/locomo, CC BY-NC 4.0) checks whether the changes carry over to questions they were not tuned on. Nothing in memory, the tools or the guidance was changed for it.
+
+**Setup.** LoCoMo has ten long chats between two people, with 1,540 questions in categories 1–4: multi-hop, temporal, open-domain and single-hop. Adversarial questions (category 5) are left out, as everyone does. Each chat stands for one phone ([loco_prep.py](loco_prep.py), [loco_server.py](loco_server.py)):
+
+- each message is a captured record from a messaging app, titled with its sender;
+- a record is first seen at the session's time plus one second per message;
+- a shared photo adds its caption;
+- questions are asked on the day of the last session.
+
+The reader setup is the same as for LongMemEval: Sonnet 5.5, the phone tools, and the harness policy. Only the first sentence of the system prompt changes, to say that memory holds the user's chats with a friend.
+
+**Judging** ([loco_judge.py](loco_judge.py), [loco_metrics.py](loco_metrics.py)). Two judge prompts are read from Mem0's sources:
+
+- **Paper J** (`ACCURACY_PROMPT`, mem0 commit aae5989e), which most published LoCoMo figures use.
+- **Mem0's 2026 unified judge** (mem0ai/memory-benchmarks), which is more lenient: one item of a list is enough, durations within 50% match, and the open-domain gold answer is cut at ";".
+
+Both judges are run with Sonnet 5.5; Mem0 used gpt-4o-mini and gpt-4o.
+
+| Category | Questions | Paper J | 2026 judge |
+| --- | --- | --- | --- |
+| **Overall** | 1,540 | **88.3% (1359)** | **93.2% (1435)** |
+| Single-hop | 841 | 92.6% | 94.6% |
+| Temporal | 321 | 88.2% | 93.5% |
+| Multi-hop | 282 | 81.9% | 95.0% |
+| Open-domain | 96 | 68.8% | 74.0% |
+
+([paper J](locomo-judge-paper.txt), [2026 judge](locomo-judge-2026.txt), [per question](locomo-per-question.tsv))
+
+The 2026 judge accepts every answer the paper judge accepts, and 76 more.
+
+For comparison, Mem0's own figures:
+
+- **2025 paper**, paper J with gpt-4o-mini: Mem0 66.9%, full context about 72.9%.
+- **2026 pages**: Mem0 92.5% with the 2026 judge and gpt-4o; Zep 80–83%; Letta 74.0%.
+
+These are self-reported, from other readers and judges, so they compare only roughly. Part of the difference is the reader: Sonnet 5.5 against gpt-4o or gpt-4o-mini. An audit of LoCoMo found 99 of the 1,540 gold answers (6.4%) wrong, and that the paper judge passes 63% of deliberately wrong answers that stay on topic.
+
+**Where points are lost** (paper J, [locomo-evidence-shown.txt](locomo-evidence-shown.txt), [locomo-tool-use.txt](locomo-tool-use.txt)). Unlike LongMemEval, retrieval is still the main limit here:
+
+- **Evidence shown.** All the evidence messages reached the reader for 79.2% of questions, and only 43.7% of multi-hop and 52.8% of open-domain ones. LoCoMo's evidence lists are long: a multi-hop question cites several messages from different sessions.
+- **Accuracy.** Answers were right 94.3% of the time when all evidence was shown, and 65.4% when not. Multi-hop answers were right 74.5% of the time even with some evidence missing, since part of the evidence was often enough.
+- **Tool use.** The reader made 1.68 searches per question and passed dates in 475 questions, but called `memory_get` in only 9. Messages are short, so excerpts are rarely cut.
+
+**Cost:** answers $67.33, paper judge $14.54 and 2026 judge $18.44 (list price).
+
 ## Checks
 
 - **Builds.**
@@ -173,6 +220,6 @@ A discarded partial run (wrong clock) cost $4.00.
 - **The assistant APK was not rebuilt.** Its build runs a Node script from `system/agent-app`, which was not run here. The changed `taku_harness.json` was only checked to parse.
 - **A well-formed reply card's readable text was not checked**; that needs the exported reply contract. Only plain and unparseable replies were checked.
 - **The benchmark ran on a mirror, not the Java search.** The word lists and patterns come from the Java sources, and question words match. The vector ranking reproduces the Java code's tie order, but was not compared entry by entry with a device.
-- **LongMemEval is not phone data.** It is long chats with an assistant, so it exercises the new conversation memory specifically. Phone captures and notifications are untested here. No graph nodes were used.
+- **Neither benchmark is phone data.** LongMemEval is long chats with an assistant, so it exercises the new conversation memory specifically. LoCoMo is chats between two people, mapped here to captured messages, without the delta storage or notification framing a phone adds. No graph nodes were used in either.
 - **Judge and runs.** The judge is Sonnet, not GPT-4o. Each figure comes from one run with no temperature set, and one question moves the overall score by 0.2 points.
 - **Storage.** Every kept turn is a record with a vector, so a heavy chat user adds records quickly. Retention settings apply as usual.

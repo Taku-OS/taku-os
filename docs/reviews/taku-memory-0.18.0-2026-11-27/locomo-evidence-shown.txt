@@ -1,0 +1,5 @@
+multi-hop    n  279  all evidence shown 0.437  correct when shown 0.918 (122)  when not 0.745 (157)
+all          n 1528  all evidence shown 0.792  correct when shown 0.943 (1210)  when not 0.654 (318)
+single-hop   n  840  all evidence shown 0.895  correct when shown 0.969 (752)  when not 0.568 (88)
+temporal     n  320  all evidence shown 0.903  correct when shown 0.924 (289)  when not 0.484 (31)
+open-domain  n   89  all evidence shown 0.528  correct when shown 0.702 (47)  when not 0.619 (42)

@@ -1,0 +1,6 @@
+  multi-hop: 0.8191 (231/282)
+  temporal: 0.8816 (283/321)
+  open-domain: 0.6875 (66/96)
+  single-hop: 0.9263 (779/841)
+Overall: 0.8825 (1359/1540); replies without a JSON label: 0
+Answer cost (list price): $67.33
