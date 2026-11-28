@@ -45,8 +45,13 @@ mkdir -p "$perm_out"
 compile_jvm "$perm_out" "$cp:$ANDROID_JAR" \
  system/assistant/broker/org/agentos/lab/*.java \
  system/assistant/broker/org/agentos/lab/*.kt \
+ system/ai/client/org/agentos/ai/AiClient.java \
  system/ai/client/org/agentos/ai/NotebookSocialSource.java \
  tooling/app-kit/apk-shell/src/org/agentos/runtime/AppApiClient.java \
  system/assistant/src/org/agentos/assistant/AgentOpenAccessPolicy.java \
- system/assistant/tests/org/agentos/lab/AppPermissionPolicyTest.java
+ system/assistant/tests/org/agentos/lab/AppPermissionPolicyTest.java \
+ system/assistant/tests/org/agentos/lab/NotebookSourceReviewTest.java \
+ system/assistant/tests/org/agentos/ai/AiClientErrorTest.java
 "$JDK/bin/java" -cp "$perm_out:$cp:$ANDROID_JAR:$KOTLIN_LIB/kotlin-stdlib.jar" org.agentos.lab.AppPermissionPolicyTest
+"$JDK/bin/java" -cp "$perm_out:$cp:$ANDROID_JAR:$KOTLIN_LIB/kotlin-stdlib.jar" org.agentos.lab.NotebookSourceReviewTest
+"$JDK/bin/java" -cp "$perm_out:$cp:$ANDROID_JAR:$KOTLIN_LIB/kotlin-stdlib.jar" org.agentos.ai.AiClientErrorTest

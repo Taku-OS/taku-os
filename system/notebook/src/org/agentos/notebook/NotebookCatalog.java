@@ -76,7 +76,9 @@ final class NotebookCatalog {
             if (version < 2) addManualFiling();
             if (version < 3) addSourceLookup();
             if (version < 5) addPendingFiling();
-            database.execSQL("ALTER TABLE entries ADD COLUMN source_evidence TEXT NOT NULL DEFAULT ''");
+            if (version < 6) {
+                database.execSQL("ALTER TABLE entries ADD COLUMN source_evidence TEXT NOT NULL DEFAULT ''");
+            }
             if (version == 0) importer.importEntries(this);
             if (version < 4) initializeSourceLookups();
             if (version < 5) migrateDefaultLists();

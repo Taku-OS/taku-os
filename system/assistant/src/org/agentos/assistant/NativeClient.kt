@@ -13,6 +13,7 @@ import java.util.concurrent.Executors
 /** Interactive answers and authorization URLs never enter task files. */
 internal object NativeClient {
     private const val SOCKET_NAME = "taku-agent-native"
+    class Failure(val code: String, message: String) : IOException(message)
 
     @JvmField val io: ExecutorService = Executors.newCachedThreadPool()
     @JvmField val main = Handler(Looper.getMainLooper())
@@ -46,7 +47,10 @@ internal object NativeClient {
         val answer = JSONObject(output.toString("UTF-8"))
         if (!answer.optBoolean("ok")) {
             if (answer.optString("code") == "STEER_NOT_SUBMITTED") throw AgentGatewaySubmissions.SteerNotSubmitted()
-            throw IOException(answer.optString("message", "Native service returned no result"))
+            val message = answer.optString("message", "Native service returned no result")
+            val code = answer.optString("code")
+            if (code.isNotEmpty()) throw Failure(code, message)
+            throw IOException(message)
         }
         answer.getJSONObject("result")
     }

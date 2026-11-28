@@ -70,14 +70,7 @@ final class NotebookSocialSourceLookup {
             urls.forEach((canonical, discovered) -> reads.add(() -> NotebookPublicPost.read(platform, canonical, discovered)));
             List<Future<NotebookPublicPost.Published>> results = executor.invokeAll(
                     reads, Math.max(0, deadline - System.nanoTime()), TimeUnit.NANOSECONDS);
-            String verified = null;
-            for (Future<NotebookPublicPost.Published> result : results) {
-                if (result.isCancelled()) return new Search(null, navigationLink);
-                NotebookPublicPost.Published post = result.get();
-                if (post == null || !matches(evidence, post)) continue;
-                if (verified != null && !verified.equals(post.url())) return new Search(null, navigationLink);
-                verified = post.url();
-            }
+            String verified = verifiedCandidate(results, evidence);
             return new Search(verified, verified == null ? navigationLink : verified);
         } catch (TimeoutException timeout) {
             throw new IOException("原帖搜索超时");
@@ -85,10 +78,29 @@ final class NotebookSocialSourceLookup {
             Thread.currentThread().interrupt();
             throw new IOException("原帖查找已中断");
         } catch (ExecutionException failure) {
-            throw new IOException("暂时无法搜索或验证原帖", failure.getCause());
+            if (failure.getCause() instanceof ImeReplyError upstream) throw upstream;
+            throw new IOException("暂时无法搜索原帖", failure.getCause());
         } finally {
             executor.shutdownNow();
         }
+    }
+
+    static String verifiedCandidate(List<Future<NotebookPublicPost.Published>> results, Evidence evidence)
+            throws InterruptedException {
+        String verified = null;
+        for (var result : results) {
+            if (result.isCancelled()) continue;
+            NotebookPublicPost.Published post;
+            try {
+                post = result.get();
+            } catch (ExecutionException | java.util.concurrent.CancellationException unavailable) {
+                continue;
+            }
+            if (post == null || !matches(evidence, post)) continue;
+            if (verified != null && !verified.equals(post.url())) return null;
+            verified = post.url();
+        }
+        return verified;
     }
 
     private static JSONObject searchRequest(String model, NotebookSocialSource platform, Evidence evidence)

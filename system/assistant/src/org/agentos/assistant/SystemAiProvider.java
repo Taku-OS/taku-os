@@ -60,7 +60,14 @@ public final class SystemAiProvider extends ContentProvider {
     if(action.equals("read"))result=new JSONObject().put("enabled",result.optBoolean("enabled")&&result.getJSONObject("apps").optBoolean(consumer)).put("revision",result.getLong("revision")).put("models",result.getJSONArray("models"));
     out.putString("result",new JSONObject().put("ok",true).put("result",result).toString());
    }finally{Binder.restoreCallingIdentity(token);}
-  }catch(SecurityException e){throw e;}catch(Exception e){try{out.putString("result",new JSONObject().put("ok",false).put("message",e.getMessage()==null?"System AI temporarily unavailable":e.getMessage()).toString());}catch(Exception ignored){}}
+  }catch(SecurityException e){throw e;}catch(Exception e){
+   try{
+    JSONObject error = new JSONObject().put("ok", false)
+            .put("message", e.getMessage() == null ? "System AI temporarily unavailable" : e.getMessage());
+    if (e instanceof NativeClient.Failure failure) error.put("code", failure.getCode());
+    out.putString("result", error.toString());
+   }catch(JSONException ignored){}
+  }
   return out;
  }
 

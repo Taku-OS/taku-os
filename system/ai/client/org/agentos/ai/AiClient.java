@@ -7,6 +7,9 @@ import java.io.IOException;
 
 /** Source-level client for Android apps; new apps need user authorization in Taku AI. Use a background executor. */
 public final class AiClient {
+ public static final class RateLimited extends IOException {
+  RateLimited(String message){super(message);}
+ }
  private final Context context;
  public AiClient(Context context){this.context=context.getApplicationContext();}
  public JSONObject settings()throws Exception{return call(new JSONObject().put("action","read"));}
@@ -23,6 +26,16 @@ public final class AiClient {
  public void openSettings(){context.startActivity(new Intent("org.agentos.action.AI_SETTINGS").setPackage("org.agentos.agent").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP));}
  private JSONObject call(JSONObject request)throws Exception{
   if(Looper.myLooper()==Looper.getMainLooper())throw new IllegalStateException("Call system AI from a background thread");
-  Bundle raw=context.getContentResolver().call(Uri.parse("content://org.agentos.ai"),"ai",request.toString(),null);if(raw==null)throw new IOException("System AI unavailable");JSONObject r=new JSONObject(raw.getString("result","{}"));if(!r.optBoolean("ok"))throw new IOException(r.optString("message","System AI unavailable"));return r.getJSONObject("result");
+  Bundle raw=context.getContentResolver().call(Uri.parse("content://org.agentos.ai"),"ai",request.toString(),null);
+  if(raw==null)throw new IOException("System AI unavailable");
+  return result(new JSONObject(raw.getString("result","{}")));
+ }
+ static JSONObject result(JSONObject reply)throws JSONException,IOException{
+  if(reply.optBoolean("ok"))return reply.getJSONObject("result");
+  String message=reply.optString("message","System AI unavailable");
+  if("rate_limited".equals(reply.optString("code"))
+          || (!reply.has("code") && ("This app has made too many requests. Try again later".equals(message)
+                  || "Busy right now. Please try again later".equals(message))))throw new RateLimited(message);
+  throw new IOException(message);
  }
 }

@@ -64,6 +64,7 @@ public final class NotebookLibraryActivity extends Activity {
             "/space-grotesk.woff2", "font/woff2");
     private static final Set<String> MUTATIONS = Set.of("createList", "updateList", "editEntry", "batchEntries", "retrySource");
     private static final Set<String> SAVED_ACTIONS = Set.of("go_to_notebook", "change_list", "add_note");
+    private static final long LIBRARY_REFRESH_DELAY_MS = 200;
 
     private enum SourceAction { OPEN, COPY, ATTACH }
 
@@ -80,8 +81,8 @@ public final class NotebookLibraryActivity extends Activity {
             (preferences, key) -> applyAppearance();
     private final ContentObserver libraryChanges = new ContentObserver(main) {
         @Override public void onChange(boolean selfChange) {
-            main.removeCallbacks(refreshLibrary);
-            main.post(refreshLibrary);
+            if (!ready || isDestroyed() || main.hasCallbacks(refreshLibrary)) return;
+            main.postDelayed(refreshLibrary, LIBRARY_REFRESH_DELAY_MS);
         }
     };
 
@@ -163,6 +164,7 @@ public final class NotebookLibraryActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        NotebookScreenshotService.refreshPermissions();
         NotebookArrivalJob.resume(this);
         worker.execute(() -> NotebookSourceJob.resumeAfterLeavingSource(this));
         openingSettings = false;
@@ -183,6 +185,7 @@ public final class NotebookLibraryActivity extends Activity {
         super.onRequestPermissionsResult(request, permissions, grants);
         if (request != pendingPermission) return;
         pendingPermission = 0;
+        if (request == PHOTOS_PERMISSION) NotebookScreenshotService.refreshPermissions();
         if (request == REMINDER_PERMISSIONS) setRemindersEnabled(true);
         else if (request == PHOTOS_PERMISSION && !NotebookScreenshotService.canReadImages(this)) {
             notice(label("Allow photo access in Android settings to use screenshot actions.",
@@ -248,6 +251,7 @@ public final class NotebookLibraryActivity extends Activity {
     }
 
     private void refresh() {
+        main.removeCallbacks(refreshLibrary);
         int version = ++refreshVersion;
         worker.execute(() -> {
             List<NotebookStore.Entry> saved = List.of();

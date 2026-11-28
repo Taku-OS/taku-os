@@ -33,6 +33,8 @@ public final class NotebookScreenshotService extends AccessibilityService {
     private static final String TAG = "NotebookScreenshot";
     private static final Object LOCK = new Object();
     private static final long READING_DISPLAY_MS = 550;
+    private static final long WINDOW_SAMPLE_DELAY_MS = 60;
+    private static final long X_SAMPLE_DELAY_MS = 150;
     private static final List<NotebookScreenshotOverlay.Action> ACTIONS = List.of(
             new NotebookScreenshotOverlay.Action("save", "Save"),
             new NotebookScreenshotOverlay.Action("send", "Send to…"),
@@ -56,6 +58,8 @@ public final class NotebookScreenshotService extends AccessibilityService {
     private volatile String state = "idle";
     private Runnable timeout;
     private final ArrayDeque<SourceChange> sources = new ArrayDeque<>();
+    private long windowChangedAt;
+    private final Runnable sampleWindow = () -> rememberSource(windowChangedAt);
     private final Runnable sampleXSource = this::sampleXSource;
     private SourceChange lastXSnapshot;
     private int lastXChangedWindow = -1;
@@ -120,6 +124,11 @@ public final class NotebookScreenshotService extends AccessibilityService {
         return context.checkSelfPermission(android.Manifest.permission.READ_MEDIA_IMAGES) == PackageManager.PERMISSION_GRANTED;
     }
 
+    static void refreshPermissions() {
+        var service = active;
+        if (service != null) service.updateObserver();
+    }
+
     static JSONObject status(Context context) throws JSONException {
         var service = active;
         JSONObject result = new JSONObject()
@@ -175,19 +184,27 @@ public final class NotebookScreenshotService extends AccessibilityService {
     }
 
     @Override public void onAccessibilityEvent(AccessibilityEvent event) {
-        updateObserver();
         if (observer == null || event.getDisplayId() != android.view.Display.DEFAULT_DISPLAY) return;
+        int type = event.getEventType();
+        boolean windowChanged = type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
+                || type == AccessibilityEvent.TYPE_WINDOWS_CHANGED;
+        boolean xChanged = "com.twitter.android".contentEquals(
+                event.getPackageName() == null ? "" : event.getPackageName());
+        if (!windowChanged && !xChanged) return;
         long at = System.currentTimeMillis() - Math.max(0, SystemClock.uptimeMillis() - event.getEventTime());
-        int changes = AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED | AccessibilityEvent.TYPE_VIEW_SCROLLED
-                | AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED | AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED;
-        if ("com.twitter.android".equals(String.valueOf(event.getPackageName()))
-                && (event.getEventType() & changes) != 0) {
+        if (xChanged && at >= lastXChangedAt) {
+            lastXSnapshot = null;
             lastXChangedWindow = event.getWindowId();
             lastXChangedAt = at;
             main.removeCallbacks(sampleXSource);
-            main.postDelayed(sampleXSource, 150);
+            main.postDelayed(sampleXSource, X_SAMPLE_DELAY_MS);
         }
-        rememberSource(at);
+        if (windowChanged) {
+            windowChangedAt = Math.max(windowChangedAt, at);
+            if (!main.hasCallbacks(sampleWindow)) {
+                main.postDelayed(sampleWindow, WINDOW_SAMPLE_DELAY_MS);
+            }
+        }
     }
 
     @Override public void onInterrupt() { dismiss(); }
@@ -200,6 +217,8 @@ public final class NotebookScreenshotService extends AccessibilityService {
     @Override public void onDestroy() {
         active = null;
         settings(this).unregisterOnSharedPreferenceChangeListener(settingsListener);
+        main.removeCallbacks(sampleWindow);
+        main.removeCallbacks(sampleXSource);
         dismiss();
         var media = observer;
         observer = null;
@@ -210,13 +229,18 @@ public final class NotebookScreenshotService extends AccessibilityService {
     }
 
     private void updateObserver() {
+        if (active != this) return;
         if (!canObserve()) {
             if (observer != null) {
                 observer.close();
                 observer = null;
                 sources.clear();
+                main.removeCallbacks(sampleWindow);
                 main.removeCallbacks(sampleXSource);
                 lastXSnapshot = null;
+                lastXChangedWindow = -1;
+                lastXChangedAt = 0;
+                windowChangedAt = 0;
                 dismiss();
             }
             state = "paused";
@@ -253,11 +277,15 @@ public final class NotebookScreenshotService extends AccessibilityService {
     }
 
     private ScreenSource sourceFor(long capturedAt) {
+        if (main.hasCallbacks(sampleWindow)) {
+            main.removeCallbacks(sampleWindow);
+            sampleWindow.run();
+        }
         for (var history = sources.descendingIterator(); history.hasNext();) {
             SourceChange seen = history.next();
             if (seen.at() > capturedAt) continue;
             if (screenshotSourceLabel(seen.source().packageName()) == null) return seen.source();
-            ScreenSource current = ScreenSource.read(this, false, true);
+            ScreenSource current = ScreenSource.read(this, false);
             if (!seen.source().matches(current)) return seen.source();
             if (lastXSnapshot != null && lastXSnapshot.source().matches(current)
                     && current.windowId() == lastXChangedWindow && lastXSnapshot.at() >= lastXChangedAt
