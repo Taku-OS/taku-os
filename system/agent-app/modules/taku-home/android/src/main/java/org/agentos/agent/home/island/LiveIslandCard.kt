@@ -22,6 +22,7 @@ internal object LiveIslandCard {
     val input: String?,
     val output: String?,
     val task: String?,
+    val standby: String = "active",
   )
 
   /** Short capsule text (SystemUI allows 1–16 characters). */
@@ -29,6 +30,7 @@ internal object LiveIslandCard {
     view.lifecycle == "connecting" -> "Connecting"
     view.lifecycle == "disconnected" || view.lifecycle == "failed" -> "Disconnected"
     view.muted -> "Muted"
+    view.standby != "active" -> "Standby"
     view.playback == "speaking" -> "Speaking"
     view.speech -> "Listening"
     else -> "Live"
@@ -48,6 +50,7 @@ internal object LiveIslandCard {
     !view.output.isNullOrBlank() -> view.output
     view.task != null -> "Task ${view.task}"
     view.muted -> "Resume the microphone to keep talking."
+    view.standby == "cold_standby" -> "Standing by. Speak to continue."
     else -> "Keep talking while you use other apps."
   }
 

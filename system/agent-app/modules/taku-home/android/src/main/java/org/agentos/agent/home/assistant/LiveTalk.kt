@@ -50,6 +50,10 @@ internal data class LiveTalkSnapshot(
   val video: LiveVideoView = LiveVideoView(),
   /** Every task this session tracks: the most recent ([task]) and older ones still running or unannounced. */
   val tasks: List<LiveTaskView> = emptyList(),
+  /** `active`, `hot_standby` or `cold_standby`, as reported by the Audio Engine. */
+  val standby: String = "active",
+  /** The phone is locked: phone actions and private details wait until it is unlocked. */
+  val lockScreenMode: Boolean = false,
 ) {
   val open get() = lifecycle != "closed"
   val disclosure get() = when (provider.takeIf { lifecycle == "connecting" || lifecycle == "active" }) {
@@ -67,7 +71,7 @@ internal data class LiveTalkSnapshot(
     .put("output", output?.json("responseId")?.put("source", "generated") ?: JSONObject.NULL)
     .put("levels", JSONArray(levels)).put("task", task?.json() ?: JSONObject.NULL).put("error", error ?: JSONObject.NULL)
     .put("setup", setup ?: JSONObject.NULL).put("video", video.json())
-    .put("tasks", JSONArray(tasks.map(LiveTaskView::json)))
+    .put("tasks", JSONArray(tasks.map(LiveTaskView::json))).put("standbyState", standby).put("lockScreenMode", lockScreenMode)
 }
 
 internal class LiveTalk(
@@ -94,8 +98,11 @@ internal class LiveTalk(
     var announcedState: String? = null
     /** Last state shared with the model as silent context. */
     var notedState: String? = null
+    /** State already announced without details while the phone was locked. */
+    var lockedNoticeState: String? = null
   }
-  private data class Announcement(val offerId: String, val ipcId: String, val task: Task, val outcome: String)
+  /** [private] false is the lock-screen notice that a task finished, without its content. */
+  private data class Announcement(val offerId: String, val ipcId: String, val task: Task, val outcome: String, val private: Boolean = true)
 
   private class Session(threadId: String?, var handoff: Boolean) {
     var view = LiveTalkSnapshot(UUID.randomUUID().toString(), threadId)
@@ -383,7 +390,11 @@ internal class LiveTalk(
     if (kind == "TaskResult") {
       val offer = s.announcement?.takeIf { it.offerId == value.getString("offerId") } ?: return
       s.announcement = null
-      if (value.getBoolean("sent")) offer.task.announcedState = offer.outcome
+      if (value.getBoolean("sent")) { if (offer.private) offer.task.announcedState = offer.outcome else offer.task.lockedNoticeState = offer.outcome }
+      return
+    }
+    if (kind == "Standby") {
+      update(s) { it.copy(standby = value.getString("state")) }
       return
     }
     if (kind == "Video") {
@@ -503,6 +514,11 @@ internal class LiveTalk(
     when {
       input == null || s.view.speech || input.text.length > AssistantSession.MAX_TEXT -> toolReply(s, call, "notSent", "No confirmed user input belongs to this call.")
       action == "status" -> toolReply(s, call, "status", statusSummary(s))
+      // Keyguard Action Gate: nothing that acts on the phone or reads private data while it is locked.
+      locked() -> {
+        update(s) { it.copy(lockScreenMode = true) }
+        toolReply(s, call, "blocked", "This action requires unlocking the phone. Ask the user to unlock it; then repeat the request.", "UNLOCK_REQUIRED")
+      }
       requested != null && owned == null -> toolReply(s, call, "notSent", "No task of this Live Talk session has that taskId.")
       action == "submit" && prior != null -> toolReply(s, call, "notSent", "Another voice request is still being sent. Try again after its receipt.")
       action == "submit" && s.task?.terminal == false && s.background.count { !it.terminal } >= MAX_TASKS - 1 ->
@@ -852,20 +868,35 @@ internal class LiveTalk(
     if (session !== s || !s.connected || s.view.muted || s.view.speech || s.awaitingResponse || s.view.playback == "speaking" ||
       s.command != null || s.announcement != null) return
     // The session's own task first; then a background task's outcome, each announced once.
-    val task = s.task?.takeIf { it.result != null && it.announcedState != it.state &&
+    val locked = locked()
+    if (s.view.lockScreenMode != locked) update(s) { it.copy(lockScreenMode = locked) }
+    val task = s.task?.takeIf { it.result != null && it.announcedState != it.state && (!locked || it.lockedNoticeState != it.state) &&
       (it.request.version == s.version || it.cancellationVersion == s.version) }
-      ?: s.background.firstOrNull { it.terminal && it.result != null && it.announcedState != it.state } ?: return
-    val result = task.result ?: return
+      ?: s.background.firstOrNull { it.terminal && it.result != null && it.announcedState != it.state && (!locked || it.lockedNoticeState != it.state) } ?: return
+    // While locked only a notice without the task's content is spoken; the result follows after unlock.
+    val result = if (locked) LOCKED_NOTICE else task.result ?: return
     val offerId = UUID.randomUUID().toString()
     val ipcId = send(s, "audio.live.result", JSONObject().put("sessionId", engine).put("offerId", offerId)
       .put("afterInput", s.afterInput).put("text", result)) ?: return
-    s.announcement = Announcement(offerId, ipcId, task, task.state)
+    s.announcement = Announcement(offerId, ipcId, task, task.state, private = !locked)
   }
 
-  private fun toolReply(s: Session, callId: String, state: String, message: String) {
+  /** Locked or screen off, as the system reports it; the delegation gate and announcements follow it. */
+  private fun locked(): Boolean = !org.agentos.agent.home.ScreenState.usable(context)
+
+  /** `hot` or `cold` enters that standby now; `wake` returns to the conversation. */
+  fun setStandby(mode: String) {
+    require(mode in setOf("hot", "cold", "wake"))
+    val s = session ?: return
+    val engine = s.engineId ?: throw AssistantException("LIVE_CONNECTING", "Wait for Live Talk to connect")
+    if (s.view.muted) throw AssistantException("MIC_MUTED", "Resume the microphone first")
+    send(s, "audio.live.standby", JSONObject().put("sessionId", engine).put("mode", mode))
+  }
+
+  private fun toolReply(s: Session, callId: String, state: String, message: String, code: String? = null) {
     val engine = s.engineId ?: return
     if (!s.connected || s.view.muted) return
-    val result = JSONObject().put("state", state).put("message", message)
+    val result = JSONObject().put("state", state).put("message", message).apply { code?.let { put("code", it) } }
     send(s, "audio.live.tool", JSONObject().put("sessionId", engine).put("callId", callId).put("result", result.toString()))
   }
 
@@ -880,6 +911,8 @@ internal class LiveTalk(
     private val COMMANDS = setOf("submit", "correct", "steer", "cancel", "confirm")
     /** Tasks one Live Talk session tracks at once, including the newest. */
     const val MAX_TASKS = 8
+    /** All Live Talk may say about a finished task while the phone is locked. */
+    const val LOCKED_NOTICE = "A background task has finished. Unlock your phone to see the details."
     private const val SNAPSHOT_TIMEOUT_MS = 2_500L
     private val CONNECTION_ERRORS = setOf("NETWORK_FAILED", "ENGINE_UNAVAILABLE", "QUEUE_BACKLOG", "CONNECT_TIMEOUT", "PROVIDER_DISCONNECTED", "SESSION_EXPIRED")
     private val RETRYABLE_REPLACEMENT = setOf("LIVE_TASK_STARTING", "GATEWAY_UNAVAILABLE", "RUNTIME_UNAVAILABLE")

@@ -19,6 +19,8 @@ fun main() {
     base.copy(lifecycle = "connecting"),
     base.copy(lifecycle = "disconnected"),
     base.copy(input = "台北今天天氣如何？🌤".repeat(100)),
+    base.copy(standby = "hot_standby"),
+    base.copy(standby = "cold_standby"),
   )
   for (view in states) {
     val payload = LiveIslandCard.payload(view)
@@ -34,6 +36,7 @@ fun main() {
   }
   check(LiveIslandCard.actions(base).contains(LiveIslandCard.MUTE), "an active session can pause the mic")
   check(!LiveIslandCard.actions(base.copy(lifecycle = "disconnected")).contains(LiveIslandCard.MUTE), "no mic toggle without a connection")
+  check(LiveIslandCard.status(base.copy(standby = "cold_standby")) == "Standby", "standby capsule text")
   check(LiveIslandCard.status(base.copy(muted = true)) == "Muted" && LiveIslandCard.muteLabel(base.copy(muted = true)) == "Resume mic", "muted state")
   val listening = LiveIslandCard.payload(base).getJSONObject("compact").getJSONObject("a")
   check(listening.getString("type") == "animation" && listening.getString("name") == "ai-listening", "listening animation")

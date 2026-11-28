@@ -21,6 +21,10 @@ export type LiveTalkState = {
   tasks?: {requestId: string | null; taskId: string | null; turnId: string | null; state: string; version: number; error: string | null}[];
   /** Shared screen or camera; `masked` means frames are withheld while the device is locked. */
   video?: {source: 'none' | 'screen' | 'camera'; active: boolean; masked: boolean; reason: string | null};
+  /** Two-level standby reported by the Audio Engine. */
+  standbyState?: 'active' | 'hot_standby' | 'cold_standby';
+  /** The phone is locked: phone actions and private details wait until it is unlocked. */
+  lockScreenMode?: boolean;
   error: string | null;
   /** The setup page that fixes `error`: `fal` when Live Talk needs a fal key. */
   setup?: 'fal' | null;

@@ -999,6 +999,8 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
         {liveFalKeyMissing && <Label role="meta" style={[styles.center, styles.secondary]}>{ct('liveFalKeyMissing')}</Label>}
         {liveFalKeyMissing &&
           <Pressable testID="live-talk-add-fal-key" accessibilityRole="button" onPress={() => { openAiSetup('fal'); }}><Label role="label">{ct('addFalKey')}</Label></Pressable>}
+        {!!voice.standbyState && voice.standbyState !== 'active' &&
+          <Label role="meta" style={[styles.center, styles.secondary]}>{ct(voice.standbyState === 'cold_standby' ? 'liveStandbyCold' : 'liveStandbyHot')}</Label>}
         {!!voice.video && voice.video.source !== 'none' &&
           <Label role="meta" style={[styles.center, styles.secondary]}>{ct(voice.video.masked ? 'liveVideoMasked' : voice.video.source === 'screen' ? 'liveVideoSharingScreen' : 'liveVideoSharingCamera')}</Label>}
         {liveDisconnected &&

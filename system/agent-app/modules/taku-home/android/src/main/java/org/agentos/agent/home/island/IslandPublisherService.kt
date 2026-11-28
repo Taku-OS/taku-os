@@ -83,7 +83,7 @@ class IslandPublisherService : Service() {
       return
     }
     val view = LiveIslandCard.View(live.lifecycle, live.muted, live.speech, live.playback,
-      live.input?.text, live.output?.text, live.task?.state)
+      live.input?.text, live.output?.text, live.task?.state, live.standby)
     val payload = LiveIslandCard.payload(view)
     val actionIds = LiveIslandCard.actions(view)
     val value = payload.toString() + LiveIslandCard.muteLabel(view) + live.threadId

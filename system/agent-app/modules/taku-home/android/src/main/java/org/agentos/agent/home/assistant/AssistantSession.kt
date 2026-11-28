@@ -333,7 +333,9 @@ class AssistantSession private constructor(private val context: Context, private
 
   private fun interruptVoiceForScreenOff() {
     ChatVoiceSession.interrupt()
-    endLiveTalk()
+    // A connected Live Talk session keeps listening with the screen off or locked; the Audio Engine
+    // masks video, goes to standby and ends it when "Keep listening when locked" is off.
+    if (!liveDetached()) endLiveTalk()
     if (gesture.held || gesture.phase == VoiceGesture.Phase.Listening ||
         flow.value.voiceContinuous || voice.state.value.listening) cancelVoice()
   }
@@ -503,6 +505,13 @@ class AssistantSession private constructor(private val context: Context, private
       live.finishHandoff(null)
       connectLiveTalk()
     }
+  }
+
+  /** `hot` or `cold` puts the open Live Talk session into that standby now; `wake` resumes the conversation. */
+  fun setLiveStandby(sessionId: String, mode: String) {
+    if (mode !in setOf("hot", "cold", "wake")) throw AssistantException("INVALID_ARGUMENT", "mode must be hot, cold or wake")
+    requireLiveSession(null, sessionId)?.takeIf { it.open } ?: throw AssistantException("SESSION_CHANGED", "Live Talk has changed")
+    live.setStandby(mode)
   }
 
   /** Shares `screen` or `camera` frames in the open Live Talk session, or stops with `none`. Unlocked devices only. */

@@ -74,7 +74,7 @@ class TakuVoiceModule : Module() {
     AsyncFunction("liveState") { AssistantSession.get(context).liveSnapshotJson().toString() }.runOnQueue(Queues.MAIN)
     AsyncFunction("liveAction") { method: String, params: String ->
       require(method in setOf("assistant/live-start", "assistant/live-stop", "assistant/live-toggle-mic", "assistant/live-set-mic",
-        "assistant/live-set-video", "assistant/live-get"))
+        "assistant/live-set-video", "assistant/live-get", "assistant/live-standby"))
       context.contentResolver.call(android.net.Uri.parse("content://org.agentos.agent.home-assistant"), method, params, null)?.getString("result")
     }.runOnQueue(Queues.MAIN)
     OnStartObserving("onLiveTalk") {
